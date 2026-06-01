@@ -4,33 +4,167 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Akashic Times</title>
+
+  <!-- Plausible analytics — privacy-first, no cookie banner -->
+  <!-- Requires free account activation at plausible.io (Architect action) -->
+  <script defer data-domain="akashictimes.com" src="https://plausible.io/js/script.js"></script>
+
   <style>
-    body { font-family: 'Courier New', monospace; background: #000; color: #0f0; text-align: center; padding: 50px; }
-    h1 { font-size: 3em; margin: 0.5em; }
-    .clink { font-size: 1.5em; color: #0f0; }
-    .virtue { font-size: 2em; margin: 20px; display: inline-block; }
-    a { color: #0f0; text-decoration: underline; }
-    .footer { margin-top: 50px; font-size: 0.9em; }
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Base ── */
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Nav ── */
+    nav {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      padding: 18px 24px;
+      border-bottom: 1px solid #0a3a0a;
+      font-size: 0.85em;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    nav a {
+      color: #0f0;
+      text-decoration: none;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+
+    /* ── Hero ── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 24px 80px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: clamp(2.5em, 8vw, 4.5em);
+      letter-spacing: 0.08em;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .tagline {
+      font-size: clamp(0.9em, 2.5vw, 1.15em);
+      opacity: 0.5;
+      letter-spacing: 0.06em;
+      margin-bottom: 48px;
+    }
+
+    /* ── Virtues ── */
+    .virtues {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 56px;
+    }
+    .virtue {
+      font-size: clamp(1em, 3vw, 1.5em);
+      opacity: 0.8;
+    }
+    .virtue::before { content: "◆ "; font-size: 0.6em; vertical-align: middle; }
+
+    /* ── CTA ── */
+    .cta {
+      display: inline-block;
+      padding: 16px 40px;
+      border: 2px solid #0f0;
+      color: #000;
+      background: #0f0;
+      font-family: 'Courier New', monospace;
+      font-size: 1.1em;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      margin-bottom: 56px;
+    }
+    .cta:hover {
+      background: #000;
+      color: #0f0;
+    }
+
+    /* ── Links ── */
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 0.9em;
+      opacity: 0.6;
+      margin-bottom: 56px;
+    }
+    .links a { color: #0f0; text-decoration: underline; }
+    .links a:hover { opacity: 1; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 20px 24px;
+      font-size: 0.75em;
+      opacity: 0.35;
+      letter-spacing: 0.1em;
+      border-top: 1px solid #0a3a0a;
+      width: 100%;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-  <h1>AKASHIC TIMES</h1>
-  <p class="clink">[Glass clink sound]</p>
-  
-  <div class="virtue">Be Curious.</div>
-  <div class="virtue">Be Confident.</div>
-  <div class="virtue">Be Humble.</div>
-  
-  <p><strong>The Record of Creator Action</strong></p>
-  
-  <p>
-    <a href="https://abundantmind.github.io/akashictimes.com" target="_blank">Akashic Times Editor (Beta)</a><br>
-    <a href="https://www.wattpad.com/story/403725376-null-reference" target="_blank">Null Reference (Wattpad)</a><br>
-    <a href="https://patreon.com/nullreference" target="_blank">Patreon — Fund the Future</a>
-  </p>
-  
-  <div class="footer">
-    #BeCCH | #TimeToBeCCH | #GridCCH
-  </div>
+
+  <!-- Navigation -->
+  <nav>
+    <a href="/" class="active">Home</a>
+    <a href="/history/">History</a>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLScgCSDp9VM766fnAswlI9hEUJ4YanJ_jBKLkcLrHCyUydqf5Q/viewform" target="_blank" rel="noopener">Bug Report</a>
+  </nav>
+
+  <main>
+    <h1>AKASHIC TIMES</h1>
+    <p class="tagline">The Record of Creator Action</p>
+
+    <!-- BeCCH virtues — core identity, preserved -->
+    <div class="virtues">
+      <span class="virtue">Be Curious.</span>
+      <span class="virtue">Be Confident.</span>
+      <span class="virtue">Be Humble.</span>
+    </div>
+
+    <!-- Primary CTA — editor beta -->
+    <a class="cta"
+       href="https://abundantmind.github.io/AkashicSwapsEditor/index.html"
+       target="_blank" rel="noopener">
+      ▶ Play the Beta
+    </a>
+
+    <!-- Secondary links -->
+    <div class="links">
+      <a href="https://www.wattpad.com/story/403725376-null-reference" target="_blank" rel="noopener">Null Reference — Wattpad</a>
+      <a href="https://patreon.com/nullreference" target="_blank" rel="noopener">Patreon — Fund the Future</a>
+    </div>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH</footer>
+
 </body>
 </html>
