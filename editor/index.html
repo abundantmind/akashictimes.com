@@ -297,6 +297,14 @@ body.font-lg{--base-font:20px;}
       <button class="tb" onclick="goHome()" style="color:#665580;">← Home</button>
     </div>
     <div class="tg">
+      <span style="font-size:11px;opacity:0.6;margin-right:4px;">Speed:</span>
+      <button class="tb" id="spd-25"  onclick="setPlaybackSpeed(0.25)" title="0.25× speed">¼×</button>
+      <button class="tb" id="spd-50"  onclick="setPlaybackSpeed(0.5)"  title="0.5× speed">½×</button>
+      <button class="tb on" id="spd-100" onclick="setPlaybackSpeed(1)"    title="1× speed">1×</button>
+      <button class="tb" id="spd-200" onclick="setPlaybackSpeed(2)"    title="2× speed">2×</button>
+    </div>
+    <span style="font-size:11px;opacity:0.3;margin:0 4px;">/</span>
+    <div class="tg">
       <span style="font-size:11px;opacity:0.6;margin-right:4px;">Text:</span>
       <button class="tb" onclick="setFontSize('sm')" title="Small text">S</button>
       <button class="tb" onclick="setFontSize('md')" title="Medium text">M</button>
@@ -379,6 +387,23 @@ function setFontSize(size) {
 (function() {
   const saved = localStorage.getItem("akashic-font-size") || "sm";
   setFontSize(saved);
+})();
+
+// Playback speed — multiplier applied to cascade BASE_DUR (1× = normal, 2× = faster)
+let playbackSpeed = 1;
+function setPlaybackSpeed(spd) {
+  playbackSpeed = spd;
+  localStorage.setItem("akashic-playback-speed", spd);
+  // Update active button highlight
+  ['spd-25','spd-50','spd-100','spd-200'].forEach(id => {
+    document.getElementById(id).classList.remove('on');
+  });
+  const idMap = {0.25:'spd-25', 0.5:'spd-50', 1:'spd-100', 2:'spd-200'};
+  if(idMap[spd]) document.getElementById(idMap[spd]).classList.add('on');
+}
+(function() {
+  const saved = parseFloat(localStorage.getItem("akashic-playback-speed")) || 1;
+  setPlaybackSpeed(saved);
 })();
 
 let C=0,R=0;
@@ -791,7 +816,8 @@ function animateFall(fallMoves,onDone){
   const wrap=document.getElementById('board-wrap');
   const boardEl=document.getElementById('board');
   // Base duration for a 1-row fall; multi-row falls scale by sqrt(rows).
-  const BASE_DUR=260;
+  // Divided by playbackSpeed: 2× speed = half duration = faster animation.
+  const BASE_DUR=260/playbackSpeed;
 
   // Pixel top-left of cell (r,c) relative to board-wrap; works for negative r (above board).
   function px(r,c){
