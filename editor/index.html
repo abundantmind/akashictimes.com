@@ -732,23 +732,155 @@ function resolve(pats,dr,dc,snap,sr,sc){
   popping.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
   window.moveHistory.push({move:moves,src:[sr,sc],dest:[dr,dc],pattern:p.type,cleared:toClear.length,boardBefore:snap});
   document.getElementById('lastmove').textContent=`#${moves} ${p.type} +${toClear.length}`;
+  // After pop animation, apply gravity and physically animate each gem to its landing spot.
+  // All new matches are scanned only after the bounce fully settles.
   setTimeout(()=>{
-    const dropping=new Set();gravity(dropping);render(dropping);
-    setTimeout(()=>{const np=findPatterns(dr,dc,dr,dc);if(np.length){resolve(np,dr,dc,JSON.parse(JSON.stringify(board)),dr,dc);}else{updStats();animating=false;render();}},320);
+    const fallMoves=gravityWithMap();
+    animateFall(fallMoves,()=>{
+      const np=findPatterns(dr,dc,dr,dc);
+      if(np.length){resolve(np,dr,dc,JSON.parse(JSON.stringify(board)),dr,dc);}
+      else{updStats();animating=false;render();}
+    });
   },230);
 }
 
-function gravity(dropping){
+// gravityWithMap — applies gravity to board data and returns a move list for animation.
+// Each entry: {gem, pu, fr, fc, tr, tc, isNew}
+//   isNew=false: existing gem slid from row fr to row tr (same column fc=tc).
+//   isNew=true:  new random gem spawned; fr is a negative virtual row above the board
+//                so fly elements spawn above the visible grid.
+function gravityWithMap(){
+  const moves=[];
   for(let c=0;c<C;c++){
-    let w=R-1;
+    let w=R-1; // write pointer — next destination row
+    let newCount=0; // how many new gems have been added in this column
+    // Slide existing gems down
     for(let r=R-1;r>=0;r--){
       if(board[r][c].active&&(board[r][c].gem!==null||board[r][c].pu)){
-        if(w!==r){board[w][c].gem=board[r][c].gem;board[w][c].pu=board[r][c].pu;board[r][c].gem=null;board[r][c].pu=null;if(dropping)dropping.add(w+','+c);}
+        if(w!==r){
+          moves.push({gem:board[r][c].gem,pu:board[r][c].pu,fr:r,fc:c,tr:w,tc:c,isNew:false});
+          board[w][c].gem=board[r][c].gem;board[w][c].pu=board[r][c].pu;
+          board[r][c].gem=null;board[r][c].pu=null;
+        }
         w--;
       }
     }
-    for(let r=w;r>=0;r--){if(board[r][c].active){board[r][c].gem=~~(Math.random()*6);board[r][c].pu=null;if(dropping)dropping.add(r+','+c);}}
+    // Fill remaining active cells with new gems, spawning from above the board
+    for(let r=w;r>=0;r--){
+      if(board[r][c].active){
+        board[r][c].gem=~~(Math.random()*6);board[r][c].pu=null;
+        // fr is a virtual negative row: -1, -2, ... stacked above the board top
+        moves.push({gem:board[r][c].gem,pu:null,fr:-(++newCount),fc:c,tr:r,tc:c,isNew:true});
+      }
+    }
   }
+  return moves;
+}
+
+// animateFall — per-column independent fall physics with stretch animation.
+//
+// Each column runs its own rAF loop so adjacent columns settle independently
+// (matching confirmed Township behavior). Duration scales with sqrt(fall distance)
+// to approximate real gravity (d ∝ t² → t ∝ √d).
+//
+// Each fly element gets a subtle scaleY stretch proportional to fall velocity,
+// snapping back to identity on arrival. No bounce.
+//
+// onDone fires only after ALL columns have finished — chain scan timing preserved.
+function animateFall(fallMoves,onDone){
+  const wrap=document.getElementById('board-wrap');
+  const boardEl=document.getElementById('board');
+  // Base duration for a 1-row fall; multi-row falls scale by sqrt(rows).
+  const BASE_DUR=260;
+
+  // Pixel top-left of cell (r,c) relative to board-wrap; works for negative r (above board).
+  function px(r,c){
+    const br=boardEl.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+    return{x:br.left-wr.left+c*(CELL_SIZE+CELL_GAP),
+           y:br.top -wr.top +r*(CELL_SIZE+CELL_GAP)};
+  }
+
+  // Board data is already at destinations — render so destination cells exist in DOM.
+  render();
+
+  // Group moves by column so each column animates independently.
+  const byCol={};
+  fallMoves.forEach(m=>{
+    if(!m.isNew&&m.fr===m.tr)return; // gem didn't move — skip
+    if(!byCol[m.fc])byCol[m.fc]=[];
+    byCol[m.fc].push(m);
+  });
+
+  const cols=Object.keys(byCol);
+  if(!cols.length){onDone();return;}
+
+  let doneCols=0;
+  const totalCols=cols.length;
+
+  cols.forEach(col=>{
+    const moves=byCol[col];
+
+    // Max fall distance in this column determines its duration.
+    let maxDist=0;
+    const gemData=moves.map(m=>{
+      const dist=Math.abs(m.tr-m.fr);
+      if(dist>maxDist)maxDist=dist;
+
+      const originPos=px(m.fr,m.fc);
+      const destPos  =px(m.tr,m.tc);
+
+      // Hide destination cell — appears empty while gem flies in.
+      const destEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"]`);
+      if(destEl)destEl.style.opacity='0';
+
+      // Absolutely-positioned fly element carrying the gem's own graphic.
+      const fly=document.createElement('div');
+      fly.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
+        +`pointer-events:none;z-index:20;display:flex;align-items:center;`
+        +`justify-content:center;transform-origin:center center;`;
+      fly.innerHTML=m.pu?puSVG(m.pu,40)
+        :(m.gem!==null?`<div class="gem-inner">${gemSVG(m.gem,40)}</div>`:'');
+      fly.style.left=originPos.x+'px';
+      fly.style.top =originPos.y+'px';
+      wrap.appendChild(fly);
+
+      return{fly,originPos,destPos,destEl};
+    });
+
+    // Scale duration by sqrt(distance): a 4-row fall takes 2× a 1-row fall.
+    const dur=BASE_DUR*Math.sqrt(Math.max(maxDist,1));
+    const start=performance.now();
+
+    function step(now){
+      const t=Math.min((now-start)/dur,1);
+      const eased=t*t; // quadratic ease-in → gravity acceleration feel
+
+      // Stretch: elongate Y and compress X proportional to velocity (d/dt of t² = 2t).
+      // Subtle — peaks at ~14% vertical stretch and ~6% horizontal squash at arrival,
+      // then snaps to identity on landing. Mimics per-gem stretch observed in L27 slowmo.
+      const stretchY=t<1?1+0.07*(2*t):1; // max 1.14
+      const squashX =t<1?1-0.03*(2*t):1; // min 0.94
+
+      gemData.forEach(({fly,originPos,destPos})=>{
+        fly.style.top =(originPos.y+(destPos.y-originPos.y)*eased)+'px';
+        fly.style.transform=`scaleX(${squashX.toFixed(3)}) scaleY(${stretchY.toFixed(3)})`;
+      });
+
+      if(t<1){requestAnimationFrame(step);}
+      else{
+        // Snap into cell flow: remove fly elements, reveal destination cells.
+        gemData.forEach(({fly,destEl})=>{
+          fly.remove();
+          if(destEl)destEl.style.opacity='';
+        });
+        // Signal completion — onDone fires only when the last column lands.
+        doneCols++;
+        if(doneCols===totalCols)onDone();
+      }
+    }
+
+    requestAnimationFrame(step);
+  });
 }
 
 function updStats(){
