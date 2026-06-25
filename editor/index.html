@@ -146,11 +146,11 @@ body.font-lg{--base-font:20px;}
 .lbtn.on{background:#2a1d4a;color:#c8a8ff;border-color:#5a3a9a;}
 .ldot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 #board-wrap{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;position:relative;}
-#board{display:grid;gap:3px;position:relative;}
-.cell{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;background:#1a1530;border:0.5px solid #2a2040;transition:border-color .15s;}
-.cell:hover{border-color:#5a4a8a;}
-.cell.inactive{background:#0d0a14;border-color:#1a1530;opacity:.4;}
-.cell.empty-hint{background:#110e1c;border:0.5px dashed #2a2040;}
+#board{display:grid;gap:3px;background:#d4b483;position:relative;}
+.cell{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;background:#d4b483;box-shadow:0 0 0 1.5px #b8935a;transition:box-shadow .15s;}
+.cell:hover{box-shadow:0 0 0 1.5px #e8c99a;}
+.cell.inactive{background:transparent;opacity:.4;}
+.cell.empty-hint{background:#d4b483;border:0.5px dashed #b8935a;}
 .cell.throb{animation:throb 500ms ease-in-out infinite;}
 @keyframes throb{0%,100%{transform:scale(1);}50%{transform:scale(1.12);filter:brightness(1.3);}}
 .cell.bounce-back{animation:bounce-back 280ms ease-out;}
@@ -639,13 +639,15 @@ function gemSVG(idx,size){
 function puSVG(type,size){
   const s=size||44,h=s/2;
   const configs={
-    helicopter:{bg:'#2d1b4e',border:'#8a4aee',label:'HELI',color:'#c8a8ff'},
-    rocket_h:  {bg:'#1a3a1a',border:'#4aaa4a',label:'ROW', color:'#80ee80'},
-    rocket_v:  {bg:'#1a3a1a',border:'#4aaa4a',label:'COL', color:'#80ee80'},
-    rainbow:   {bg:'#2d2a10',border:'#aaaa3a',label:'BOW', color:'#eedd44'},
+    helicopter:{label:'HELI'},
+    rocket_h:  {label:'ROW'},
+    rocket_v:  {label:'COL'},
+    rainbow:   {label:'BOW'},
+    scarab:    {label:'SCAR'},
   };
-  const cfg=configs[type]||{bg:'#222',border:'#555',label:'?',color:'#aaa'};
-  return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg"><rect width="${s}" height="${s}" rx="8" fill="${cfg.bg}" stroke="${cfg.border}" stroke-width="1.5"/><text x="${h}" y="${h-4}" text-anchor="middle" dominant-baseline="middle" font-size="${s*.28}" fill="${cfg.color}" font-family="monospace" font-weight="bold">${cfg.label}</text><rect x="${s*.2}" y="${h+4}" width="${s*.6}" height="2" rx="1" fill="${cfg.border}" opacity=".6"/></svg>`;
+  const cfg=configs[type]||{label:'?'};
+  // Black circle on transparent background — cell shows around it; white label identifies PU type
+  return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg"><circle cx="${h}" cy="${h}" r="${s*.42}" fill="#000"/><text x="${h}" y="${h}" text-anchor="middle" dominant-baseline="middle" font-size="${s*.24}" fill="#fff" font-family="monospace" font-weight="bold">${cfg.label}</text></svg>`;
 }
 
 function cellPos(r,c){
