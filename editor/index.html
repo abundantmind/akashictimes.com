@@ -7,6 +7,9 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{display:flex;flex-direction:column;min-height:100vh;}
 body.player-playing #phud{order:-1;}
+/* visually-hidden accessibility heading — was rendering as a visible block and
+   eating layout width in the player's row layout because it had no CSS */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 body{
   font-size:var(--base-font,13px);
   /* Proportional scale vars — all UI text uses these so S/M/L cascades everywhere */
@@ -205,11 +208,22 @@ body.font-lg{--base-font:20px;}
 
 /* player HUD + win overlay, shown over the reused editor board during play */
 body.player-playing #etopbar,body.player-playing #lpanel,body.player-playing #rpanel,body.player-playing #sbar,body.player-playing #flowbar{display:none !important;}
-#phud{display:none;align-items:center;gap:20px;padding:10px 20px;background:#0a0810;border-bottom:0.5px solid #1e1830;flex-shrink:0;}
-body.player-playing #phud{display:flex;}
-#phud .pback{margin-right:auto;}
-#phud .stat{font-size:var(--fz-base);color:#887a9a;}
-#phud .stat b{color:#c792ea;font-weight:500;}
+/* Player HUD as a vertical panel to the LEFT of the board (Township-style) */
+/* HUD + board read as one unit: shell hugs the board, the [HUD|board] pair is
+   centered together in the viewport, HUD flush against the grid's left edge. */
+body.player-playing{flex-direction:row;align-items:center;justify-content:center;}
+body.player-playing #shell{flex:0 1 auto;min-width:0;min-height:0;}
+body.player-playing #board-wrap{align-items:center;justify-content:center;padding:0;}
+#phud{display:none;}
+body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200px;flex-shrink:0;gap:24px;padding:24px 18px;background:#0a0810;border-right:0.5px solid #1e1830;align-items:center;}
+#phud .pback{align-self:flex-start;}
+.phud-level{font-size:var(--fz-2xl);color:#c792ea;font-weight:500;}
+#phud-goal{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.phud-icon{width:56px;height:56px;display:flex;align-items:center;justify-content:center;}
+.phud-gcount{font-size:var(--fz-2xl);color:#ffcb6b;font-weight:500;}
+.phud-cap{font-size:var(--fz-sm);color:#665580;text-transform:uppercase;letter-spacing:.1em;}
+.phud-moves{display:flex;flex-direction:column;align-items:center;}
+.phud-num{font-size:52px;color:#e0d0f0;font-weight:500;line-height:1;}
 #pwin{position:fixed;inset:0;background:rgba(13,10,20,.88);display:none;align-items:center;justify-content:center;z-index:200;}
 #pwin.open{display:flex;}
 #pwin .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:36px 44px;text-align:center;}
@@ -453,9 +467,9 @@ body.player-playing #phud{display:flex;}
 <!-- Player HUD (shown over the reused editor board during play) -->
 <div id="phud">
   <button class="pback" onclick="exitToGrid()">← Levels</button>
-  <span class="stat" id="phud-level">Level 1</span>
-  <span class="stat">Moves: <b id="phud-moves">0</b></span>
-  <span class="stat" id="phud-goal"></span>
+  <div class="phud-level" id="phud-level">Level 1</div>
+  <div id="phud-goal"></div>
+  <div class="phud-moves"><div class="phud-num" id="phud-moves">0</div><div class="phud-cap">Moves</div></div>
 </div>
 
 <!-- Win/lose overlay -->
@@ -507,7 +521,8 @@ const GDEFS=[
   {name:'Pearl',   color:'#C4BFB4',hi:'#FFFFFF', dark:'#7A7870',rune:'&#9789;', shape:'star'},
 ];
 const FARROWS={down:'↓',right:'→',left:'←',up:'↑',custom:'?'};
-const CELL_SIZE=44,CELL_GAP=3;
+let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (board scales to viewport)
+const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
 let board=[],flow=[],layer='tile',tool='paint',selGem=0;
 let playing=false,mdown=false,selCell=null,animating=false;
@@ -703,6 +718,7 @@ function render(dropping){
   for(let r=0;r<R;r++) for(let c=0;c<C;c++){
     const el=document.createElement('div');
     el.className='cell';el.dataset.r=r;el.dataset.c=c;
+    el.style.width=el.style.height=CELL_SIZE+'px';  // dynamic cell size (board scaling)
     const cd=board[r][c];
     if(!cd.active){el.classList.add('inactive');}
     else if(layer==='flow'){
@@ -711,8 +727,8 @@ function render(dropping){
     } else {
       const inner=document.createElement('div');
       inner.className='gem-inner';
-      if(cd.pu){inner.innerHTML=puSVG(cd.pu,40);}
-      else if(cd.gem!==null){inner.innerHTML=gemSVG(cd.gem,40);}
+      if(cd.pu){inner.innerHTML=puSVG(cd.pu,gemSize());}
+      else if(cd.gem!==null){inner.innerHTML=gemSVG(cd.gem,gemSize());}
       else{el.classList.add('empty-hint');}
       if(dropping&&dropping.has(r+','+c))el.classList.add('dropping');
       el.appendChild(inner);
@@ -723,6 +739,11 @@ function render(dropping){
       document.getElementById('sb3').textContent=`(${c},${r})`;
       document.getElementById('cinfo').textContent=`Col ${c} · Row ${r} · ${cd.active?'Active':'Hole'} · ${cd.pu||(cd.gem!==null?GDEFS[cd.gem].name:'empty')}`;
       if(mdown&&!playing)paintCell(r,c);
+      // Drag-to-swap (play mode): drag from the selected gem onto an adjacent cell to swap.
+      else if(mdown&&playing&&!animating&&selCell){
+        const sr=selCell[0],sc=selCell[1];
+        if(Math.abs(sr-r)+Math.abs(sc-c)===1){mdown=false;playTap(r,c);}
+      }
     });
     bd.appendChild(el);
   }
@@ -832,15 +853,22 @@ function playTap(r,c){
 
 function resolve(pats,dr,dc,snap,sr,sc){
   const p=pats[0];const toClear=[];
+  // Anchor the power-up ON the matched run — not the (possibly stale) swap
+  // destination. Bug fix: if (dr,dc) isn't part of THIS match (e.g. pats[0] is
+  // an incidental 4-run elsewhere while the player only made a 3-match), the PU
+  // was being dropped on the player's unrelated cell. Use (dr,dc) only when it
+  // belongs to the run; otherwise the run's middle cell.
+  const inRun=p.cells.some(([r,c])=>r===dr&&c===dc);
+  const [ar,ac]=inRun?[dr,dc]:p.cells[Math.floor(p.cells.length/2)];
   if(p.type==='helicopter'){
-    p.cells.filter(([r,c])=>!(r===dr&&c===dc)).forEach(([r,c])=>toClear.push([r,c]));
-    board[dr][dc].gem=null;board[dr][dc].pu='helicopter';cleared+=3;
+    p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
+    board[ar][ac].gem=null;board[ar][ac].pu='helicopter';cleared+=3;
   } else if(p.type==='rocket_h'||p.type==='rocket_v'){
-    p.cells.filter(([r,c])=>!(r===dr&&c===dc)).forEach(([r,c])=>toClear.push([r,c]));
-    board[dr][dc].gem=null;board[dr][dc].pu=p.type;cleared+=3;
+    p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
+    board[ar][ac].gem=null;board[ar][ac].pu=p.type;cleared+=3;
   } else if(p.type==='rainbow'){
-    p.cells.filter(([r,c])=>!(r===dr&&c===dc)).forEach(([r,c])=>toClear.push([r,c]));
-    board[dr][dc].gem=null;board[dr][dc].pu='rainbow';cleared+=p.cells.length;
+    p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
+    board[ar][ac].gem=null;board[ar][ac].pu='rainbow';cleared+=p.cells.length;
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
@@ -967,8 +995,8 @@ function animateFall(fallMoves,onDone){
       fly.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
         +`pointer-events:none;z-index:20;display:flex;align-items:center;`
         +`justify-content:center;transform-origin:center center;`;
-      fly.innerHTML=m.pu?puSVG(m.pu,40)
-        :(m.gem!==null?`<div class="gem-inner">${gemSVG(m.gem,40)}</div>`:'');
+      fly.innerHTML=m.pu?puSVG(m.pu,gemSize())
+        :(m.gem!==null?`<div class="gem-inner">${gemSVG(m.gem,gemSize())}</div>`:'');
       fly.style.left=originPos.x+'px';
       fly.style.top =originPos.y+'px';
       wrap.appendChild(fly);
@@ -1196,6 +1224,14 @@ async function startPlayerLevel(num){
 
   loadLevelData(json,num);
 
+  // Board scaling: size cells so the grid fills ~65% of viewport height,
+  // also constrained by available width (minus the left HUD panel). Adapts
+  // to board dimensions instead of a fixed 44px.
+  const vh=window.innerHeight, vw=window.innerWidth;
+  const byH=Math.floor((vh*0.65-(R-1)*CELL_GAP)/R);
+  const byW=Math.floor(((vw-200)*0.9-(C-1)*CELL_GAP)/C); // 200px reserved for HUD panel
+  CELL_SIZE=Math.max(28,Math.min(96,Math.min(byH,byW)));
+
   // switch from player screens to the reused editor board, in Play mode
   document.getElementById('player').classList.remove('active');
   document.getElementById('shell').style.display='';
@@ -1215,16 +1251,25 @@ function playerTally(gemIdx){ playerGoals.forEach(g=>{ if(g.gemIdx===gemIdx) g.h
 
 function updatePlayerHUD(){
   document.getElementById('phud-level').textContent='Level '+curLevelNum;
-  document.getElementById('phud-moves').textContent=Math.max(0,moveLimit-moves);
+  // Moves count UP from 0 — no-fail model, no limit shown.
+  document.getElementById('phud-moves').textContent=moves;
   const g=playerGoals[0];
-  document.getElementById('phud-goal').innerHTML=g?('Collect '+g.name+': <b>'+Math.min(g.have,g.need)+'/'+g.need+'</b>'):'';
+  const goalEl=document.getElementById('phud-goal');
+  if(g){
+    // Goal counts DOWN: remaining gems to collect, single number, 0 = done.
+    const remaining=Math.max(0,g.need-g.have);
+    goalEl.innerHTML='<div class="phud-cap">Collect</div>'+
+      '<div class="phud-icon">'+gemSVG(g.gemIdx,48)+'</div>'+
+      '<div class="phud-gcount">'+remaining+'</div>';
+  } else goalEl.innerHTML='';
 }
 
 function checkPlayerEnd(){
   updatePlayerHUD();
+  // No-fail model: the only end state is completing the goal. Moves never
+  // cause a loss; star thresholds are evaluated silently at completion.
   const won=playerGoals.length&&playerGoals.every(g=>g.have>=g.need);
-  if(won){ playerFinish(true); return; }
-  if(moves>=moveLimit){ playerFinish(false); }
+  if(won) playerFinish(true);
 }
 
 function playerFinish(win){
@@ -1249,6 +1294,7 @@ function pwinContinue(){
 
 function exitToGrid(){
   playing=false; animating=false; playerMode=false;
+  CELL_SIZE=44; // restore editor's fixed cell size
   document.body.classList.remove('player-playing');
   document.getElementById('editor').style.display='none';
   document.getElementById('pwin').classList.remove('open');
