@@ -659,6 +659,7 @@ function puSVG(type,size){
     rocket_v:  {label:'COL'},
     rainbow:   {label:'BOW'},
     scarab:    {label:'SCAR'},
+    bomb:      {label:'SCAR'},
   };
   const cfg=configs[type]||{label:'?'};
   // Black circle on transparent background — cell shows around it; white label identifies PU type
@@ -846,6 +847,7 @@ function playTap(r,c){
       render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
     }
     moves++;
+    updatePlayerHUD(); // instant moves++ render — don't wait for cascade
     const snap=JSON.parse(JSON.stringify(board));
     resolve(pats,r,c,snap,sr,sc);
   });
@@ -861,21 +863,33 @@ function resolve(pats,dr,dc,snap,sr,sc){
   const inRun=p.cells.some(([r,c])=>r===dr&&c===dc);
   const [ar,ac]=inRun?[dr,dc]:p.cells[Math.floor(p.cells.length/2)];
   if(p.type==='helicopter'){
+    if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
     p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
     board[ar][ac].gem=null;board[ar][ac].pu='helicopter';cleared+=3;
   } else if(p.type==='rocket_h'||p.type==='rocket_v'){
+    if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
     p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
     board[ar][ac].gem=null;board[ar][ac].pu=p.type;cleared+=3;
+  } else if(p.type==='bomb'){
+    if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
+    p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
+    board[ar][ac].gem=null;board[ar][ac].pu='bomb';cleared+=p.cells.length;
   } else if(p.type==='rainbow'){
+    if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
     p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
     board[ar][ac].gem=null;board[ar][ac].pu='rainbow';cleared+=p.cells.length;
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
+  // Snapshot gem indices before clearing — needed for fragment colors
+  const clearGems=toClear.map(([r,c])=>({r,c,gem:board[r][c].gem}));
   toClear.forEach(([r,c])=>{if(playerMode&&board[r][c].gem!==null)playerTally(board[r][c].gem);board[r][c].gem=null;board[r][c].pu=null;});
+  if(playerMode) updatePlayerHUD(); // goal ticks down per match-group, not at cascade end
   const popping=new Set(toClear.map(([r,c])=>r+','+c));
   render(null);
   popping.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
+  // Spawn falling fragments for every cleared gem
+  clearGems.forEach(cg=>{ if(cg.gem!==null) spawnFragments(cg.r,cg.c,cg.gem); });
   window.moveHistory.push({move:moves,src:[sr,sc],dest:[dr,dc],pattern:p.type,cleared:toClear.length,boardBefore:snap});
   document.getElementById('lastmove').textContent=`#${moves} ${p.type} +${toClear.length}`;
   // After pop animation, apply gravity and physically animate each gem to its landing spot.
@@ -929,6 +943,60 @@ function gravityWithMap(){
 // (matching confirmed Township behavior). Duration scales with sqrt(fall distance)
 // to approximate real gravity (d ∝ t² → t ∝ √d).
 //
+// ── Fragment particle system — gem shards that pop out and fall with gravity ──
+(function(){
+  const frags=[];       // live fragment list
+  let looping=false;    // single rAF loop shared by all fragments
+  const GRAV=0.28;      // px/frame² downward acceleration
+  const fragSize=()=>Math.round(gemSize()/5); // ~1/5 of gem
+
+  window.spawnFragments=function(r,c,gemIdx){
+    const pos=cellPos(r,c);
+    const color=GDEFS[gemIdx].color;
+    const wrap=document.getElementById('board-wrap');
+    const count=3+Math.floor(Math.random()*3); // 3–5 fragments
+    for(let i=0;i<count;i++){
+      const el=document.createElement('div');
+      const fs=fragSize();
+      el.style.cssText='position:absolute;pointer-events:none;z-index:20;width:'+fs+'px;height:'+fs+'px;background:'+color+';border-radius:1px;';
+      el.style.left=pos.x-fs/2+'px';
+      el.style.top=pos.y-fs/2+'px';
+      wrap.appendChild(el);
+      frags.push({
+        el,
+        x:pos.x,
+        y:pos.y,
+        vx:(Math.random()-0.5)*4,   // ±2 px/frame horizontal
+        vy:-(1.5+Math.random()*2),  // upward pop
+        spin:0,
+        spinRate:(Math.random()-0.5)*12, // deg/frame rotation
+      });
+    }
+    if(!looping){looping=true;requestAnimationFrame(tick);}
+  };
+
+  function tick(){
+    const viewH=window.innerHeight;
+    let i=frags.length;
+    while(i--){
+      const f=frags[i];
+      f.vy+=GRAV;                 // gravity
+      f.x+=f.vx;
+      f.y+=f.vy;
+      f.spin+=f.spinRate;
+      f.el.style.transform='translate('+(f.x-parseFloat(f.el.style.left))+'px,'+(f.y-parseFloat(f.el.style.top))+'px) rotate('+f.spin+'deg)';
+      // Remove once below viewport
+      const rect=f.el.getBoundingClientRect();
+      if(rect.top>viewH){
+        f.el.remove();
+        frags.splice(i,1);
+      }
+    }
+    if(frags.length) requestAnimationFrame(tick);
+    else looping=false;
+  }
+})();
+
 // Each fly element gets a subtle scaleY stretch proportional to fall velocity,
 // snapping back to identity on arrival. No bounce.
 //
@@ -1044,8 +1112,22 @@ function find2x2(){
   const res=[];
   for(let r=0;r<R-1;r++)for(let c=0;c<C-1;c++){
     const g=board[r][c].gem;if(g===null)continue;
-    if([board[r][c],board[r][c+1],board[r+1][c],board[r+1][c+1]].every(x=>x.active&&x.gem===g&&!x.pu))
-      res.push([[r,c],[r,c+1],[r+1,c],[r+1,c+1]]);
+    if([board[r][c],board[r][c+1],board[r+1][c],board[r+1][c+1]].every(x=>x.active&&x.gem===g&&!x.pu)){
+      // Start with the 2×2 block, then expand to any adjacent same-color cells
+      const inSet=new Set([r+','+c,r+','+(c+1),(r+1)+','+c,(r+1)+','+(c+1)]);
+      const queue=[[r,c],[r,c+1],[r+1,c],[r+1,c+1]];
+      while(queue.length){
+        const [qr,qc]=queue.shift();
+        for(const [nr,nc] of [[qr-1,qc],[qr+1,qc],[qr,qc-1],[qr,qc+1]]){
+          const k=nr+','+nc;
+          if(nr>=0&&nr<R&&nc>=0&&nc<C&&!inSet.has(k)&&board[nr][nc].active&&board[nr][nc].gem===g&&!board[nr][nc].pu){
+            inSet.add(k);
+            queue.push([nr,nc]);
+          }
+        }
+      }
+      res.push([...inSet].map(k=>{const[a,b]=k.split(',').map(Number);return[a,b];}));
+    }
   }
   return res;
 }
@@ -1072,6 +1154,22 @@ function find3(){
 function findPatterns(dr,dc,sr,sc){
   const pats=[];
   for(const g of find2x2()){pats.push({type:'helicopter',cells:g,dest:[dr,dc],pri:3});}
+  // L/T-shaped bomb (Scarab): two perpendicular runs of 3+ sharing one cell
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const bg=board[r][c].gem;if(bg===null||!board[r][c].active||board[r][c].pu)continue;
+    let hl=c,hr=c;
+    while(hl>0&&board[r][hl-1].active&&board[r][hl-1].gem===bg&&!board[r][hl-1].pu)hl--;
+    while(hr<C-1&&board[r][hr+1].active&&board[r][hr+1].gem===bg&&!board[r][hr+1].pu)hr++;
+    let vt=r,vb=r;
+    while(vt>0&&board[vt-1][c].active&&board[vt-1][c].gem===bg&&!board[vt-1][c].pu)vt--;
+    while(vb<R-1&&board[vb+1][c].active&&board[vb+1][c].gem===bg&&!board[vb+1][c].pu)vb++;
+    if(hr-hl+1>=3&&vb-vt+1>=3){
+      const cells=[];
+      for(let i=hl;i<=hr;i++)cells.push([r,i]);
+      for(let i=vt;i<=vb;i++)if(i!==r)cells.push([i,c]);
+      pats.push({type:'bomb',cells,dest:[dr,dc],pri:2});
+    }
+  }
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     const g=board[r][c].gem;if(g===null||!board[r][c].active||board[r][c].pu)continue;
     let hl=1;while(c+hl<C&&board[r][c+hl].active&&board[r][c+hl].gem===g&&!board[r][c+hl].pu)hl++;
