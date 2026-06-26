@@ -155,6 +155,8 @@ body.font-lg{--base-font:20px;}
 .cell.inactive{background:transparent;opacity:.4;}
 .cell.empty-hint{background:#d4b483;border:0.5px dashed #b8935a;}
 .cell.throb{animation:throb 500ms ease-in-out infinite;}
+.cell.rainbow-pick .gem-inner{animation:rainbow-pulse 600ms ease-in-out infinite;}
+@keyframes rainbow-pulse{0%,100%{filter:brightness(1);transform:scale(1);}50%{filter:brightness(1.5) drop-shadow(0 0 4px #fff);transform:scale(1.08);}}
 @keyframes throb{0%,100%{transform:scale(1);}50%{transform:scale(1.12);filter:brightness(1.3);}}
 .cell.bounce-back{animation:bounce-back 280ms ease-out;}
 @keyframes bounce-back{0%{transform:translateX(0);}30%{transform:translateX(var(--bx,0)) translateY(var(--by,0));}100%{transform:translateX(0) translateY(0);}}
@@ -525,7 +527,7 @@ let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (boar
 const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
 let board=[],flow=[],layer='tile',tool='paint',selGem=0;
-let playing=false,mdown=false,selCell=null,animating=false;
+let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null;
 let undoQ=[],redoQ=[],moves=0,cleared=0,flowMode='down';
 window.moveHistory=[];
 
@@ -735,6 +737,7 @@ function render(dropping){
       el.appendChild(inner);
     }
     if(selCell&&selCell[0]===r&&selCell[1]===c)el.classList.add('throb');
+    if(choosingRainbow&&cd.gem!==null&&!cd.pu)el.classList.add('rainbow-pick');
     el.addEventListener('mousedown',e=>{mdown=true;onCell(r,c,e);});
     el.addEventListener('mouseenter',()=>{
       document.getElementById('sb3').textContent=`(${c},${r})`;
@@ -831,12 +834,20 @@ function tryActivate(r,c){
   const pu=board[r][c].pu;
   if(!pu) return false;
   if(pu==='bomb'){activateScarab(r,c);return true;}
+  if(pu==='rainbow'){activateRainbow(r,c);return true;}
   // Dragonfly/Grasshopper activation deferred — fall through to no-op
   return false;
 }
 
 function playTap(r,c){
   if(animating)return;
+  // Akasha Ball choosing state — waiting for color pick
+  if(choosingRainbow){
+    const cd2=board[r][c];
+    if(!cd2||!cd2.active||cd2.gem===null||cd2.pu) return; // invalid pick — stay in choosing
+    resolveRainbowPick(r,c);
+    return;
+  }
   const cd=board[r][c];
   if(!cd.active||(cd.gem===null&&!cd.pu))return;
   // Tap directly on a power-up with nothing selected → activate in place
@@ -966,6 +977,48 @@ function activateScarab(r,c){
   // Spawn fragments for cleared gems
   clearGems.forEach(cg=>{ if(cg.gem!==null) spawnFragments(cg.r,cg.c,cg.gem); });
   // Gravity + cascade after pop settles
+  setTimeout(()=>{
+    const fallMoves=gravityWithMap();
+    animateFall(fallMoves,()=>{
+      const np=findPatterns(r,c,r,c);
+      if(np.length){resolve(np,r,c,JSON.parse(JSON.stringify(board)),r,c);}
+      else{updStats();animating=false;render();if(playerMode){updatePlayerHUD();checkPlayerEnd();}}
+    });
+  },230);
+}
+
+function activateRainbow(r,c){
+  // Enter choosing state — player picks a color on next tap
+  board[r][c].pu=null; // consume the Akasha Ball
+  choosingRainbow={r,c};
+  selCell=null;
+  render(); // triggers .rainbow-pick pulse on eligible cells
+}
+
+function resolveRainbowPick(r,c){
+  // Clear all gems matching the tapped cell's color
+  const targetGem=board[r][c].gem;
+  choosingRainbow=null;
+  animating=true;
+  const toClear=[];
+  const clearGems=[];
+  for(let tr=0;tr<R;tr++)for(let tc=0;tc<C;tc++){
+    if(board[tr][tc].active&&board[tr][tc].gem===targetGem){
+      clearGems.push({r:tr,c:tc,gem:board[tr][tc].gem});
+      toClear.push([tr,tc]);
+    }
+  }
+  toClear.forEach(([tr,tc])=>{
+    if(playerMode) playerTally(board[tr][tc].gem);
+    board[tr][tc].gem=null;
+    board[tr][tc].pu=null;
+  });
+  if(playerMode) updatePlayerHUD();
+  cleared+=toClear.length;
+  const popping=new Set(toClear.map(([tr,tc])=>tr+','+tc));
+  render(null);
+  popping.forEach(k=>{const[pr,pc]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
+  clearGems.forEach(cg=>{ if(cg.gem!==null) spawnFragments(cg.r,cg.c,cg.gem); });
   setTimeout(()=>{
     const fallMoves=gravityWithMap();
     animateFall(fallMoves,()=>{
