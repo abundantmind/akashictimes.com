@@ -413,6 +413,10 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
         <div class="ptitle">Gems</div>
         <div id="gpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
       </div>
+      <div class="psec" id="pu-pal">
+        <div class="ptitle">Power-ups</div>
+        <div id="pupal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+      </div>
     </div>
     <div id="board-wrap"><div id="board"></div></div>
     <div id="rpanel">
@@ -526,7 +530,7 @@ const FARROWS={down:'↓',right:'→',left:'←',up:'↑',custom:'?'};
 let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (board scales to viewport)
 const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
-let board=[],flow=[],layer='tile',tool='paint',selGem=0;
+let board=[],flow=[],layer='tile',tool='paint',selGem=0,selPU=null;
 let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null;
 let undoQ=[],redoQ=[],moves=0,cleared=0,flowMode='down';
 window.moveHistory=[];
@@ -588,7 +592,7 @@ function openEditor(){
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
   initBlankBoard();
-  buildGPal();
+  buildGPal();buildPUPal();
   render();
   updUB();
 }
@@ -656,10 +660,10 @@ function gemSVG(idx,size){
 function puSVG(type,size){
   const s=size||44,h=s/2;
   const configs={
-    helicopter:{label:'HELI'},
-    rocket_h:  {label:'ROW'},
-    rocket_v:  {label:'COL'},
-    rainbow:   {label:'BOW'},
+    helicopter:{label:'HOP'},
+    rocket_h:  {label:'DFH'},
+    rocket_v:  {label:'DFV'},
+    rainbow:   {label:'BALL'},
     scarab:    {label:'SCAR'},
     bomb:      {label:'SCAR'},
   };
@@ -764,6 +768,24 @@ function buildGPal(){
   });
 }
 
+// Power-up palette — click selects a PU type for painting; click again to deselect
+const PU_TYPES=['helicopter','rocket_h','rocket_v','bomb','rainbow'];
+function buildPUPal(){
+  const p=document.getElementById('pupal');p.innerHTML='';
+  PU_TYPES.forEach(pu=>{
+    const d=document.createElement('div');
+    d.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;';
+    d.innerHTML=puSVG(pu,34);
+    d.onclick=()=>{
+      // Toggle: click same PU deselects, click different selects
+      selPU=selPU===pu?null:pu;
+      document.querySelectorAll('#pupal div').forEach(x=>x.style.borderColor='transparent');
+      if(selPU) d.style.borderColor='#c8a8ff';
+    };
+    p.appendChild(d);
+  });
+}
+
 function setLayer(l){
   layer=l;
   document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('on'));
@@ -794,7 +816,8 @@ function paintCell(r,c){
   const cd=board[r][c];
   if(layer==='base'){save();cd.active=!cd.active;}
   else if(layer==='tile'&&cd.active){
-    if(tool==='paint'){save();cd.gem=selGem;cd.pu=null;}
+    if(tool==='paint'&&selPU){save();cd.pu=selPU;cd.gem=null;}
+    else if(tool==='paint'){save();cd.gem=selGem;cd.pu=null;}
     else if(tool==='fill'){save();flood(r,c,cd.gem,selGem);}
     else if(tool==='erase'){save();cd.gem=null;cd.pu=null;}
     else if(tool==='mirror'){save();cd.gem=selGem;cd.pu=null;board[r][C-1-c].gem=selGem;board[r][C-1-c].pu=null;}
@@ -829,14 +852,52 @@ function togglePlay(){
   render();
 }
 
-function tryActivate(r,c){
-  // Attempt to activate a power-up at (r,c). Returns true if activation handled.
-  const pu=board[r][c].pu;
-  if(!pu) return false;
-  if(pu==='bomb'){activateScarab(r,c);return true;}
-  if(pu==='rainbow'){activateRainbow(r,c);return true;}
-  // Dragonfly/Grasshopper activation deferred — fall through to no-op
-  return false;
+// ── Unified cell-clear: tally, fragment, null — each cell cleared at most once per phase ──
+function clearCell(r,c,phaseSet){
+  const k=r+','+c;
+  if(phaseSet.has(k)) return; // already cleared this phase
+  phaseSet.add(k);
+  if(playerMode&&board[r][c].gem!==null) playerTally(board[r][c].gem);
+  if(board[r][c].gem!==null) spawnFragments(r,c,board[r][c].gem);
+  board[r][c].gem=null;
+  board[r][c].pu=null;
+}
+
+// ── Effect collectors: return cells to clear, don't clear or cascade themselves ──
+function scarabCells(r,c){
+  const cells=[];
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+    const nr=r+dr, nc=c+dc;
+    if(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active) cells.push([nr,nc]);
+  }
+  return cells;
+}
+
+function rainbowCells(targetGem){
+  const cells=[];
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(board[r][c].active&&board[r][c].gem===targetGem) cells.push([r,c]);
+  }
+  return cells;
+}
+
+// ── Apply a combined set of cleared cells: pop, gravity, cascade ──
+function applyEffects(cellsToClear,pivotR,pivotC){
+  animating=true;
+  const phase=new Set();
+  cellsToClear.forEach(([r,c])=>clearCell(r,c,phase));
+  if(playerMode) updatePlayerHUD();
+  cleared+=phase.size;
+  render(null);
+  phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
+  setTimeout(()=>{
+    const fallMoves=gravityWithMap();
+    animateFall(fallMoves,()=>{
+      const np=findPatterns(pivotR,pivotC,pivotR,pivotC);
+      if(np.length){resolve(np,pivotR,pivotC,JSON.parse(JSON.stringify(board)),pivotR,pivotC);}
+      else{updStats();animating=false;render();if(playerMode){updatePlayerHUD();checkPlayerEnd();}}
+    });
+  },230);
 }
 
 function playTap(r,c){
@@ -845,21 +906,35 @@ function playTap(r,c){
   if(choosingRainbow){
     const cd2=board[r][c];
     if(!cd2||!cd2.active||cd2.gem===null||cd2.pu) return; // invalid pick — stay in choosing
-    resolveRainbowPick(r,c);
+    choosingRainbow=null;
+    moves++;
+    updatePlayerHUD();
+    applyEffects(rainbowCells(board[r][c].gem),r,c);
     return;
   }
   const cd=board[r][c];
   if(!cd.active||(cd.gem===null&&!cd.pu))return;
-  // Tap directly on a power-up with nothing selected → activate in place
-  if(!selCell&&cd.pu){
-    moves++;
-    updatePlayerHUD();
-    tryActivate(r,c);
-    return;
-  }
   if(!selCell){selCell=[r,c];render();return;}
   const[sr,sc]=selCell;selCell=null;
-  if(sr===r&&sc===c){render();return;}
+  // Double-tap on same cell: activate if it's a power-up, otherwise deselect
+  if(sr===r&&sc===c){
+    if(cd.pu){
+      if(cd.pu==='rainbow'){
+        // Akasha Ball double-tap → enter choosing state
+        board[r][c].pu=null;
+        choosingRainbow={r,c};
+        moves++;
+        updatePlayerHUD();
+        render();
+      } else if(cd.pu==='bomb'){
+        moves++;updatePlayerHUD();
+        board[r][c].pu=null;
+        applyEffects(scarabCells(r,c),r,c);
+      }
+      // Dragonfly/Grasshopper double-tap deferred
+    } else render();
+    return;
+  }
   if(Math.abs(sr-r)+Math.abs(sc-c)!==1){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
@@ -867,32 +942,45 @@ function playTap(r,c){
   animateSwap(sr,sc,r,c,html1,html2,()=>{
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
-    // After swap: if either cell now holds a power-up, activate it
-    if(board[r][c].pu||board[sr][sc].pu){
-      moves++;
-      updatePlayerHUD();
-      // Activate whichever cell has the power-up (swap puts PU at destination)
-      const puR=board[r][c].pu?r:sr, puC=board[r][c].pu?c:sc;
-      if(!tryActivate(puR,puC)){
-        // Power-up type not yet activatable — revert swap
-        const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
-        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
-        moves--;
-        updatePlayerHUD();
-        render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});
-      }
-      return;
+    // Unified post-swap: collect ALL effects — PU activations + pattern matches
+    const allCells=[];
+    let hasPU=false;
+    // Check both cells for power-ups
+    for(const [pr,pc,gr,gc] of [[r,c,sr,sc],[sr,sc,r,c]]){
+      const pu=board[pr][pc].pu;
+      if(!pu) continue;
+      hasPU=true;
+      if(pu==='bomb'){board[pr][pc].pu=null;allCells.push(...scarabCells(pr,pc));}
+      else if(pu==='rainbow'){board[pr][pc].pu=null;allCells.push(...rainbowCells(board[gr][gc].gem));}
+      // Dragonfly/Grasshopper swap-activation deferred
     }
+    // Also collect any normal pattern matches formed by the swap
     const pats=findPatterns(r,c,sr,sc);
-    if(!pats.length){
+    if(pats.length) pats.forEach(p=>allCells.push(...p.cells));
+    if(!allCells.length&&!hasPU){
+      // Nothing happened — revert swap
       const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
       const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
       render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
     }
     moves++;
     updatePlayerHUD();
-    const snap=JSON.parse(JSON.stringify(board));
-    resolve(pats,r,c,snap,sr,sc);
+    // For pattern matches that generate power-ups, handle anchor conversion before clearing
+    if(pats.length){
+      const snap=JSON.parse(JSON.stringify(board));
+      // If we also had PU activation cells, clear those first via unified path
+      if(hasPU&&allCells.length){
+        const phase=new Set();
+        // Clear PU-activation cells (not pattern cells — resolve handles those with anchor logic)
+        const puCells=allCells.filter(([cr,cc])=>!pats.some(p=>p.cells.some(([pr,pc])=>pr===cr&&pc===cc)));
+        puCells.forEach(([cr,cc])=>clearCell(cr,cc,phase));
+        if(playerMode) updatePlayerHUD();
+        cleared+=phase.size;
+      }
+      resolve(pats,r,c,snap,sr,sc);
+    } else {
+      applyEffects(allCells,r,c);
+    }
   });
 }
 
@@ -924,15 +1012,13 @@ function resolve(pats,dr,dc,snap,sr,sc){
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
-  // Snapshot gem indices before clearing — needed for fragment colors
-  const clearGems=toClear.map(([r,c])=>({r,c,gem:board[r][c].gem}));
-  toClear.forEach(([r,c])=>{if(playerMode&&board[r][c].gem!==null)playerTally(board[r][c].gem);board[r][c].gem=null;board[r][c].pu=null;});
-  if(playerMode) updatePlayerHUD(); // goal ticks down per match-group, not at cascade end
-  const popping=new Set(toClear.map(([r,c])=>r+','+c));
+  // Unified clear — tally, fragment, null, deduplicated
+  const phase=new Set();
+  toClear.forEach(([r,c])=>clearCell(r,c,phase));
+  if(playerMode) updatePlayerHUD();
+  cleared+=phase.size;
   render(null);
-  popping.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
-  // Spawn falling fragments for every cleared gem
-  clearGems.forEach(cg=>{ if(cg.gem!==null) spawnFragments(cg.r,cg.c,cg.gem); });
+  phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
   window.moveHistory.push({move:moves,src:[sr,sc],dest:[dr,dc],pattern:p.type,cleared:toClear.length,boardBefore:snap});
   document.getElementById('lastmove').textContent=`#${moves} ${p.type} +${toClear.length}`;
   // After pop animation, apply gravity and physically animate each gem to its landing spot.
@@ -942,88 +1028,6 @@ function resolve(pats,dr,dc,snap,sr,sc){
     animateFall(fallMoves,()=>{
       const np=findPatterns(dr,dc,dr,dc);
       if(np.length){resolve(np,dr,dc,JSON.parse(JSON.stringify(board)),dr,dc);}
-      else{updStats();animating=false;render();if(playerMode){updatePlayerHUD();checkPlayerEnd();}}
-    });
-  },230);
-}
-
-// ── Power-up activation (solo, no combos) ──
-
-function activateScarab(r,c){
-  // 3×3 blast centered on (r,c), clipped to board bounds
-  animating=true;
-  board[r][c].pu=null; // consume the Scarab
-  const toClear=[];
-  const clearGems=[];
-  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
-    const nr=r+dr, nc=c+dc;
-    if(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active){
-      // Clear everything — gems, power-ups (no chain-detonation, just remove)
-      clearGems.push({r:nr,c:nc,gem:board[nr][nc].gem});
-      toClear.push([nr,nc]);
-    }
-  }
-  toClear.forEach(([tr,tc])=>{
-    if(playerMode&&board[tr][tc].gem!==null) playerTally(board[tr][tc].gem);
-    board[tr][tc].gem=null;
-    board[tr][tc].pu=null; // clears any adjacent power-ups as plain cells (combo deferred)
-  });
-  if(playerMode) updatePlayerHUD();
-  cleared+=toClear.length;
-  // Pop animation on blasted cells
-  const popping=new Set(toClear.map(([tr,tc])=>tr+','+tc));
-  render(null);
-  popping.forEach(k=>{const[pr,pc]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-  // Spawn fragments for cleared gems
-  clearGems.forEach(cg=>{ if(cg.gem!==null) spawnFragments(cg.r,cg.c,cg.gem); });
-  // Gravity + cascade after pop settles
-  setTimeout(()=>{
-    const fallMoves=gravityWithMap();
-    animateFall(fallMoves,()=>{
-      const np=findPatterns(r,c,r,c);
-      if(np.length){resolve(np,r,c,JSON.parse(JSON.stringify(board)),r,c);}
-      else{updStats();animating=false;render();if(playerMode){updatePlayerHUD();checkPlayerEnd();}}
-    });
-  },230);
-}
-
-function activateRainbow(r,c){
-  // Enter choosing state — player picks a color on next tap
-  board[r][c].pu=null; // consume the Akasha Ball
-  choosingRainbow={r,c};
-  selCell=null;
-  render(); // triggers .rainbow-pick pulse on eligible cells
-}
-
-function resolveRainbowPick(r,c){
-  // Clear all gems matching the tapped cell's color
-  const targetGem=board[r][c].gem;
-  choosingRainbow=null;
-  animating=true;
-  const toClear=[];
-  const clearGems=[];
-  for(let tr=0;tr<R;tr++)for(let tc=0;tc<C;tc++){
-    if(board[tr][tc].active&&board[tr][tc].gem===targetGem){
-      clearGems.push({r:tr,c:tc,gem:board[tr][tc].gem});
-      toClear.push([tr,tc]);
-    }
-  }
-  toClear.forEach(([tr,tc])=>{
-    if(playerMode) playerTally(board[tr][tc].gem);
-    board[tr][tc].gem=null;
-    board[tr][tc].pu=null;
-  });
-  if(playerMode) updatePlayerHUD();
-  cleared+=toClear.length;
-  const popping=new Set(toClear.map(([tr,tc])=>tr+','+tc));
-  render(null);
-  popping.forEach(k=>{const[pr,pc]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-  clearGems.forEach(cg=>{ if(cg.gem!==null) spawnFragments(cg.r,cg.c,cg.gem); });
-  setTimeout(()=>{
-    const fallMoves=gravityWithMap();
-    animateFall(fallMoves,()=>{
-      const np=findPatterns(r,c,r,c);
-      if(np.length){resolve(np,r,c,JSON.parse(JSON.stringify(board)),r,c);}
       else{updStats();animating=false;render();if(playerMode){updatePlayerHUD();checkPlayerEnd();}}
     });
   },230);
@@ -1463,7 +1467,7 @@ async function startPlayerLevel(num){
   document.body.classList.add('player-playing');
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
-  buildGPal();
+  buildGPal();buildPUPal();
   playerMode=true; playing=false;
   render();
   togglePlay();      // fills empty active cells, removes initial matches, starts Play
