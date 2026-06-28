@@ -881,9 +881,83 @@ function rainbowCells(targetGem){
   return cells;
 }
 
+// Dragonfly clears the entire row (H) or column (V) of active cells
+function dragonflyCells(r,c,dir){
+  const cells=[];
+  if(dir==='h'){for(let nc=0;nc<C;nc++){if(board[r][nc].active)cells.push([r,nc]);}}
+  else{for(let nr=0;nr<R;nr++){if(board[nr][c].active)cells.push([nr,c]);}}
+  return cells;
+}
+
+// Grasshopper auto-target: nearest active gem cell by Manhattan distance, scan-order tie-break
+function nearestGemCell(r,c){
+  let best=null,bestDist=Infinity;
+  for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
+    if(nr===r&&nc===c)continue;
+    if(board[nr][nc].active&&board[nr][nc].gem!==null){
+      const d=Math.abs(nr-r)+Math.abs(nc-c);
+      if(d<bestDist){bestDist=d;best=[nr,nc];}
+    }
+  }
+  return best;
+}
+
+// Akasha Ball auto-target: most prevalent gem color on the board
+function mostPrevalentGem(){
+  const counts=new Array(GDEFS.length).fill(0);
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(board[r][c].gem!==null)counts[board[r][c].gem]++;
+  }
+  let best=0;
+  for(let i=1;i<counts.length;i++)if(counts[i]>counts[best])best=i;
+  return best;
+}
+
+// ── Chain resolution: expand a cell list by triggering any power-ups encountered ──
+//
+// How it works: processes cells in queue order. When a cell contains a power-up
+// that hasn't been an activation source yet, that PU's effect cells are added
+// to the queue. This continues until no new cells produce new PU triggers.
+//
+// Cycle safety: the `activated` set tracks cells that have already been the
+// SOURCE of a chain activation. A cell can appear in the clear set (get cleared)
+// multiple times via different trigger paths, but it can only TRIGGER its own
+// power-up effect once. This prevents infinite loops — e.g., if a Dragonfly's
+// row-clear hits a Scarab whose blast hits the Dragonfly's cell again, the
+// Dragonfly won't re-fire because its cell is already in `activated`.
+// This is a deterministic runtime safeguard, not a design cap on chain depth.
+//
+// Target-needing PUs (Akasha Ball, Grasshopper) auto-pick during chains:
+//   - Akasha Ball → most prevalent gem color on the board
+//   - Grasshopper → nearest gem cell by Manhattan distance (scan-order tie-break)
+// No .rainbow-pick vibe ever fires during chain resolution.
+function resolveChain(initialCells){
+  const cleared=new Set();
+  const activated=new Set();
+  const queue=initialCells.map(([r,c])=>[r,c]);
+  while(queue.length){
+    const [r,c]=queue.shift();
+    const k=r+','+c;
+    if(cleared.has(k))continue;
+    cleared.add(k);
+    const pu=board[r][c].pu;
+    if(pu&&!activated.has(k)){
+      activated.add(k);
+      if(pu==='bomb')        queue.push(...scarabCells(r,c));
+      else if(pu==='rocket_h') queue.push(...dragonflyCells(r,c,'h'));
+      else if(pu==='rocket_v') queue.push(...dragonflyCells(r,c,'v'));
+      else if(pu==='rainbow')  queue.push(...rainbowCells(mostPrevalentGem()));
+      else if(pu==='helicopter'){const t=nearestGemCell(r,c);if(t)queue.push(t);}
+    }
+  }
+  return[...cleared].map(k=>{const[a,b]=k.split(',').map(Number);return[a,b];});
+}
+
 // ── Apply a combined set of cleared cells: pop, gravity, cascade ──
 function applyEffects(cellsToClear,pivotR,pivotC){
   animating=true;
+  // Expand via chain activation before clearing
+  cellsToClear=resolveChain(cellsToClear);
   const phase=new Set();
   cellsToClear.forEach(([r,c])=>clearCell(r,c,phase));
   if(playerMode) updatePlayerHUD();
@@ -930,8 +1004,20 @@ function playTap(r,c){
         moves++;updatePlayerHUD();
         board[r][c].pu=null;
         applyEffects(scarabCells(r,c),r,c);
+      } else if(cd.pu==='rocket_h'){
+        moves++;updatePlayerHUD();
+        board[r][c].pu=null;
+        applyEffects(dragonflyCells(r,c,'h'),r,c);
+      } else if(cd.pu==='rocket_v'){
+        moves++;updatePlayerHUD();
+        board[r][c].pu=null;
+        applyEffects(dragonflyCells(r,c,'v'),r,c);
+      } else if(cd.pu==='helicopter'){
+        moves++;updatePlayerHUD();
+        board[r][c].pu=null;
+        const t=nearestGemCell(r,c);
+        applyEffects(t?[t]:[],r,c);
       }
-      // Dragonfly/Grasshopper double-tap deferred
     } else render();
     return;
   }
@@ -951,8 +1037,10 @@ function playTap(r,c){
       if(!pu) continue;
       hasPU=true;
       if(pu==='bomb'){board[pr][pc].pu=null;allCells.push(...scarabCells(pr,pc));}
+      else if(pu==='rocket_h'){board[pr][pc].pu=null;allCells.push(...dragonflyCells(pr,pc,'h'));}
+      else if(pu==='rocket_v'){board[pr][pc].pu=null;allCells.push(...dragonflyCells(pr,pc,'v'));}
       else if(pu==='rainbow'){board[pr][pc].pu=null;allCells.push(...rainbowCells(board[gr][gc].gem));}
-      // Dragonfly/Grasshopper swap-activation deferred
+      else if(pu==='helicopter'){board[pr][pc].pu=null;const t=nearestGemCell(pr,pc);if(t)allCells.push(t);}
     }
     // Also collect any normal pattern matches formed by the swap
     const pats=findPatterns(r,c,sr,sc);
@@ -971,9 +1059,10 @@ function playTap(r,c){
       // If we also had PU activation cells, clear those first via unified path
       if(hasPU&&allCells.length){
         const phase=new Set();
-        // Clear PU-activation cells (not pattern cells — resolve handles those with anchor logic)
+        // Chain-resolve PU-activation cells (not pattern cells — resolve handles those with anchor logic)
         const puCells=allCells.filter(([cr,cc])=>!pats.some(p=>p.cells.some(([pr,pc])=>pr===cr&&pc===cc)));
-        puCells.forEach(([cr,cc])=>clearCell(cr,cc,phase));
+        const chainedPU=resolveChain(puCells);
+        chainedPU.forEach(([cr,cc])=>clearCell(cr,cc,phase));
         if(playerMode) updatePlayerHUD();
         cleared+=phase.size;
       }
@@ -1012,9 +1101,10 @@ function resolve(pats,dr,dc,snap,sr,sc){
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
-  // Unified clear — tally, fragment, null, deduplicated
+  // Chain-resolve: if any toClear cell holds a PU, trigger its effect recursively
+  const chainedClear=resolveChain(toClear);
   const phase=new Set();
-  toClear.forEach(([r,c])=>clearCell(r,c,phase));
+  chainedClear.forEach(([r,c])=>clearCell(r,c,phase));
   if(playerMode) updatePlayerHUD();
   cleared+=phase.size;
   render(null);
