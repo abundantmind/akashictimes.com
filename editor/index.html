@@ -234,6 +234,31 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 #pwin .wmsg{font-size:var(--fz-base);color:#887a9a;margin-bottom:20px;}
 #pwin button{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:10px 32px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);font-weight:500;cursor:pointer;}
 #pwin button:hover{background:#4a3580;}
+
+/* ── Entrance: multi-goal HUD rows, help popup, two-path choice ── */
+.goal-row{display:flex;align-items:center;gap:8px;padding:4px 0;width:100%;}
+.goal-row.complete{opacity:.55;}
+.goal-icon{width:30px;height:30px;flex-shrink:0;display:flex;}
+.goal-count{font-size:var(--fz-lg);color:#ffcb6b;font-weight:500;flex:1;}
+.goal-done{font-size:var(--fz-lg);color:#c3e88d;font-weight:500;flex:1;}
+.goal-help{width:20px;height:20px;border-radius:50%;border:0.5px solid #3d2060;background:#1a1030;color:#c792ea;font-size:var(--fz-sm);cursor:pointer;font-family:var(--font-sans);flex-shrink:0;line-height:1;}
+.goal-help:hover{border-color:#c792ea;background:#2a1d4a;}
+#ghelp{position:fixed;inset:0;background:rgba(13,10,20,.88);display:none;align-items:center;justify-content:center;z-index:210;}
+#ghelp.open{display:flex;}
+#ghelp .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:28px 36px;text-align:center;max-width:340px;}
+#ghelp h2{font-size:var(--fz-xl);color:#c792ea;margin-bottom:14px;font-weight:500;}
+#ghelp-diagram{margin-bottom:14px;}
+#ghelp button{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:8px 26px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);cursor:pointer;}
+#pchoice{position:fixed;inset:0;background:rgba(13,10,20,.94);display:none;align-items:center;justify-content:center;z-index:220;}
+#pchoice.open{display:flex;}
+.choice-wrap{text-align:center;padding:20px;}
+.choice-wrap h2{font-size:var(--fz-3xl);color:#c792ea;margin-bottom:8px;font-weight:500;}
+.choice-sub{font-size:var(--fz-base);color:#887a9a;margin-bottom:28px;}
+.choice-cards{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;}
+.choice-card{background:#130a20;border:0.5px solid #3d2060;border-radius:var(--border-radius-lg,12px);padding:28px 26px;cursor:pointer;width:240px;transition:border-color .2s,transform .2s;}
+.choice-card:hover{border-color:#c792ea;transform:translateY(-3px);}
+.choice-card h3{font-size:var(--fz-xl);color:#c8a8ff;margin-bottom:8px;font-weight:500;}
+.choice-card p{font-size:var(--fz-md);color:#887a9a;line-height:1.4;}
 </style>
 
 <div id="shell">
@@ -494,6 +519,34 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
   <div class="phud-moves"><div class="phud-num" id="phud-moves">0</div><div class="phud-cap">Moves</div></div>
 </div>
 
+<!-- Goal help popup — "?" next to entrance goals -->
+<div id="ghelp" onclick="closeGoalHelp()">
+  <div class="wbox" onclick="event.stopPropagation()">
+    <h2 id="ghelp-title"></h2>
+    <div id="ghelp-diagram"></div>
+    <p class="wmsg" id="ghelp-text"></p>
+    <button onclick="closeGoalHelp()">Got it</button>
+  </div>
+</div>
+
+<!-- Entrance complete — two-path choice -->
+<div id="pchoice">
+  <div class="choice-wrap">
+    <h2>Welcome to AkashicSwaps</h2>
+    <p class="choice-sub">You've mastered the power-ups. Choose your path:</p>
+    <div class="choice-cards">
+      <div class="choice-card" onclick="chooseEditorPath()">
+        <h3>Editor / Player</h3>
+        <p>Create levels, publish them, and play everything.</p>
+      </div>
+      <div class="choice-card" onclick="choosePlayerPath()">
+        <h3>Player / Contributor</h3>
+        <p>Play the levels and follow the build as it happens.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Win/lose overlay -->
 <div id="pwin">
   <div class="wbox">
@@ -547,6 +600,7 @@ let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (boar
 const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
 let board=[],flow=[],layer='tile',tool='paint',selGem=0,selPU=null;
+let GEMN=6; // how many gem types spawn — entrance level lowers this to 5 for easier big matches
 let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null,choosingGrasshopper=null;
 let undoQ=[],redoQ=[],moves=0,cleared=0,flowMode='down';
 window.moveHistory=[];
@@ -633,7 +687,7 @@ function initBlankBoard(){
 function clean(){
   let t=0;
   while((find3().length||find2x2().length)&&t++<400)
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(!board[r][c].pu)board[r][c].gem=~~(Math.random()*6);
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(!board[r][c].pu)board[r][c].gem=~~(Math.random()*GEMN);
 }
 
 function save(){undoQ.push(JSON.stringify(board));if(undoQ.length>60)undoQ.shift();redoQ=[];updUB();}
@@ -1065,7 +1119,7 @@ function flood(r,c,from,to){
   flood(r-1,c,from,to);flood(r+1,c,from,to);flood(r,c-1,from,to);flood(r,c+1,from,to);
 }
 
-function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=~~(Math.random()*6);board[r][c].pu=null;}clean();render();}
+function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=~~(Math.random()*GEMN);board[r][c].pu=null;}clean();render();}
 function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;board[r][c].sub=null;board[r][c].item=null;}render();}
 
 function togglePlay(){
@@ -1076,7 +1130,7 @@ function togglePlay(){
   document.getElementById('history-sec').style.display=playing?'block':'none';
   document.getElementById('playbtn').innerHTML=playing?'⏹ Stop':'▶ Play';
   if(playing){
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu)board[r][c].gem=~~(Math.random()*6);
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu)board[r][c].gem=~~(Math.random()*GEMN);
     clean();window.moveHistory=[];updStats();
   }
   render();
@@ -1409,18 +1463,22 @@ function resolve(pats,dr,dc,snap,sr,sc){
     if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
     p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
     board[ar][ac].gem=null;board[ar][ac].pu='helicopter';cleared+=3;
+    puMade('helicopter'); // goal event: Grasshopper created
   } else if(p.type==='rocket_h'||p.type==='rocket_v'){
     if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
     p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
     board[ar][ac].gem=null;board[ar][ac].pu=p.type;cleared+=3;
+    puMade('rocket'); // goal event: Dragonfly created (H or V both count)
   } else if(p.type==='bomb'){
     if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
     p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
     board[ar][ac].gem=null;board[ar][ac].pu='bomb';cleared+=p.cells.length;
+    puMade('bomb'); // goal event: Scarab created
   } else if(p.type==='rainbow'){
     if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
     p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
     board[ar][ac].gem=null;board[ar][ac].pu='rainbow';cleared+=p.cells.length;
+    puMade('rainbow'); // goal event: Akasha Ball created
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
@@ -1470,7 +1528,7 @@ function gravityWithMap(){
     // Fill remaining active cells with new gems, spawning from above the board
     for(let r=w;r>=0;r--){
       if(board[r][c].active){
-        board[r][c].gem=~~(Math.random()*6);board[r][c].pu=null;
+        board[r][c].gem=~~(Math.random()*GEMN);board[r][c].pu=null;
         // fr is a virtual negative row: -1, -2, ... stacked above the board top
         moves.push({gem:board[r][c].gem,pu:null,fr:-(++newCount),fc:c,tr:r,tc:c,isNew:true});
       }
@@ -1741,6 +1799,14 @@ const GEMMAP={red:0,ruby:0,blue:1,sapphire:1,green:2,emerald:2,yellow:3,gold:3,t
 
 // player state
 let playerMode=false, playerGoals=[], moveLimit=20, curLevelNum=1, pwinWon=false;
+let entranceMode=false; // true while playing the Level 1 entrance/training level
+
+// Goal event: a power-up was formed by a match. Ticks any 'create' goals.
+// rocket_h and rocket_v both arrive here as 'rocket' (either counts as Dragonfly).
+function puMade(type){
+  if(!playerMode)return;
+  playerGoals.forEach(g=>{if(g.kind==='create'&&g.pu===type)g.have=Math.min(g.need,g.have+1);});
+}
 
 // progress store (separate key from the editor's own prefs)
 const PlayerProgress={
@@ -1846,7 +1912,7 @@ function loadLevelData(json,num){
   // objectives: collect-gem goals only for MVP (plant/key/acorn not simulated yet)
   playerGoals=(json.objectives||[])
     .filter(o=>o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null)
-    .map(o=>({gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem}));
+    .map(o=>({kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem}));
   // star thresholds (fewer moves = more stars)
   document.getElementById('s3').value=Math.ceil(moveLimit/3);
   document.getElementById('s2').value=Math.ceil(2*moveLimit/3);
@@ -1863,7 +1929,11 @@ async function startPlayerLevel(num){
   }catch(e){ alert('Level '+num+' is not available yet.'); return; }
 
   loadLevelData(json,num);
+  beginPlaySession();
+}
 
+// Shared board-scaling + mode-switch used by both normal levels and the entrance level.
+function beginPlaySession(){
   // Board scaling: size cells so the grid fills ~65% of viewport height,
   // also constrained by available width (minus the left HUD panel). Adapts
   // to board dimensions instead of a fixed 44px.
@@ -1887,22 +1957,66 @@ async function startPlayerLevel(num){
   updatePlayerHUD();
 }
 
+// ── ENTRANCE LEVEL — Level 1 as power-up training ────────────────────────────
+// The site's front door: 5 goals, count-up moves, no fail state, no move limit.
+// 8×8 board with 5 gem colors so every power-up shape is realistically formable.
+function startEntrance(){
+  entranceMode=true;
+  GEMN=5; // 5 gem colors (drops Pearl) — bigger matches come easier for newcomers
+  R=8;C=8;
+  board=[];flow=[];
+  for(let r=0;r<R;r++){board.push([]);flow.push([]);
+    for(let c=0;c<C;c++){
+      board[r].push({gem:null,active:true,obs:null,pu:null,sub:null,item:null});
+      flow[r].push('down');
+    }
+  }
+  curLevelNum=1;
+  moveLimit=999; // irrelevant in entrance — moves count UP, nothing counts down
+  playerGoals=[
+    {kind:'collect',gemIdx:3,need:12,have:0,name:'yellow'},           // Topaz = yellow
+    {kind:'create',pu:'helicopter',need:1,have:0,name:'Grasshopper'},
+    {kind:'create',pu:'rocket',    need:1,have:0,name:'Dragonfly'},
+    {kind:'create',pu:'bomb',      need:1,have:0,name:'Scarab'},
+    {kind:'create',pu:'rainbow',   need:1,have:0,name:'Akasha Ball'},
+  ];
+  moves=0;cleared=0;
+  beginPlaySession();
+}
+
 function playerTally(gemIdx){ playerGoals.forEach(g=>{ if(g.gemIdx===gemIdx) g.have++; }); }
 
 function updatePlayerHUD(){
   document.getElementById('phud-level').textContent='Level '+curLevelNum;
   // Moves count UP from 0 — no-fail model, no limit shown.
   document.getElementById('phud-moves').textContent=moves;
-  const g=playerGoals[0];
   const goalEl=document.getElementById('phud-goal');
-  if(g){
-    // Goal counts DOWN: remaining gems to collect, single number, 0 = done.
+  if(!playerGoals.length){goalEl.innerHTML='';return;}
+  if(playerGoals.length===1&&playerGoals[0].kind==='collect'){
+    // Single collect goal — classic big-icon layout. Counts DOWN, 0 = done.
+    const g=playerGoals[0];
     const remaining=Math.max(0,g.need-g.have);
     goalEl.innerHTML='<div class="phud-cap">Collect</div>'+
       '<div class="phud-icon">'+gemSVG(g.gemIdx,48)+'</div>'+
       '<div class="phud-gcount">'+remaining+'</div>';
-  } else goalEl.innerHTML='';
+    return;
+  }
+  // Multi-goal (entrance) — one row per goal: icon, remaining/✓, and a "?" help button.
+  let html='<div class="phud-cap">Goals</div>';
+  playerGoals.forEach((g,i)=>{
+    const done=g.have>=g.need;
+    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):puSVG(goalPuIcon(g.pu),30);
+    const status=done?'<span class="goal-done">✓</span>'
+      :'<span class="goal-count">'+Math.max(0,g.need-g.have)+'</span>';
+    html+='<div class="goal-row'+(done?' complete':'')+'">'+
+      '<span class="goal-icon">'+icon+'</span>'+status+
+      '<button class="goal-help" onclick="showGoalHelp('+i+')">?</button></div>';
+  });
+  goalEl.innerHTML=html;
 }
+
+// 'rocket' is the goal key for Dragonfly; puSVG needs a concrete engine type for the icon.
+function goalPuIcon(pu){return pu==='rocket'?'rocket_h':pu;}
 
 function checkPlayerEnd(){
   updatePlayerHUD();
@@ -1912,7 +2026,75 @@ function checkPlayerEnd(){
   if(won) playerFinish(true);
 }
 
+// ── Goal help popups — "?" next to each entrance goal ────────────────────────
+// Mini-grid diagram: tan cells, highlighted cells drawn as yellow gems.
+function shapeDiagramSVG(rows,cols,hi){
+  const cs=26,gap=3,W=cols*(cs+gap)-gap,H=rows*(cs+gap)-gap;
+  const hiSet=new Set(hi.map(([r,c])=>r+','+c));
+  let out='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">';
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const x=c*(cs+gap),y=r*(cs+gap);
+    out+='<rect x="'+x+'" y="'+y+'" width="'+cs+'" height="'+cs+'" rx="5" fill="#d4b483" stroke="#b8935a"/>';
+    if(hiSet.has(r+','+c))
+      out+='<polygon points="'+(x+cs/2)+','+(y+cs*.12)+' '+(x+cs*.88)+','+(y+cs/2)+' '+(x+cs/2)+','+(y+cs*.88)+' '+(x+cs*.12)+','+(y+cs/2)+'" fill="#F0C040" stroke="#5A3800" stroke-width="1"/>';
+  }
+  return out+'</svg>';
+}
+
+// Help copy + diagrams, keyed by goal. Diagrams show the match SHAPE that forms each power-up.
+const GOAL_HELP={
+  collect:{title:'Collect 12 Yellow Gems',diagram:()=>shapeDiagramSVG(1,3,[[0,0],[0,1],[0,2]]),
+    text:'Swap two neighboring gems to line up 3 or more yellow gems in a row or column. Each yellow gem cleared counts toward the goal — four 3-matches gets you all 12.'},
+  helicopter:{title:'Make a Grasshopper',diagram:()=>shapeDiagramSVG(2,2,[[0,0],[0,1],[1,0],[1,1]]),
+    text:'Form a 2×2 square of the same color. The Grasshopper hops to a target of your choosing and clears it.'},
+  rocket:{title:'Make a Dragonfly',diagram:()=>shapeDiagramSVG(1,4,[[0,0],[0,1],[0,2],[0,3]]),
+    text:'Line up exactly 4 of the same color in a row or column. The Dragonfly rockets across the board, clearing a full line.'},
+  bomb:{title:'Make a Scarab',diagram:()=>shapeDiagramSVG(3,3,[[0,0],[1,0],[2,0],[2,1],[2,2]]),
+    text:'Form an L or T shape — two lines of 3+ sharing a corner, 5 gems total. The Scarab explodes, clearing everything around it.'},
+  rainbow:{title:'Make an Akasha Ball',diagram:()=>shapeDiagramSVG(1,5,[[0,0],[0,1],[0,2],[0,3],[0,4]]),
+    text:'Line up 5 of the same color in a single row or column. The Akasha Ball clears every gem of one color from the board.'},
+};
+
+function showGoalHelp(i){
+  const g=playerGoals[i]; if(!g)return;
+  const h=g.kind==='collect'?GOAL_HELP.collect:GOAL_HELP[g.pu]; if(!h)return;
+  document.getElementById('ghelp-title').textContent=h.title;
+  document.getElementById('ghelp-diagram').innerHTML=h.diagram();
+  document.getElementById('ghelp-text').textContent=h.text;
+  document.getElementById('ghelp').classList.add('open');
+}
+function closeGoalHelp(){document.getElementById('ghelp').classList.remove('open');}
+
+// ── Entrance completion → two-path choice ────────────────────────────────────
+function showEntranceChoice(){
+  playing=false; animating=true; // lock the board under the overlay
+  document.getElementById('pchoice').classList.add('open');
+}
+function leaveEntrance(){
+  // common teardown for both paths out of the entrance level
+  entranceMode=false; GEMN=6; playerMode=false; playing=false; animating=false;
+  CELL_SIZE=44;
+  document.getElementById('pchoice').classList.remove('open');
+  document.body.classList.remove('player-playing');
+  document.getElementById('editor').style.display='none';
+}
+function chooseEditorPath(){
+  // Editor/Player — creator track: land on the editor home screen
+  leaveEntrance();
+  document.getElementById('player').classList.remove('active');
+  document.getElementById('shell').style.display='';
+  document.getElementById('home').style.display='flex';
+}
+function choosePlayerPath(){
+  // Player/Contributor — consumption track: bundles (docs/content page comes later)
+  leaveEntrance();
+  document.getElementById('shell').style.display='none';
+  renderBundles();
+}
+
 function playerFinish(win){
+  // Entrance level ends with the two-path choice, not the stars overlay
+  if(entranceMode&&win){showEntranceChoice();return;}
   playing=false; animating=true; // lock the board
   const stars= win ? (moves<=Math.ceil(moveLimit/3)?3:moves<=Math.ceil(2*moveLimit/3)?2:1) : 0;
   if(win) PlayerProgress.set(curLevelNum,stars);
@@ -1934,6 +2116,7 @@ function pwinContinue(){
 
 function exitToGrid(){
   playing=false; animating=false; playerMode=false;
+  entranceMode=false; GEMN=6; // leaving mid-entrance also restores full gem set
   CELL_SIZE=44; // restore editor's fixed cell size
   document.body.classList.remove('player-playing');
   document.getElementById('editor').style.display='none';
@@ -1941,8 +2124,9 @@ function exitToGrid(){
   renderGrid();
 }
 
-// launch the player when arriving via #play / #player
+// launch the player when arriving via #play / #player; #enter starts the Level 1 entrance
 if(location.hash==='#play'||location.hash==='#player') renderBundles();
+else if(location.hash==='#enter') startEntrance();
 
 // ── Bug Report Button ─────────────────────────────────────────────────────────
 const _BUG_ADJ1 = [
