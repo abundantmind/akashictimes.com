@@ -155,7 +155,7 @@ body.font-lg{--base-font:20px;}
 .cell.inactive{background:transparent;opacity:.4;}
 .cell.empty-hint{background:#d4b483;border:0.5px dashed #b8935a;}
 .cell.throb{animation:throb 500ms ease-in-out infinite;}
-.cell.rainbow-pick .gem-inner{animation:rainbow-pulse 600ms ease-in-out infinite;}
+.cell.rainbow-pick .gem-inner,.cell.hopper-pick .gem-inner{animation:rainbow-pulse 600ms ease-in-out infinite;}
 @keyframes rainbow-pulse{0%,100%{filter:brightness(1);transform:scale(1);}50%{filter:brightness(1.5) drop-shadow(0 0 4px #fff);transform:scale(1.08);}}
 @keyframes throb{0%,100%{transform:scale(1);}50%{transform:scale(1.12);filter:brightness(1.3);}}
 .cell.bounce-back{animation:bounce-back 280ms ease-out;}
@@ -417,6 +417,22 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
         <div class="ptitle">Power-ups</div>
         <div id="pupal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
       </div>
+      <div class="psec" id="sub-pal">
+        <div class="ptitle">Substrate</div>
+        <div id="subpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+      </div>
+      <div class="psec" id="ovl-pal">
+        <div class="ptitle">Overlays</div>
+        <div id="ovlpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+      </div>
+      <div class="psec" id="blk-pal">
+        <div class="ptitle">Blocks</div>
+        <div id="blkpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+      </div>
+      <div class="psec" id="itm-pal">
+        <div class="ptitle">Items</div>
+        <div id="itmpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+      </div>
     </div>
     <div id="board-wrap"><div id="board"></div></div>
     <div id="rpanel">
@@ -531,7 +547,7 @@ let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (boar
 const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
 let board=[],flow=[],layer='tile',tool='paint',selGem=0,selPU=null;
-let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null;
+let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null,choosingGrasshopper=null;
 let undoQ=[],redoQ=[],moves=0,cleared=0,flowMode='down';
 window.moveHistory=[];
 
@@ -592,7 +608,7 @@ function openEditor(){
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
   initBlankBoard();
-  buildGPal();buildPUPal();
+  buildGPal();buildPUPal();buildObsPal();
   render();
   updUB();
 }
@@ -608,7 +624,7 @@ function initBlankBoard(){
   board=[];flow=[];
   for(let r=0;r<R;r++){board.push([]);flow.push([]);
     for(let c=0;c<C;c++){
-      board[r].push({gem:null,active:true,obs:null,pu:null});
+      board[r].push({gem:null,active:true,obs:null,pu:null,sub:null,item:null});
       flow[r].push('down');
     }
   }
@@ -718,6 +734,41 @@ function animateBounceBack(r1,c1,r2,c2,onDone){
   setTimeout(()=>{if(el1)el1.classList.remove('bounce-back');if(el2)el2.classList.remove('bounce-back');onDone();},300);
 }
 
+// Laser beam from source cell to target cell — quick line that flashes and fades
+function animateLaser(sr,sc,tr,tc,onDone){
+  const wrap=document.getElementById('board-wrap');
+  const from=cellPos(sr,sc), to=cellPos(tr,tc);
+  const dx=to.x-from.x, dy=to.y-from.y;
+  const len=Math.sqrt(dx*dx+dy*dy);
+  const angle=Math.atan2(dy,dx)*180/Math.PI;
+  const beam=document.createElement('div');
+  beam.style.cssText='position:absolute;pointer-events:none;z-index:25;height:3px;border-radius:2px;'
+    +'background:linear-gradient(90deg,#fff,#7df);box-shadow:0 0 8px #7df,0 0 16px #3bf;'
+    +'transform-origin:0 50%;opacity:1;';
+  beam.style.left=from.x+'px';
+  beam.style.top=(from.y-1)+'px';
+  beam.style.width='0px';
+  beam.style.transform='rotate('+angle+'deg)';
+  wrap.appendChild(beam);
+  // Extend beam from source to target over 120ms
+  const dur=120;
+  const start=performance.now();
+  function step(now){
+    const t=Math.min((now-start)/dur,1);
+    beam.style.width=(len*t)+'px';
+    if(t<1) requestAnimationFrame(step);
+    else{
+      // Hold briefly, then fade out
+      setTimeout(()=>{
+        beam.style.transition='opacity 100ms';
+        beam.style.opacity='0';
+        setTimeout(()=>{beam.remove();onDone();},100);
+      },80);
+    }
+  }
+  requestAnimationFrame(step);
+}
+
 function render(dropping){
   const bd=document.getElementById('board');
   bd.style.gridTemplateColumns=`repeat(${C},${CELL_SIZE}px)`;
@@ -734,14 +785,31 @@ function render(dropping){
     } else {
       const inner=document.createElement('div');
       inner.className='gem-inner';
-      if(cd.pu){inner.innerHTML=puSVG(cd.pu,gemSize());}
+      // Layer stack: substrate (under) → gem/pu/item (middle) → overlay obstacle (over)
+      if(cd.sub){const o=OBS_TYPES.find(x=>x.id===cd.sub);if(o){
+        el.style.position='relative';
+        el.style.background=o.color;
+        el.style.borderRadius='0';
+        el.style.boxShadow='0 0 0 1.5px '+o.color;
+      }}
+      // Middle layer: item, power-up, or gem (mutually exclusive)
+      if(cd.item){const o=OBS_TYPES.find(x=>x.id===cd.item);if(o)inner.innerHTML=obsSVG(o,gemSize());}
+      else if(cd.pu){inner.innerHTML=puSVG(cd.pu,gemSize());}
       else if(cd.gem!==null){inner.innerHTML=gemSVG(cd.gem,gemSize());}
-      else{el.classList.add('empty-hint');}
+      else if(!cd.sub&&!cd.obs){el.classList.add('empty-hint');}
+      // Top layer: overlay obstacle (chain/leaf) — renders over gem, semi-transparent
+      if(cd.obs){
+        const ov=document.createElement('div');
+        ov.style.cssText='position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;';
+        ov.innerHTML=overlaySVG(cd.obs,CELL_SIZE);
+        el.style.position='relative';el.appendChild(ov);
+      }
       if(dropping&&dropping.has(r+','+c))el.classList.add('dropping');
       el.appendChild(inner);
     }
     if(selCell&&selCell[0]===r&&selCell[1]===c)el.classList.add('throb');
     if(choosingRainbow&&cd.gem!==null&&!cd.pu)el.classList.add('rainbow-pick');
+    if(choosingGrasshopper&&!choosingGrasshopper.excluded.has(r+','+c)&&(cd.gem!==null||cd.pu||cd.obs))el.classList.add('hopper-pick');
     el.addEventListener('mousedown',e=>{mdown=true;onCell(r,c,e);});
     el.addEventListener('mouseenter',()=>{
       document.getElementById('sb3').textContent=`(${c},${r})`;
@@ -772,17 +840,167 @@ function buildGPal(){
 const PU_TYPES=['helicopter','rocket_h','rocket_v','bomb','rainbow'];
 function buildPUPal(){
   const p=document.getElementById('pupal');p.innerHTML='';
+  // Clear icon for PU layer
+  const cd=document.createElement('div');
+  cd.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;';
+  cd.innerHTML=clearXSVG(34);cd.title='Clear power-up';
+  cd.onclick=()=>{
+    selPU=selPU==='_clear_pu'?null:'_clear_pu';
+    selObs=null;
+    document.querySelectorAll('#pupal div').forEach(x=>x.style.borderColor='transparent');
+    document.querySelectorAll('#subpal div,#ovlpal div,#blkpal div,#itmpal div').forEach(x=>x.style.borderColor='transparent');
+    if(selPU==='_clear_pu') cd.style.borderColor='#c8a8ff';
+  };
+  p.appendChild(cd);
   PU_TYPES.forEach(pu=>{
     const d=document.createElement('div');
     d.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;';
     d.innerHTML=puSVG(pu,34);
     d.onclick=()=>{
-      // Toggle: click same PU deselects, click different selects
       selPU=selPU===pu?null:pu;
+      selObs=null; // deselect obstacle when selecting PU
       document.querySelectorAll('#pupal div').forEach(x=>x.style.borderColor='transparent');
+      document.querySelectorAll('#obspal div').forEach(x=>x.style.borderColor='transparent');
       if(selPU) d.style.borderColor='#c8a8ff';
     };
     p.appendChild(d);
+  });
+}
+
+// Obstacle/object types from L1-50 level data, organized by layer.
+// layer='sub': substrate — renders UNDER gem/pu, persists when gem clears
+// layer='obs': overlay — renders OVER gem, must be broken before gem can match (has HP)
+// layer='obs': block — solid, nothing underneath (clears gem on paint)
+// layer='item': occupies gem slot — collectible/special object
+const OBS_TYPES=[
+  {id:'clover',  label:'CLV', color:'#3a9a4a', desc:'Clover substrate',  layer:'sub'},
+  {id:'bind1',   label:'CH1', color:'#8a8a8a', desc:'Chain 1HP',         layer:'obs', hp:1},
+  {id:'bind2',   label:'CH2', color:'#6a6a6a', desc:'Chain 2HP',         layer:'obs', hp:2},
+  {id:'bind3',   label:'CH3', color:'#4a4a4a', desc:'Chain 3HP',         layer:'obs', hp:3},
+  {id:'leaf1',   label:'LF1', color:'#4a8a3a', desc:'Leaf 1HP',          layer:'obs', hp:1},
+  {id:'leaf2',   label:'LF2', color:'#2a6a1a', desc:'Leaf 2HP',          layer:'obs', hp:2},
+  {id:'leaf3',   label:'LF3', color:'#1a5a0a', desc:'Leaf 3HP',          layer:'obs', hp:3},
+  {id:'crate1',  label:'BX1', color:'#8a6a3a', desc:'Crate 1HP',         layer:'obs', solid:true, hp:1},
+  {id:'crate2',  label:'BX2', color:'#7a5a2a', desc:'Crate 2HP',         layer:'obs', solid:true, hp:2},
+  {id:'crate3',  label:'BX3', color:'#6a4a1a', desc:'Crate 3HP',         layer:'obs', solid:true, hp:3},
+  {id:'key',     label:'ANK', color:'#d4aa40', desc:'Ankh (falls)',        layer:'item'},
+  {id:'acorn',   label:'ACN', color:'#7a5a2a', desc:'Acorn (collect)',    layer:'item'},
+  {id:'record',  label:'LP',  color:'#2a2a2a', desc:'Record (LP)',        layer:'item', hp:1},
+];
+let selObs=null;
+
+// Red X icon for per-layer clear buttons in palette
+function clearXSVG(size){
+  const s=size||34;
+  return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">`
+    +`<line x1="${s*.2}" y1="${s*.2}" x2="${s*.8}" y2="${s*.8}" stroke="#c44" stroke-width="3" stroke-linecap="round"/>`
+    +`<line x1="${s*.8}" y1="${s*.2}" x2="${s*.2}" y2="${s*.8}" stroke="#c44" stroke-width="3" stroke-linecap="round"/></svg>`;
+}
+
+// Overlay SVG for obstacles that sit ON TOP of gems (chains, leaves)
+// Chains: X-pattern chain links, semi-transparent so gem shows through
+// Leaves (triangles): cover 1/4 of cell per HP — 1HP=bottom, 2HP=+left, 3HP=+right
+function overlaySVG(obsId,size){
+  const s=size,h=s/2;
+  if(obsId==='bind1'||obsId==='bind2'||obsId==='bind3'){
+    // Chain links: joined circles along bands. 1HP=one diagonal, 2HP=X, 3HP=X+horizontal
+    const hp=obsId==='bind3'?3:obsId==='bind2'?2:1;
+    const r=s*.08; // link radius
+    const sw=s*.04; // stroke width
+    const hi='#aaa',lo='#666',sh='#333'; // highlight, base, shadow for 3D look
+    let links='';
+    // Helper: draw a chain link (circle with 3D shading)
+    const link=(cx,cy)=>`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${sh}" stroke-width="${sw+1}"/>`
+      +`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${lo}" stroke-width="${sw}"/>`
+      +`<circle cx="${cx-r*.3}" cy="${cy-r*.3}" r="${r*.3}" fill="none" stroke="${hi}" stroke-width="${sw*.5}" opacity="0.6"/>`;
+    // Band 1 (always): top-left to bottom-right diagonal
+    for(let i=0;i<5;i++){const t=(i+0.5)/5;links+=link(s*(.1+t*.8),s*(.1+t*.8));}
+    // Band 2 (HP>=2): top-right to bottom-left diagonal
+    if(hp>=2){for(let i=0;i<5;i++){const t=(i+0.5)/5;links+=link(s*(.9-t*.8),s*(.1+t*.8));}}
+    // Band 3 (HP>=3): horizontal center band
+    if(hp>=3){for(let i=0;i<5;i++){const t=(i+0.5)/5;links+=link(s*(.1+t*.8),h);}}
+    return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">${links}</svg>`;
+  }
+  if(obsId==='leaf1'||obsId==='leaf2'||obsId==='leaf3'){
+    // Triangular covers: 1HP=bottom, 2HP=+left, 3HP=+right
+    const hp=obsId==='leaf3'?3:obsId==='leaf2'?2:1;
+    const col='rgba(40,100,30,0.55)';
+    let paths='';
+    if(hp>=1) paths+=`<polygon points="${0},${s} ${s},${s} ${s},${s*.75} ${0},${s*.75}" fill="${col}"/>`;
+    if(hp>=2) paths+=`<polygon points="${0},${0} ${0},${s*.75} ${s*.25},${s*.75} ${s*.25},${0}" fill="${col}"/>`;
+    if(hp>=3) paths+=`<polygon points="${s},${0} ${s},${s*.75} ${s*.75},${s*.75} ${s*.75},${0}" fill="${col}"/>`;
+    return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
+  }
+  if(obsId==='crate1'||obsId==='crate2'||obsId==='crate3'){
+    // Solid wooden crate — more planks/crossbars for higher HP
+    const hp=obsId==='crate3'?3:obsId==='crate2'?2:1;
+    const fill=hp===3?'#6a4a1a':hp===2?'#7a5a2a':'#8a6a3a';
+    const stroke='#5a3a1a';
+    let planks=`<line x1="${h}" y1="2" x2="${h}" y2="${s-2}" stroke="${stroke}" stroke-width="1.5"/>`;
+    planks+=`<line x1="2" y1="${h}" x2="${s-2}" y2="${h}" stroke="${stroke}" stroke-width="1.5"/>`;
+    if(hp>=2){planks+=`<line x1="2" y1="${s*.3}" x2="${s-2}" y2="${s*.3}" stroke="${stroke}" stroke-width="1"/>`;
+              planks+=`<line x1="2" y1="${s*.7}" x2="${s-2}" y2="${s*.7}" stroke="${stroke}" stroke-width="1"/>`;}
+    if(hp>=3){planks+=`<line x1="${s*.3}" y1="2" x2="${s*.3}" y2="${s-2}" stroke="${stroke}" stroke-width="1"/>`;
+              planks+=`<line x1="${s*.7}" y1="2" x2="${s*.7}" y2="${s-2}" stroke="${stroke}" stroke-width="1"/>`;}
+    return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">`
+      +`<rect x="1" y="1" width="${s-2}" height="${s-2}" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`
+      +planks+`</svg>`;
+  }
+  // Fallback: generic labeled square
+  const o=OBS_TYPES.find(x=>x.id===obsId);
+  if(o) return obsSVG(o,size);
+  return'';
+}
+
+function obsSVG(obs,size){
+  const s=size||34,h=s/2;
+  // Ankh: black ankh symbol on transparent background
+  if(obs.id==='key'){
+    return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">`
+      +`<text x="${h}" y="${s*.55}" text-anchor="middle" dominant-baseline="middle" font-size="${s*.7}" fill="#111">☥</text></svg>`;
+  }
+  return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg"><rect x="${s*.08}" y="${s*.08}" width="${s*.84}" height="${s*.84}" rx="4" fill="${obs.color}" stroke="#555" stroke-width="1"/><text x="${h}" y="${h}" text-anchor="middle" dominant-baseline="middle" font-size="${s*.28}" fill="#fff" font-family="monospace" font-weight="bold">${obs.label}</text></svg>`;
+}
+
+function buildObsPal(){
+  const containers={sub:'subpal',obs:'ovlpal',item:'itmpal'};
+  Object.values(containers).forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+  const blkEl=document.getElementById('blkpal');if(blkEl)blkEl.innerHTML='';
+  const allPalDivs=[];
+  // Helper: create a palette div with click behavior
+  const makeDiv=(id,html,title,targetEl)=>{
+    const d=document.createElement('div');
+    d.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;';
+    d.innerHTML=html;
+    d.title=title;
+    allPalDivs.push(d);
+    d.onclick=()=>{
+      selObs=selObs===id?null:id;
+      selPU=null;
+      document.querySelectorAll('#pupal div').forEach(x=>x.style.borderColor='transparent');
+      allPalDivs.forEach(x=>x.style.borderColor='transparent');
+      if(selObs) d.style.borderColor='#c8a8ff';
+    };
+    targetEl.appendChild(d);
+    return d;
+  };
+  // Add clear icon to each section
+  const clearIds={subpal:'_clear_sub',ovlpal:'_clear_obs',blkpal:'_clear_obs',itmpal:'_clear_item'};
+  Object.entries(clearIds).forEach(([palId,clearId])=>{
+    const p=document.getElementById(palId);if(!p)return;
+    makeDiv(clearId,clearXSVG(34),'Clear this layer',p);
+  });
+  // Add actual items
+  OBS_TYPES.forEach(obs=>{
+    const targetId=obs.solid?'blkpal':containers[obs.layer];
+    const p=document.getElementById(targetId);if(!p)return;
+    let html;
+    if(obs.layer==='sub'){html=`<span style="font-size:10px;color:#fff;font-weight:bold;opacity:0.7">${obs.label}</span>`;}
+    else if(obs.layer==='obs'){html=overlaySVG(obs.id,34);}
+    else{html=obsSVG(obs,34);}
+    const d=makeDiv(obs.id,html,obs.desc,p);
+    if(obs.layer==='sub'){d.style.background=obs.color;d.style.borderRadius='2px';}
+    else if(obs.layer==='obs'){d.style.background='#d4b483';}
   });
 }
 
@@ -816,10 +1034,22 @@ function paintCell(r,c){
   const cd=board[r][c];
   if(layer==='base'){save();cd.active=!cd.active;}
   else if(layer==='tile'&&cd.active){
-    if(tool==='paint'&&selPU){save();cd.pu=selPU;cd.gem=null;}
-    else if(tool==='paint'){save();cd.gem=selGem;cd.pu=null;}
+    if(tool==='paint'&&selObs==='_clear_sub'){save();cd.sub=null;}          // clear substrate only
+    else if(tool==='paint'&&selObs==='_clear_obs'){save();cd.obs=null;}   // clear overlay/block only
+    else if(tool==='paint'&&selObs==='_clear_item'){save();cd.item=null;} // clear item only
+    else if(tool==='paint'&&selPU==='_clear_pu'){save();cd.pu=null;}      // clear power-up only
+    else if(tool==='paint'&&selObs){
+      const ot=OBS_TYPES.find(x=>x.id===selObs);
+      save();
+      if(ot.layer==='sub'){cd.sub=selObs;}                              // substrate: additive, doesn't touch gem/obs
+      else if(ot.layer==='obs'&&ot.solid){cd.obs=selObs;cd.gem=null;cd.pu=null;} // solid block: replaces gem
+      else if(ot.layer==='obs'){cd.obs=selObs;}                         // overlay: additive, sits over gem
+      else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=selObs;} // item: occupies gem slot
+    }
+    else if(tool==='paint'&&selPU){save();cd.pu=selPU;cd.gem=null;}     // PU replaces gem, keeps sub/obs
+    else if(tool==='paint'){save();cd.gem=selGem;cd.pu=null;cd.item=null;} // gem replaces PU/item, keeps sub/obs
     else if(tool==='fill'){save();flood(r,c,cd.gem,selGem);}
-    else if(tool==='erase'){save();cd.gem=null;cd.pu=null;}
+    else if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;}
     else if(tool==='mirror'){save();cd.gem=selGem;cd.pu=null;board[r][C-1-c].gem=selGem;board[r][C-1-c].pu=null;}
   } else if(layer==='flow'&&flowMode==='custom'){
     const dirs=['down','right','left','up'];
@@ -836,7 +1066,7 @@ function flood(r,c,from,to){
 }
 
 function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=~~(Math.random()*6);board[r][c].pu=null;}clean();render();}
-function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;}render();}
+function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;board[r][c].sub=null;board[r][c].item=null;}render();}
 
 function togglePlay(){
   playing=!playing;selCell=null;moves=0;cleared=0;animating=false;
@@ -889,12 +1119,47 @@ function dragonflyCells(r,c,dir){
   return cells;
 }
 
-// Grasshopper auto-target: nearest active gem cell by Manhattan distance, scan-order tie-break
-function nearestGemCell(r,c){
+// Grasshopper orthogonal clear: 4 cells around the Grasshopper (up/down/left/right)
+function grasshopperOrthCells(r,c){
+  const cells=[];
+  for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+    if(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active) cells.push([nr,nc]);
+  }
+  return cells;
+}
+
+// Grasshopper auto-target for chain activation: goal gem furthest from complete,
+// nearest instance by Manhattan distance. Falls back to nearest gem if no goal
+// gem exists. Will expand when obstacle-type goals are implemented.
+function autoGrasshopperTarget(r,c,excludeSet){
+  // Find the goal color with the most remaining need
+  let bestGoal=null,bestNeed=0;
+  if(playerMode&&playerGoals.length){
+    playerGoals.forEach(g=>{
+      const remaining=g.need-g.have;
+      if(remaining>bestNeed){bestNeed=remaining;bestGoal=g.gemIdx;}
+    });
+  }
+  // Search for nearest instance of that color (or any gem as fallback)
   let best=null,bestDist=Infinity;
   for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
     if(nr===r&&nc===c)continue;
-    if(board[nr][nc].active&&board[nr][nc].gem!==null){
+    const k=nr+','+nc;
+    if(excludeSet&&excludeSet.has(k))continue;
+    if(!board[nr][nc].active||board[nr][nc].gem===null)continue;
+    // Prefer goal-color gems; fall back to any gem
+    const isGoal=bestGoal!==null&&board[nr][nc].gem===bestGoal;
+    const d=Math.abs(nr-r)+Math.abs(nc-c);
+    if(isGoal&&d<bestDist){bestDist=d;best=[nr,nc];}
+  }
+  // Fallback: nearest gem of any color
+  if(!best){
+    bestDist=Infinity;
+    for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
+      if(nr===r&&nc===c)continue;
+      const k=nr+','+nc;
+      if(excludeSet&&excludeSet.has(k))continue;
+      if(!board[nr][nc].active||board[nr][nc].gem===null)continue;
       const d=Math.abs(nr-r)+Math.abs(nc-c);
       if(d<bestDist){bestDist=d;best=[nr,nc];}
     }
@@ -947,10 +1212,32 @@ function resolveChain(initialCells){
       else if(pu==='rocket_h') queue.push(...dragonflyCells(r,c,'h'));
       else if(pu==='rocket_v') queue.push(...dragonflyCells(r,c,'v'));
       else if(pu==='rainbow')  queue.push(...rainbowCells(mostPrevalentGem()));
-      else if(pu==='helicopter'){const t=nearestGemCell(r,c);if(t)queue.push(t);}
+      else if(pu==='helicopter'){
+        // Chain-triggered: clear orthogonal neighbors + auto-pick goal-oriented fly-to target
+        queue.push(...grasshopperOrthCells(r,c));
+        const t=autoGrasshopperTarget(r,c,cleared);
+        if(t)queue.push(t);
+      }
     }
   }
   return[...cleared].map(k=>{const[a,b]=k.split(',').map(Number);return[a,b];});
+}
+
+// ── Cascade end: shared by applyEffects and resolve ──
+function cascadeEnd(){
+  updStats();
+  // If a player-activated Grasshopper is waiting for fly-to target, enter choosing state
+  if(window._pendingHopperChoose){
+    const h=window._pendingHopperChoose;
+    window._pendingHopperChoose=null;
+    choosingGrasshopper={r:h.r,c:h.c,excluded:h.excluded,orthCells:h.orthCells};
+    animating=false;
+    render();
+    if(playerMode)updatePlayerHUD();
+    return;
+  }
+  animating=false;render();
+  if(playerMode){updatePlayerHUD();checkPlayerEnd();}
 }
 
 // ── Apply a combined set of cleared cells: pop, gravity, cascade ──
@@ -969,7 +1256,7 @@ function applyEffects(cellsToClear,pivotR,pivotC){
     animateFall(fallMoves,()=>{
       const np=findPatterns(pivotR,pivotC,pivotR,pivotC);
       if(np.length){resolve(np,pivotR,pivotC,JSON.parse(JSON.stringify(board)),pivotR,pivotC);}
-      else{updStats();animating=false;render();if(playerMode){updatePlayerHUD();checkPlayerEnd();}}
+      else{cascadeEnd();}
     });
   },230);
 }
@@ -981,9 +1268,33 @@ function playTap(r,c){
     const cd2=board[r][c];
     if(!cd2||!cd2.active||cd2.gem===null||cd2.pu) return; // invalid pick — stay in choosing
     choosingRainbow=null;
-    moves++;
-    updatePlayerHUD();
     applyEffects(rainbowCells(board[r][c].gem),r,c);
+    return;
+  }
+  // Grasshopper choosing state — player picks fly-to target
+  if(choosingGrasshopper){
+    const cd2=board[r][c];
+    const k=r+','+c;
+    // Invalid pick: empty, inactive, or in the orthogonal/self exclusion zone
+    if(!cd2||!cd2.active||choosingGrasshopper.excluded.has(k)||(cd2.gem===null&&!cd2.pu&&!cd2.obs)) return;
+    const hop=choosingGrasshopper;
+    choosingGrasshopper=null;
+    animating=true;
+    // Step 1: clear orthogonal neighbors (chain-resolved)
+    const orthChained=resolveChain(hop.orthCells);
+    const phase=new Set();
+    orthChained.forEach(([cr,cc])=>clearCell(cr,cc,phase));
+    if(playerMode)updatePlayerHUD();
+    cleared+=phase.size;
+    render(null);
+    phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
+    // Step 2: after pop, laser from source to target, then clear target
+    setTimeout(()=>{
+      animateLaser(hop.r,hop.c,r,c,()=>{
+        // Step 3: clear target cell (chain-resolved)
+        applyEffects([[r,c]],r,c);
+      });
+    },230);
     return;
   }
   const cd=board[r][c];
@@ -1013,10 +1324,14 @@ function playTap(r,c){
         board[r][c].pu=null;
         applyEffects(dragonflyCells(r,c,'v'),r,c);
       } else if(cd.pu==='helicopter'){
+        // Player double-tap: vibe immediately, player picks target, THEN orthogonal + laser + target
         moves++;updatePlayerHUD();
         board[r][c].pu=null;
-        const t=nearestGemCell(r,c);
-        applyEffects(t?[t]:[],r,c);
+        const orthCells=grasshopperOrthCells(r,c);
+        const excluded=new Set(orthCells.map(([er,ec])=>er+','+ec));
+        excluded.add(r+','+c);
+        choosingGrasshopper={r,c,excluded,orthCells};
+        render(); // starts vibe on eligible cells
       }
     } else render();
     return;
@@ -1040,7 +1355,15 @@ function playTap(r,c){
       else if(pu==='rocket_h'){board[pr][pc].pu=null;allCells.push(...dragonflyCells(pr,pc,'h'));}
       else if(pu==='rocket_v'){board[pr][pc].pu=null;allCells.push(...dragonflyCells(pr,pc,'v'));}
       else if(pu==='rainbow'){board[pr][pc].pu=null;allCells.push(...rainbowCells(board[gr][gc].gem));}
-      else if(pu==='helicopter'){board[pr][pc].pu=null;const t=nearestGemCell(pr,pc);if(t)allCells.push(t);}
+      else if(pu==='helicopter'){
+        board[pr][pc].pu=null;
+        // Player swap: vibe immediately, player picks target, then orthogonal + laser + target
+        const orthCells=grasshopperOrthCells(pr,pc);
+        const excluded=new Set(orthCells.map(([er,ec])=>er+','+ec));
+        excluded.add(pr+','+pc);
+        hasPU=true;
+        window._pendingHopperChoose={r:pr,c:pc,excluded,orthCells};
+      }
     }
     // Also collect any normal pattern matches formed by the swap
     const pats=findPatterns(r,c,sr,sc);
@@ -1118,7 +1441,7 @@ function resolve(pats,dr,dc,snap,sr,sc){
     animateFall(fallMoves,()=>{
       const np=findPatterns(dr,dc,dr,dc);
       if(np.length){resolve(np,dr,dc,JSON.parse(JSON.stringify(board)),dr,dc);}
-      else{updStats();animating=false;render();if(playerMode){updatePlayerHUD();checkPlayerEnd();}}
+      else{cascadeEnd();}
     });
   },230);
 }
@@ -1557,7 +1880,7 @@ async function startPlayerLevel(num){
   document.body.classList.add('player-playing');
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
-  buildGPal();buildPUPal();
+  buildGPal();buildPUPal();buildObsPal();
   playerMode=true; playing=false;
   render();
   togglePlay();      // fills empty active cells, removes initial matches, starts Play
