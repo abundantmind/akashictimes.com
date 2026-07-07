@@ -1438,16 +1438,16 @@ function playTap(r,c){
         updatePlayerHUD();
         applyEffects(dragonflyCells(r,c,'v'),r,c);
       } else if(cd.pu==='helicopter'){
-        // Township order: takeoff clears the orthogonal cells IMMEDIATELY (chain-
-        // resolved, cascades settle), THEN the player picks the fly-to target
-        // from a stable board. Choosing state opens at cascadeEnd.
+        // The jump can't happen until the destination is known: vibe FIRST
+        // (all cells eligible except the hopper's own — orthogonals included),
+        // then on selection the orthogonals clear + laser fires + target clears.
         moves++;
         board[r][c].pu=null;
         puFired('helicopter'); // goal event: detonated by player
         updatePlayerHUD();
         const orthCells=grasshopperOrthCells(r,c);
-        window._pendingHopperChoose={r,c,excluded:new Set([r+','+c]),orthCells:[]};
-        applyEffects(orthCells,r,c);
+        choosingGrasshopper={r,c,excluded:new Set([r+','+c]),orthCells};
+        render(); // starts vibe on eligible cells
       }
     } else render();
     return;
@@ -1475,10 +1475,10 @@ function playTap(r,c){
       else if(pu==='helicopter'){
         board[pr][pc].pu=null;
         puFired('helicopter'); // goal event: detonated by swap
-        // Township order: orthogonal cells clear NOW with the rest of the swap
-        // effects; the fly-to choice opens at cascadeEnd once the board settles.
-        allCells.push(...grasshopperOrthCells(pr,pc));
-        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set([pr+','+pc]),orthCells:[]};
+        // Nothing clears yet — the jump waits for a destination. Choosing state
+        // opens at cascadeEnd (after any simultaneous swap effects settle);
+        // orthogonals clear together with the laser once the target is picked.
+        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set([pr+','+pc]),orthCells:grasshopperOrthCells(pr,pc)};
       }
     }
     // Also collect any normal pattern matches formed by the swap
