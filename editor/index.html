@@ -1595,13 +1595,14 @@ function playTap(r,c){
 
 function resolve(pats,dr,dc,snap,sr,sc){
   const p=pats[0];const toClear=[];
-  // Anchor the power-up ON the matched run — not the (possibly stale) swap
-  // destination. Bug fix: if (dr,dc) isn't part of THIS match (e.g. pats[0] is
-  // an incidental 4-run elsewhere while the player only made a 3-match), the PU
-  // was being dropped on the player's unrelated cell. Use (dr,dc) only when it
-  // belongs to the run; otherwise the run's middle cell.
-  const inRun=p.cells.some(([r,c])=>r===dr&&c===dc);
-  const [ar,ac]=inRun?[dr,dc]:p.cells[Math.floor(p.cells.length/2)];
+  // Anchor the power-up ON the matched run, at the cell the player touched.
+  // The completing gem may sit at EITHER swap cell: the dragged gem lands at
+  // (dr,dc), but its swap partner lands at (sr,sc) and can be what closes the
+  // pattern (this is how 2x2 Hoppers were spawning at the far corner).
+  // Prefer dest, then source, then the run's middle as a cascade fallback.
+  const inRunDest=p.cells.some(([r,c])=>r===dr&&c===dc);
+  const inRunSrc =p.cells.some(([r,c])=>r===sr&&c===sc);
+  const [ar,ac]=inRunDest?[dr,dc]:inRunSrc?[sr,sc]:p.cells[Math.floor(p.cells.length/2)];
   if(p.type==='helicopter'){
     if(playerMode&&board[ar][ac].gem!==null)playerTally(board[ar][ac].gem); // tally anchor gem before it becomes a power-up
     p.cells.filter(([r,c])=>!(r===ar&&c===ac)).forEach(([r,c])=>toClear.push([r,c]));
