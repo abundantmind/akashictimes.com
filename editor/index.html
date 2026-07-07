@@ -2248,7 +2248,12 @@ const GOAL_HELP={
     text:'Form a 2×2 square of the same color. The Grasshopper hops to a target of your choosing and clears it.'},
   rocket:{title:'Make a Dragonfly',diagram:()=>shapeDiagramSVG(1,4,[[0,0],[0,1],[0,2],[0,3]]),
     text:'Line up exactly 4 of the same color in a row or column. The Dragonfly rockets across the board, clearing a full line.'},
-  bomb:{title:'Make a Scarab',diagram:()=>shapeDiagramSVG(3,3,[[0,0],[1,0],[2,0],[2,1],[2,2]]),
+  bomb:{title:'Make a Scarab',
+    // both qualifying shapes, side by side: L on the left, T on the right
+    diagram:()=>'<span style="display:inline-flex;gap:16px;align-items:center;">'
+      +shapeDiagramSVG(3,3,[[0,0],[1,0],[2,0],[2,1],[2,2]])
+      +shapeDiagramSVG(3,3,[[0,0],[0,1],[0,2],[1,1],[2,1]])
+      +'</span>',
     text:'Form an L or T shape — two lines of 3+ sharing a corner, 5 gems total. The Scarab explodes, clearing everything around it.'},
   rainbow:{title:'Make an Akasha Ball',diagram:()=>shapeDiagramSVG(1,5,[[0,0],[0,1],[0,2],[0,3],[0,4]]),
     text:'Line up 5 of the same color in a single row or column. The Akasha Ball clears every gem of one color from the board.'},
