@@ -1474,6 +1474,10 @@ function playTap(r,c){
     const hop=choosingGrasshopper;
     choosingGrasshopper=null;
     animating=true;
+    // The Grasshopper stayed visible while the player chose — NOW he jumps:
+    // consume the PU and fire the goal event at the moment of takeoff.
+    board[hop.r][hop.c].pu=null;
+    puFired('helicopter'); // goal event: detonated (jump committed)
     // Step 1: clear orthogonal neighbors (chain-resolved)
     const orthChained=resolveChain(hop.orthCells);
     const phase=new Set();
@@ -1526,11 +1530,10 @@ function playTap(r,c){
         fireDragonfly(r,c,'v'); // beams race outward from the detonation point
       } else if(cd.pu==='helicopter'){
         // The jump can't happen until the destination is known: vibe FIRST
-        // (all cells eligible except the hopper's own — orthogonals included),
-        // then on selection the orthogonals clear + laser fires + target clears.
+        // (all cells eligible except the hopper's own — orthogonals included).
+        // The Grasshopper STAYS on the board while choosing — the PU is only
+        // consumed (and the goal event fired) when the player commits the jump.
         moves++;
-        board[r][c].pu=null;
-        puFired('helicopter'); // goal event: detonated by player
         updatePlayerHUD();
         const orthCells=grasshopperOrthCells(r,c);
         choosingGrasshopper={r,c,excluded:new Set([r+','+c]),orthCells};
@@ -1561,11 +1564,9 @@ function playTap(r,c){
       else if(pu==='rocket_v'){board[pr][pc].pu=null;puFired('rocket');dfly={r:pr,c:pc,dir:'v'};}
       else if(pu==='rainbow'){board[pr][pc].pu=null;puFired('rainbow');akasha={r:pr,c:pc,gem:board[gr][gc].gem};}
       else if(pu==='helicopter'){
-        board[pr][pc].pu=null;
-        puFired('helicopter'); // goal event: detonated by swap
-        // Nothing clears yet — the jump waits for a destination. Choosing state
-        // opens at cascadeEnd (after any simultaneous swap effects settle);
-        // orthogonals clear together with the laser once the target is picked.
+        // The Grasshopper stays visible on its landed cell while choosing —
+        // consumed (and goal event fired) only when the jump commits.
+        // Choosing opens at cascadeEnd, after simultaneous swap effects settle.
         window._pendingHopperChoose={r:pr,c:pc,excluded:new Set([pr+','+pc]),orthCells:grasshopperOrthCells(pr,pc)};
       }
     }
