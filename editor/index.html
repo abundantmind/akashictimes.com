@@ -249,6 +249,7 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 /* ── Entrance: multi-goal HUD rows, help popup, two-path choice ── */
 .goal-row{display:flex;align-items:center;gap:8px;padding:4px 0;width:100%;}
 .goal-row.complete{opacity:.55;}
+.goal-verb{font-size:var(--fz-xs);color:#665580;text-transform:uppercase;letter-spacing:.06em;width:32px;flex-shrink:0;text-align:right;}
 .goal-icon{width:30px;height:30px;flex-shrink:0;display:flex;}
 .goal-count{font-size:var(--fz-lg);color:#ffcb6b;font-weight:500;flex:1;}
 .goal-done{font-size:var(--fz-lg);color:#c3e88d;font-weight:500;flex:1;}
@@ -1273,6 +1274,7 @@ function resolveChain(initialCells){
     const pu=board[r][c].pu;
     if(pu&&!activated.has(k)){
       activated.add(k);
+      puFired(pu); // goal event: detonated by chain reaction
       if(pu==='bomb')        queue.push(...scarabCells(r,c));
       else if(pu==='rocket_h') queue.push(...dragonflyCells(r,c,'h'));
       else if(pu==='rocket_v') queue.push(...dragonflyCells(r,c,'v'));
@@ -1372,26 +1374,35 @@ function playTap(r,c){
       if(cd.pu==='rainbow'){
         // Akasha Ball double-tap → enter choosing state
         board[r][c].pu=null;
+        puFired('rainbow'); // goal event: detonated by player
         choosingRainbow={r,c};
         moves++;
         updatePlayerHUD();
         render();
       } else if(cd.pu==='bomb'){
-        moves++;updatePlayerHUD();
+        moves++;
         board[r][c].pu=null;
+        puFired('bomb'); // goal event: detonated by player
+        updatePlayerHUD();
         applyEffects(scarabCells(r,c),r,c);
       } else if(cd.pu==='rocket_h'){
-        moves++;updatePlayerHUD();
+        moves++;
         board[r][c].pu=null;
+        puFired('rocket'); // goal event: detonated by player
+        updatePlayerHUD();
         applyEffects(dragonflyCells(r,c,'h'),r,c);
       } else if(cd.pu==='rocket_v'){
-        moves++;updatePlayerHUD();
+        moves++;
         board[r][c].pu=null;
+        puFired('rocket'); // goal event: detonated by player
+        updatePlayerHUD();
         applyEffects(dragonflyCells(r,c,'v'),r,c);
       } else if(cd.pu==='helicopter'){
         // Player double-tap: vibe immediately, player picks target, THEN orthogonal + laser + target
-        moves++;updatePlayerHUD();
+        moves++;
         board[r][c].pu=null;
+        puFired('helicopter'); // goal event: detonated by player
+        updatePlayerHUD();
         const orthCells=grasshopperOrthCells(r,c);
         const excluded=new Set(orthCells.map(([er,ec])=>er+','+ec));
         excluded.add(r+','+c);
@@ -1416,12 +1427,13 @@ function playTap(r,c){
       const pu=board[pr][pc].pu;
       if(!pu) continue;
       hasPU=true;
-      if(pu==='bomb'){board[pr][pc].pu=null;allCells.push(...scarabCells(pr,pc));}
-      else if(pu==='rocket_h'){board[pr][pc].pu=null;allCells.push(...dragonflyCells(pr,pc,'h'));}
-      else if(pu==='rocket_v'){board[pr][pc].pu=null;allCells.push(...dragonflyCells(pr,pc,'v'));}
-      else if(pu==='rainbow'){board[pr][pc].pu=null;allCells.push(...rainbowCells(board[gr][gc].gem));}
+      if(pu==='bomb'){board[pr][pc].pu=null;puFired('bomb');allCells.push(...scarabCells(pr,pc));}
+      else if(pu==='rocket_h'){board[pr][pc].pu=null;puFired('rocket');allCells.push(...dragonflyCells(pr,pc,'h'));}
+      else if(pu==='rocket_v'){board[pr][pc].pu=null;puFired('rocket');allCells.push(...dragonflyCells(pr,pc,'v'));}
+      else if(pu==='rainbow'){board[pr][pc].pu=null;puFired('rainbow');allCells.push(...rainbowCells(board[gr][gc].gem));}
       else if(pu==='helicopter'){
         board[pr][pc].pu=null;
+        puFired('helicopter'); // goal event: detonated by swap
         // Player swap: vibe immediately, player picks target, then orthogonal + laser + target
         const orthCells=grasshopperOrthCells(pr,pc);
         const excluded=new Set(orthCells.map(([er,ec])=>er+','+ec));
@@ -1819,6 +1831,14 @@ function puMade(type){
   playerGoals.forEach(g=>{if(g.kind==='create'&&g.pu===type)g.have=Math.min(g.need,g.have+1);});
 }
 
+// Goal event: a power-up was DETONATED — by double-tap, by swap, or by being
+// caught in another power-up's blast (chain). Ticks any 'detonate' goals.
+function puFired(type){
+  if(!playerMode)return;
+  const key=(type==='rocket_h'||type==='rocket_v')?'rocket':type;
+  playerGoals.forEach(g=>{if(g.kind==='detonate'&&g.pu===key)g.have=Math.min(g.need,g.have+1);});
+}
+
 // progress store (separate key from the editor's own prefs)
 const PlayerProgress={
   key:'akashicswaps-player', data:{},
@@ -1991,6 +2011,11 @@ function startEntrance(){
     {kind:'create',pu:'rocket',    need:1,have:0,name:'Dragonfly'},
     {kind:'create',pu:'bomb',      need:1,have:0,name:'Scarab'},
     {kind:'create',pu:'rainbow',   need:1,have:0,name:'Akasha Ball'},
+    // Making each power-up is half the training — firing it is the other half (and the eye candy)
+    {kind:'detonate',pu:'helicopter',need:1,have:0,name:'Grasshopper'},
+    {kind:'detonate',pu:'rocket',    need:1,have:0,name:'Dragonfly'},
+    {kind:'detonate',pu:'bomb',      need:1,have:0,name:'Scarab'},
+    {kind:'detonate',pu:'rainbow',   need:1,have:0,name:'Akasha Ball'},
   ];
   moves=0;cleared=0;
   beginPlaySession();
@@ -2013,7 +2038,8 @@ function updatePlayerHUD(){
       '<div class="phud-gcount">'+remaining+'</div>';
     return;
   }
-  // Multi-goal (entrance) — one row per goal: icon, remaining/✓, and a "?" help button.
+  // Multi-goal (entrance) — one row per goal: verb, icon, remaining/✓, and a "?" help button.
+  const VERBS={collect:'Get',create:'Make',detonate:'Fire'};
   let html='<div class="phud-cap">Goals</div>';
   playerGoals.forEach((g,i)=>{
     const done=g.have>=g.need;
@@ -2021,6 +2047,7 @@ function updatePlayerHUD(){
     const status=done?'<span class="goal-done">✓</span>'
       :'<span class="goal-count">'+Math.max(0,g.need-g.have)+'</span>';
     html+='<div class="goal-row'+(done?' complete':'')+'">'+
+      '<span class="goal-verb">'+(VERBS[g.kind]||'')+'</span>'+
       '<span class="goal-icon">'+icon+'</span>'+status+
       '<button class="goal-help" onclick="showGoalHelp('+i+')">?</button></div>';
   });
@@ -2067,11 +2094,22 @@ const GOAL_HELP={
     text:'Line up 5 of the same color in a single row or column. The Akasha Ball clears every gem of one color from the board.'},
 };
 
+// Detonation help — same for all: tap it twice, or swap it into a neighbor.
+const DET_HELP={
+  helicopter:{title:'Fire the Grasshopper',text:'Tap your Grasshopper twice (or swap it with a neighbor). It clears the gems around it, then you pick any cell on the board — it flies there and clears it.'},
+  rocket:{title:'Fire the Dragonfly',text:'Tap your Dragonfly twice (or swap it with a neighbor). It rockets across the board, clearing the entire row or column.'},
+  bomb:{title:'Fire the Scarab',text:'Tap your Scarab twice (or swap it with a neighbor). It explodes, clearing everything in a 3×3 blast around it.'},
+  rainbow:{title:'Fire the Akasha Ball',text:'Tap your Akasha Ball twice, then pick any gem — every gem of that color is cleared from the board. Swapping it into a gem picks that color directly.'},
+};
+
 function showGoalHelp(i){
   const g=playerGoals[i]; if(!g)return;
-  const h=g.kind==='collect'?GOAL_HELP.collect:GOAL_HELP[g.pu]; if(!h)return;
+  const h=g.kind==='collect'?GOAL_HELP.collect
+        :g.kind==='detonate'?DET_HELP[g.pu]
+        :GOAL_HELP[g.pu];
+  if(!h)return;
   document.getElementById('ghelp-title').textContent=h.title;
-  document.getElementById('ghelp-diagram').innerHTML=h.diagram();
+  document.getElementById('ghelp-diagram').innerHTML=h.diagram?h.diagram():''; // detonation help has no shape diagram
   document.getElementById('ghelp-text').textContent=h.text;
   document.getElementById('ghelp').classList.add('open');
 }
@@ -2080,6 +2118,7 @@ function closeGoalHelp(){document.getElementById('ghelp').classList.remove('open
 // ── Entrance completion → two-path choice ────────────────────────────────────
 function showEntranceChoice(){
   playing=false; animating=true; // lock the board under the overlay
+  localStorage.setItem('akashicswaps-qualified','1'); // entrance passed — editor unlocks
   document.getElementById('pchoice').classList.add('open');
 }
 function leaveEntrance(){
@@ -2136,9 +2175,18 @@ function exitToGrid(){
   renderGrid();
 }
 
-// launch the player when arriving via #play / #player; #enter starts the Level 1 entrance
-if(location.hash==='#play'||location.hash==='#player') renderBundles();
-else if(location.hash==='#enter') startEntrance();
+// ── Entry routing ─────────────────────────────────────────────────────────────
+// The editor is gated: only visitors who completed the Level 1 entrance
+// (or hold the #dev key) see the editor home. Everyone else gets the entrance.
+if(location.hash==='#dev'){
+  localStorage.setItem('akashicswaps-qualified','1'); // dev/architect bypass
+}else if(location.hash==='#play'||location.hash==='#player'){
+  renderBundles();
+}else if(location.hash==='#enter'){
+  startEntrance();
+}else if(localStorage.getItem('akashicswaps-qualified')!=='1'){
+  startEntrance(); // unqualified visitors: the entrance IS the front door
+}
 
 // ── Bug Report Button ─────────────────────────────────────────────────────────
 const _BUG_ADJ1 = [
