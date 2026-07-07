@@ -1289,52 +1289,6 @@ function mostPrevalentGem(){
   return best;
 }
 
-// ── Chain resolution: expand a cell list by triggering any power-ups encountered ──
-//
-// How it works: processes cells in queue order. When a cell contains a power-up
-// that hasn't been an activation source yet, that PU's effect cells are added
-// to the queue. This continues until no new cells produce new PU triggers.
-//
-// Cycle safety: the `activated` set tracks cells that have already been the
-// SOURCE of a chain activation. A cell can appear in the clear set (get cleared)
-// multiple times via different trigger paths, but it can only TRIGGER its own
-// power-up effect once. This prevents infinite loops — e.g., if a Dragonfly's
-// row-clear hits a Scarab whose blast hits the Dragonfly's cell again, the
-// Dragonfly won't re-fire because its cell is already in `activated`.
-// This is a deterministic runtime safeguard, not a design cap on chain depth.
-//
-// Target-needing PUs (Akasha Ball, Grasshopper) auto-pick during chains:
-//   - Akasha Ball → most prevalent gem color on the board
-//   - Grasshopper → nearest gem cell by Manhattan distance (scan-order tie-break)
-// No .rainbow-pick vibe ever fires during chain resolution.
-function resolveChain(initialCells){
-  const cleared=new Set();
-  const activated=new Set();
-  const queue=initialCells.map(([r,c])=>[r,c]);
-  while(queue.length){
-    const [r,c]=queue.shift();
-    const k=r+','+c;
-    if(cleared.has(k))continue;
-    cleared.add(k);
-    const pu=board[r][c].pu;
-    if(pu&&!activated.has(k)){
-      activated.add(k);
-      puFired(pu); // goal event: detonated by chain reaction
-      if(pu==='bomb')        queue.push(...scarabCells(r,c));
-      else if(pu==='rocket_h') queue.push(...dragonflyCells(r,c,'h'));
-      else if(pu==='rocket_v') queue.push(...dragonflyCells(r,c,'v'));
-      else if(pu==='rainbow')  queue.push(...rainbowCells(mostPrevalentGem()));
-      else if(pu==='helicopter'){
-        // Chain-triggered: clear orthogonal neighbors + auto-pick goal-oriented fly-to target
-        queue.push(...grasshopperOrthCells(r,c));
-        const t=autoGrasshopperTarget(r,c,cleared);
-        if(t)queue.push(t);
-      }
-    }
-  }
-  return[...cleared].map(k=>{const[a,b]=k.split(',').map(Number);return[a,b];});
-}
-
 // ── Cascade end: shared by applyEffects and resolve ──
 function cascadeEnd(){
   updStats();
@@ -1352,45 +1306,7 @@ function cascadeEnd(){
   if(playerMode){updatePlayerHUD();checkPlayerEnd();}
 }
 
-// ── Akasha Ball detonation: Township-style row sweep ─────────────────────────
-// Lasers fire from the Ball's cell to each target gem in reading order — row 1
-// left→right, then row 2, etc. Each hit turns the gem to rubble (fragments) on
-// the spot. Gravity and cascades hold until EVERY target has been destroyed.
-function fireAkashaBall(sr,sc,gemIdx){
-  animating=true;
-  let cells=resolveChain(rainbowCells(gemIdx));
-  cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); // reading order: top row first, left to right
-  const phase=new Set();
-  let i=0;
-  const HIT_MS=110; // pace between laser hits
-  const step=()=>{
-    if(i>=cells.length){
-      // all rubble — NOW gravity, then cascade scan
-      cleared+=phase.size;
-      setTimeout(()=>{
-        const fallMoves=gravityWithMap();
-        animateFall(fallMoves,()=>{
-          const np=findPatterns(sr,sc,sr,sc);
-          if(np.length){resolve(np,sr,sc,JSON.parse(JSON.stringify(board)),sr,sc);}
-          else{cascadeEnd();}
-        });
-      },160);
-      return;
-    }
-    const [r,c]=cells[i++];
-    animateLaser(sr,sc,r,c,()=>{});
-    // clear on impact, without waiting for the beam to fully fade
-    setTimeout(()=>{
-      clearCell(r,c,phase);
-      if(playerMode)updatePlayerHUD();
-      render(null);
-      step();
-    },HIT_MS);
-  };
-  step();
-}
-
-// Shared tail for cinematic detonations: count the phase, settle, scan, cascade
+// Shared tail for detonation sequences: count the phase, settle, scan, cascade
 function settleAndCascade(phase,sr,sc){
   cleared+=phase.size;
   setTimeout(()=>{
@@ -1403,13 +1319,53 @@ function settleAndCascade(phase,sr,sc){
   },160);
 }
 
-// ── Dragonfly detonation: lasers race OUTWARD from the detonation point ──────
-// Both directions at once — cells clear ring by ring as the beams pass them.
-// Gravity and cascades hold until the full line is rubble.
-function fireDragonfly(sr,sc,dir){
-  animating=true;
-  const cells=resolveChain(dragonflyCells(sr,sc,dir));
-  // group cells by distance from the detonation point (0 = the PU cell itself)
+// ═══ DETONATION ENGINE ════════════════════════════════════════════════════════
+// One sequential queue for ALL power-up detonations — player-fired and
+// chain-caught alike run the SAME cinematic, at the PU's actual board position.
+// Gravity and cascades hold until the queue drains (all rubble first, then fall).
+//
+// clearCellD is the only way cells are destroyed by blasts: if the cell holds a
+// live PU it is consumed, the goal event fires, and its detonation is ENQUEUED
+// (played out in turn) rather than instant-expanded. Cycle safety comes free:
+// a consumed PU is nulled before enqueueing, so it can never re-trigger.
+function clearCellD(r,c,phase,queue){
+  const k=r+','+c;
+  if(phase.has(k))return;
+  const pu=board[r][c].pu;
+  if(pu){
+    board[r][c].pu=null;      // consume BEFORE enqueue — no re-trigger possible
+    puFired(pu);              // goal event: detonated (any trigger source)
+    queue.push({pu,r,c});     // its cinematic plays at ITS position, in turn
+  }
+  clearCell(r,c,phase);
+}
+
+// Play queued detonations one at a time; each may enqueue more (chains).
+function processDetonations(queue,phase,onDone){
+  if(!queue.length){onDone();return;}
+  const det=queue.shift();
+  const next=()=>processDetonations(queue,phase,onDone);
+  if(det.pu==='bomb')            detScarab(det.r,det.c,phase,queue,next);
+  else if(det.pu==='rocket_h')   detDragonfly(det.r,det.c,'h',phase,queue,next);
+  else if(det.pu==='rocket_v')   detDragonfly(det.r,det.c,'v',phase,queue,next);
+  else if(det.pu==='rainbow')    detBall(det.r,det.c,det.color,phase,queue,next);
+  else if(det.pu==='helicopter') detHopper(det.r,det.c,phase,queue,next);
+  else next();
+}
+
+// SCARAB — 3×3 blast: one simultaneous pop, short beat, then the queue continues
+function detScarab(r,c,phase,queue,next){
+  scarabCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
+  if(playerMode)updatePlayerHUD();
+  render(null);
+  phase.forEach(k=>{const[pr,pc]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
+  setTimeout(next,220);
+}
+
+// DRAGONFLY — twin beams race OUTWARD from the detonation point; cells clear
+// ring by ring as the beams pass them
+function detDragonfly(sr,sc,dir,phase,queue,next){
+  const cells=dragonflyCells(sr,sc,dir);
   const rings=new Map();
   cells.forEach(([r,c])=>{
     const d=dir==='h'?Math.abs(c-sc):Math.abs(r-sr);
@@ -1417,15 +1373,13 @@ function fireDragonfly(sr,sc,dir){
     rings.get(d).push([r,c]);
   });
   const dists=[...rings.keys()].sort((a,b)=>a-b);
-  // two beams extend to the line's ends — they grow outward as the rings clear
   if(dir==='h'){animateLaser(sr,sc,sr,0,()=>{});animateLaser(sr,sc,sr,C-1,()=>{});}
   else{animateLaser(sr,sc,0,sc,()=>{});animateLaser(sr,sc,R-1,sc,()=>{});}
-  const phase=new Set();
   let i=0;
-  const RING_MS=55; // pace between rings — fast, reads as a racing shockwave
+  const RING_MS=55; // pace between rings — reads as a racing shockwave
   const step=()=>{
-    if(i>=dists.length){settleAndCascade(phase,sr,sc);return;}
-    rings.get(dists[i++]).forEach(([r,c])=>clearCell(r,c,phase));
+    if(i>=dists.length){next();return;}
+    rings.get(dists[i++]).forEach(([r,c])=>clearCellD(r,c,phase,queue));
     if(playerMode)updatePlayerHUD();
     render(null);
     setTimeout(step,RING_MS);
@@ -1433,25 +1387,61 @@ function fireDragonfly(sr,sc,dir){
   step();
 }
 
-// ── Apply a combined set of cleared cells: pop, gravity, cascade ──
-function applyEffects(cellsToClear,pivotR,pivotC){
+// AKASHA BALL — lasers to each target gem in reading order (row 1 L→R, row 2…).
+// color: player-picked for direct fires; chain-caught auto-picks most prevalent.
+function detBall(sr,sc,color,phase,queue,next){
+  const gemIdx=(color!=null)?color:mostPrevalentGem();
+  const cells=rainbowCells(gemIdx).filter(([r,c])=>!phase.has(r+','+c));
+  cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  let i=0;
+  const HIT_MS=110; // pace between laser hits
+  const step=()=>{
+    if(i>=cells.length){next();return;}
+    const [r,c]=cells[i++];
+    animateLaser(sr,sc,r,c,()=>{});
+    setTimeout(()=>{
+      clearCellD(r,c,phase,queue);
+      if(playerMode)updatePlayerHUD();
+      render(null);
+      step();
+    },HIT_MS);
+  };
+  step();
+}
+
+// GRASSHOPPER (chain-caught) — orthogonals blast, then laser to an auto-picked
+// goal-oriented target. Player-fired hoppers never reach here (choice flow).
+function detHopper(r,c,phase,queue,next){
+  grasshopperOrthCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
+  if(playerMode)updatePlayerHUD();
+  render(null);
+  const t=autoGrasshopperTarget(r,c,phase);
+  if(!t){setTimeout(next,200);return;}
+  setTimeout(()=>{
+    animateLaser(r,c,t[0],t[1],()=>{
+      clearCellD(t[0],t[1],phase,queue);
+      if(playerMode)updatePlayerHUD();
+      render(null);
+      next();
+    });
+  },200);
+}
+
+// ── Apply a combined set of cleared cells: pop, run detonation queue, settle ──
+// initialQueue lets callers enqueue already-consumed PUs (e.g. a swap-fired
+// Dragonfly) so their cinematics play through the same engine.
+function applyEffects(cellsToClear,pivotR,pivotC,initialQueue){
   animating=true;
-  // Expand via chain activation before clearing
-  cellsToClear=resolveChain(cellsToClear);
   const phase=new Set();
-  cellsToClear.forEach(([r,c])=>clearCell(r,c,phase));
+  const queue=initialQueue||[];
+  cellsToClear.forEach(([r,c])=>clearCellD(r,c,phase,queue));
   if(playerMode) updatePlayerHUD();
-  cleared+=phase.size;
   render(null);
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
+  // pop beat first, then play out every queued detonation, THEN settle once
   setTimeout(()=>{
-    const fallMoves=gravityWithMap();
-    animateFall(fallMoves,()=>{
-      const np=findPatterns(pivotR,pivotC,pivotR,pivotC);
-      if(np.length){resolve(np,pivotR,pivotC,JSON.parse(JSON.stringify(board)),pivotR,pivotC);}
-      else{cascadeEnd();}
-    });
-  },230);
+    processDetonations(queue,phase,()=>settleAndCascade(phase,pivotR,pivotC));
+  },queue.length||phase.size?230:0);
 }
 
 function playTap(r,c){
@@ -1462,7 +1452,8 @@ function playTap(r,c){
     if(!cd2||!cd2.active||cd2.gem===null||cd2.pu) return; // invalid pick — stay in choosing
     const src=choosingRainbow; // lasers originate from the Ball's cell
     choosingRainbow=null;
-    fireAkashaBall(src.r,src.c,board[r][c].gem);
+    // player-picked color rides the queue entry; chains it causes play out after
+    applyEffects([],src.r,src.c,[{pu:'rainbow',r:src.r,c:src.c,color:board[r][c].gem}]);
     return;
   }
   // Grasshopper choosing state — player picks fly-to target
@@ -1478,19 +1469,21 @@ function playTap(r,c){
     // consume the PU and fire the goal event at the moment of takeoff.
     board[hop.r][hop.c].pu=null;
     puFired('helicopter'); // goal event: detonated (jump committed)
-    // Step 1: clear orthogonal neighbors (chain-resolved)
-    const orthChained=resolveChain(hop.orthCells);
+    // Step 1: blast the orthogonals — any PU caught is ENQUEUED, not instant
     const phase=new Set();
-    orthChained.forEach(([cr,cc])=>clearCell(cr,cc,phase));
+    const queue=[];
+    hop.orthCells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
     if(playerMode)updatePlayerHUD();
-    cleared+=phase.size;
     render(null);
     phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-    // Step 2: after pop, laser from source to target, then clear target
+    // Step 2: after pop, laser to the chosen target, clear it (PU there enqueues too)
     setTimeout(()=>{
       animateLaser(hop.r,hop.c,r,c,()=>{
-        // Step 3: clear target cell (chain-resolved)
-        applyEffects([[r,c]],r,c);
+        clearCellD(r,c,phase,queue);
+        if(playerMode)updatePlayerHUD();
+        render(null);
+        // Step 3: play out every chained detonation, then settle once
+        processDetonations(queue,phase,()=>settleAndCascade(phase,r,c));
       });
     },230);
     return;
@@ -1515,19 +1508,19 @@ function playTap(r,c){
         board[r][c].pu=null;
         puFired('bomb'); // goal event: detonated by player
         updatePlayerHUD();
-        applyEffects(scarabCells(r,c),r,c);
+        applyEffects([],r,c,[{pu:'bomb',r,c}]); // cinematic via the detonation queue
       } else if(cd.pu==='rocket_h'){
         moves++;
         board[r][c].pu=null;
         puFired('rocket'); // goal event: detonated by player
         updatePlayerHUD();
-        fireDragonfly(r,c,'h'); // beams race outward from the detonation point
+        applyEffects([],r,c,[{pu:'rocket_h',r,c}]); // beams race outward via the queue
       } else if(cd.pu==='rocket_v'){
         moves++;
         board[r][c].pu=null;
         puFired('rocket'); // goal event: detonated by player
         updatePlayerHUD();
-        fireDragonfly(r,c,'v'); // beams race outward from the detonation point
+        applyEffects([],r,c,[{pu:'rocket_v',r,c}]); // beams race outward via the queue
       } else if(cd.pu==='helicopter'){
         // The jump can't happen until the destination is known: vibe FIRST
         // (all cells eligible except the hopper's own — orthogonals included).
@@ -1549,20 +1542,20 @@ function playTap(r,c){
   animateSwap(sr,sc,r,c,html1,html2,()=>{
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
-    // Unified post-swap: collect ALL effects — PU activations + pattern matches
-    const allCells=[];
+    // Unified post-swap: PU activations are ENQUEUED at their post-swap
+    // positions; pattern matches ride the same resolution (anchor logic in resolve).
+    const detQueue=[];
     let hasPU=false;
-    let akasha=null; // rainbow swap: fires via the row-sweep laser sequence when it's the only effect
-    let dfly=null;   // dragonfly swap: fires via the outward beam sweep when it's the only effect
-    // Check both cells for power-ups
+    // Check both cells for power-ups — coordinates here are AFTER the data swap,
+    // so every detonation plays at the cell the PU actually landed on.
     for(const [pr,pc,gr,gc] of [[r,c,sr,sc],[sr,sc,r,c]]){
       const pu=board[pr][pc].pu;
       if(!pu) continue;
       hasPU=true;
-      if(pu==='bomb'){board[pr][pc].pu=null;puFired('bomb');allCells.push(...scarabCells(pr,pc));}
-      else if(pu==='rocket_h'){board[pr][pc].pu=null;puFired('rocket');dfly={r:pr,c:pc,dir:'h'};}
-      else if(pu==='rocket_v'){board[pr][pc].pu=null;puFired('rocket');dfly={r:pr,c:pc,dir:'v'};}
-      else if(pu==='rainbow'){board[pr][pc].pu=null;puFired('rainbow');akasha={r:pr,c:pc,gem:board[gr][gc].gem};}
+      if(pu==='bomb'){board[pr][pc].pu=null;puFired('bomb');detQueue.push({pu:'bomb',r:pr,c:pc});}
+      else if(pu==='rocket_h'){board[pr][pc].pu=null;puFired('rocket');detQueue.push({pu:'rocket_h',r:pr,c:pc});}
+      else if(pu==='rocket_v'){board[pr][pc].pu=null;puFired('rocket');detQueue.push({pu:'rocket_v',r:pr,c:pc});}
+      else if(pu==='rainbow'){board[pr][pc].pu=null;puFired('rainbow');detQueue.push({pu:'rainbow',r:pr,c:pc,color:board[gr][gc].gem});}
       else if(pu==='helicopter'){
         // The Grasshopper stays visible on its landed cell while choosing —
         // consumed (and goal event fired) only when the jump commits.
@@ -1572,27 +1565,7 @@ function playTap(r,c){
     }
     // Also collect any normal pattern matches formed by the swap
     const pats=findPatterns(r,c,sr,sc);
-    if(pats.length) pats.forEach(p=>allCells.push(...p.cells));
-    // Akasha Ball as the sole effect → cinematic row-sweep. Combined with other
-    // effects (rare double-PU or simultaneous match) → its cells join the unified path.
-    if(akasha){
-      if(!allCells.length&&!dfly&&!window._pendingHopperChoose){
-        moves++;updatePlayerHUD();
-        fireAkashaBall(akasha.r,akasha.c,akasha.gem);
-        return;
-      }
-      allCells.push(...rainbowCells(akasha.gem));
-    }
-    // Dragonfly as the sole effect → cinematic outward sweep; otherwise unified path.
-    if(dfly){
-      if(!allCells.length&&!window._pendingHopperChoose){
-        moves++;updatePlayerHUD();
-        fireDragonfly(dfly.r,dfly.c,dfly.dir);
-        return;
-      }
-      allCells.push(...dragonflyCells(dfly.r,dfly.c,dfly.dir));
-    }
-    if(!allCells.length&&!hasPU){
+    if(!pats.length&&!hasPU){
       // Nothing happened — revert swap
       const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
       const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
@@ -1600,22 +1573,22 @@ function playTap(r,c){
     }
     moves++;
     updatePlayerHUD();
-    // For pattern matches that generate power-ups, handle anchor conversion before clearing
     if(pats.length){
+      // Pattern matches present: resolve() handles anchor conversion; any swap-
+      // activated PU cinematics play FIRST via the queue, then the match resolves.
       const snap=JSON.parse(JSON.stringify(board));
-      // If we also had PU activation cells, clear those first via unified path
-      if(hasPU&&allCells.length){
+      if(detQueue.length){
         const phase=new Set();
-        // Chain-resolve PU-activation cells (not pattern cells — resolve handles those with anchor logic)
-        const puCells=allCells.filter(([cr,cc])=>!pats.some(p=>p.cells.some(([pr,pc])=>pr===cr&&pc===cc)));
-        const chainedPU=resolveChain(puCells);
-        chainedPU.forEach(([cr,cc])=>clearCell(cr,cc,phase));
-        if(playerMode) updatePlayerHUD();
-        cleared+=phase.size;
+        processDetonations(detQueue,phase,()=>{
+          cleared+=phase.size;
+          resolve(pats,r,c,snap,sr,sc);
+        });
+      } else {
+        resolve(pats,r,c,snap,sr,sc);
       }
-      resolve(pats,r,c,snap,sr,sc);
     } else {
-      applyEffects(allCells,r,c);
+      // PU-only swap (or hopper pending): everything through the detonation queue
+      applyEffects([],r,c,detQueue);
     }
   });
 }
@@ -1652,25 +1625,19 @@ function resolve(pats,dr,dc,snap,sr,sc){
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
-  // Chain-resolve: if any toClear cell holds a PU, trigger its effect recursively
-  const chainedClear=resolveChain(toClear);
+  // Any PU caught by the match clear is ENQUEUED — its cinematic plays out
+  // (lasers and all) before gravity runs. Same visuals as player-fired.
   const phase=new Set();
-  chainedClear.forEach(([r,c])=>clearCell(r,c,phase));
+  const detQueue=[];
+  toClear.forEach(([r,c])=>clearCellD(r,c,phase,detQueue));
   if(playerMode) updatePlayerHUD();
-  cleared+=phase.size;
   render(null);
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
   window.moveHistory.push({move:moves,src:[sr,sc],dest:[dr,dc],pattern:p.type,cleared:toClear.length,boardBefore:snap});
   document.getElementById('lastmove').textContent=`#${moves} ${p.type} +${toClear.length}`;
-  // After pop animation, apply gravity and physically animate each gem to its landing spot.
-  // All new matches are scanned only after the bounce fully settles.
+  // Pop beat → play out queued detonations → gravity → rescan (settleAndCascade)
   setTimeout(()=>{
-    const fallMoves=gravityWithMap();
-    animateFall(fallMoves,()=>{
-      const np=findPatterns(dr,dc,dr,dc);
-      if(np.length){resolve(np,dr,dc,JSON.parse(JSON.stringify(board)),dr,dc);}
-      else{cascadeEnd();}
-    });
+    processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc));
   },230);
 }
 
