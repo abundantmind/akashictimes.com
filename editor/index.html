@@ -268,6 +268,12 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 #ghelp-diagram{margin-bottom:14px;}
 #ghelp .wmsg{color:#d8cce8;line-height:1.5;} /* readable body text — default .wmsg was too close to the dark background */
 #ghelp button{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:8px 26px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);cursor:pointer;}
+/* Qualifying Level intro — auto-dismisses; tap to skip */
+#qintro{position:fixed;inset:0;background:rgba(13,10,20,.82);display:none;align-items:center;justify-content:center;z-index:215;cursor:pointer;}
+#qintro.open{display:flex;}
+#qintro .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:30px 40px;text-align:center;}
+#qintro h2{font-size:var(--fz-2xl);color:#c792ea;margin-bottom:12px;font-weight:500;}
+#qintro .wmsg{color:#d8cce8;font-size:var(--fz-lg);line-height:1.6;margin:0;}
 #pchoice{position:fixed;inset:0;background:rgba(13,10,20,.94);display:none;align-items:center;justify-content:center;z-index:220;}
 #pchoice.open{display:flex;}
 .choice-wrap{text-align:center;padding:20px;}
@@ -551,18 +557,26 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 <!-- Entrance complete — two-path choice -->
 <div id="pchoice">
   <div class="choice-wrap">
-    <h2>Welcome to AkashicSwaps</h2>
+    <h2>You Qualify</h2>
     <p class="choice-sub">You've mastered the power-ups. Choose your path:</p>
     <div class="choice-cards">
       <div class="choice-card" onclick="chooseEditorPath()">
-        <h3>Editor / Player</h3>
+        <h3>Architect</h3>
         <p>Create levels, publish them, and play everything.</p>
       </div>
       <div class="choice-card" onclick="choosePlayerPath()">
-        <h3>Player / Contributor</h3>
+        <h3>Explorer</h3>
         <p>Play the levels and follow the build as it happens.</p>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Qualifying Level intro — brief timed popup at entrance start -->
+<div id="qintro" onclick="dismissQIntro()">
+  <div class="wbox">
+    <h2>Qualifying Level</h2>
+    <p class="wmsg">Match 12 Yellow Gems.<br>Create and Fire all Power-Ups.</p>
   </div>
 </div>
 
@@ -2149,12 +2163,25 @@ function startEntrance(){
   ];
   moves=0;cleared=0;
   beginPlaySession();
+  showQIntro(); // brief goal popup — auto-dismisses, tap to skip
+}
+
+// ── Qualifying Level intro popup ──────────────────────────────────────────────
+let _qintroTimer=null;
+function showQIntro(){
+  document.getElementById('qintro').classList.add('open');
+  _qintroTimer=setTimeout(dismissQIntro,3500); // timed — long enough to read, short enough not to annoy
+}
+function dismissQIntro(){
+  if(_qintroTimer){clearTimeout(_qintroTimer);_qintroTimer=null;}
+  document.getElementById('qintro').classList.remove('open');
 }
 
 function playerTally(gemIdx){ playerGoals.forEach(g=>{ if(g.gemIdx===gemIdx) g.have++; }); }
 
 function updatePlayerHUD(){
-  document.getElementById('phud-level').textContent='Level '+curLevelNum;
+  // Entrance is NOT Level 1 — Level 1 is reachable via Bundles. Distinct name.
+  document.getElementById('phud-level').textContent=entranceMode?'Qualifying':'Level '+curLevelNum;
   // Moves count UP from 0 — no-fail model, no limit shown.
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
