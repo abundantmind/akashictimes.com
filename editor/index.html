@@ -1546,6 +1546,10 @@ function playTap(r,c){
     // positions; pattern matches ride the same resolution (anchor logic in resolve).
     const detQueue=[];
     let hasPU=false;
+    // PU⇄PU swap = ONE combo detonation event: no vibe, no player targeting —
+    // a Grasshopper swapped with another PU is part of that blast and
+    // auto-detonates chain-style (it can't be choosing while it's exploding).
+    const comboSwap=!!(board[r][c].pu&&board[sr][sc].pu);
     // Check both cells for power-ups — coordinates here are AFTER the data swap,
     // so every detonation plays at the cell the PU actually landed on.
     for(const [pr,pc,gr,gc] of [[r,c,sr,sc],[sr,sc,r,c]]){
@@ -1557,10 +1561,15 @@ function playTap(r,c){
       else if(pu==='rocket_v'){board[pr][pc].pu=null;puFired('rocket');detQueue.push({pu:'rocket_v',r:pr,c:pc});}
       else if(pu==='rainbow'){board[pr][pc].pu=null;puFired('rainbow');detQueue.push({pu:'rainbow',r:pr,c:pc,color:board[gr][gc].gem});}
       else if(pu==='helicopter'){
-        // The Grasshopper stays visible on its landed cell while choosing —
-        // consumed (and goal event fired) only when the jump commits.
-        // Choosing opens at cascadeEnd, after simultaneous swap effects settle.
-        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set([pr+','+pc]),orthCells:grasshopperOrthCells(pr,pc)};
+        if(comboSwap){
+          // part of a combo blast — consume now, auto-target via the queue
+          board[pr][pc].pu=null;puFired('helicopter');detQueue.push({pu:'helicopter',r:pr,c:pc});
+        } else {
+          // solo hopper swap: stays visible on its landed cell while choosing —
+          // consumed (and goal event fired) only when the jump commits.
+          // Choosing opens at cascadeEnd, after simultaneous swap effects settle.
+          window._pendingHopperChoose={r:pr,c:pc,excluded:new Set([pr+','+pc]),orthCells:grasshopperOrthCells(pr,pc)};
+        }
       }
     }
     // Also collect any normal pattern matches formed by the swap
