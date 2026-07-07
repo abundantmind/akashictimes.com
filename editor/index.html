@@ -1544,12 +1544,16 @@ function playTap(r,c){
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
     // Unified post-swap: PU activations are ENQUEUED at their post-swap
     // positions; pattern matches ride the same resolution (anchor logic in resolve).
+    // PU⇄PU swap = Super Power-up territory — mechanics NOT designed yet
+    // (Jed, 2026-07-07). Until they are, the gesture is an invalid move:
+    // revert and bounce. No combo logic exists on purpose.
+    if(board[r][c].pu&&board[sr][sc].pu){
+      const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
+      const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
+      render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
+    }
     const detQueue=[];
     let hasPU=false;
-    // PU⇄PU swap = ONE combo detonation event: no vibe, no player targeting —
-    // a Grasshopper swapped with another PU is part of that blast and
-    // auto-detonates chain-style (it can't be choosing while it's exploding).
-    const comboSwap=!!(board[r][c].pu&&board[sr][sc].pu);
     // Check both cells for power-ups — coordinates here are AFTER the data swap,
     // so every detonation plays at the cell the PU actually landed on.
     for(const [pr,pc,gr,gc] of [[r,c,sr,sc],[sr,sc,r,c]]){
@@ -1561,15 +1565,10 @@ function playTap(r,c){
       else if(pu==='rocket_v'){board[pr][pc].pu=null;puFired('rocket');detQueue.push({pu:'rocket_v',r:pr,c:pc});}
       else if(pu==='rainbow'){board[pr][pc].pu=null;puFired('rainbow');detQueue.push({pu:'rainbow',r:pr,c:pc,color:board[gr][gc].gem});}
       else if(pu==='helicopter'){
-        if(comboSwap){
-          // part of a combo blast — consume now, auto-target via the queue
-          board[pr][pc].pu=null;puFired('helicopter');detQueue.push({pu:'helicopter',r:pr,c:pc});
-        } else {
-          // solo hopper swap: stays visible on its landed cell while choosing —
-          // consumed (and goal event fired) only when the jump commits.
-          // Choosing opens at cascadeEnd, after simultaneous swap effects settle.
-          window._pendingHopperChoose={r:pr,c:pc,excluded:new Set([pr+','+pc]),orthCells:grasshopperOrthCells(pr,pc)};
-        }
+        // Hopper swapped with a gem: stays visible on its landed cell while
+        // choosing — consumed (and goal event fired) only when the jump commits.
+        // Choosing opens at cascadeEnd, after simultaneous swap effects settle.
+        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set([pr+','+pc]),orthCells:grasshopperOrthCells(pr,pc)};
       }
     }
     // Also collect any normal pattern matches formed by the swap
