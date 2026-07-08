@@ -1,0 +1,33 @@
+{
+  "level": 3,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 8,
+    "cols": 11,
+    "layout": [
+      ".####.####.",
+      "###########",
+      "###########",
+      "###########",
+      ".#########.",
+      "..#######..",
+      "...#####...",
+      "....###...."
+    ]
+  },
+  "gemTypes": ["yellow", "green", "red", "blue", "white"],
+  "objectives": [
+    { "type": "collect", "gem": "green", "count": 20 },
+    { "type": "collect", "gem": "yellow", "count": 20 }
+  ],
+  "moveLimit": 22,
+  "boosterSlots": 3,
+  "obstacles": [],
+  "rewards": { "energy": null },
+  "captureMeta": {
+    "source": "screenshot",
+    "verified": false,
+    "hasDynamicObstacles": false,
+    "notes": "11x8 heart-shaped board, no obstacles. Tutorial taught the 5-match: an L/T-shaped 5 spawns a WRAPPED BOMB (red gift-wrap) = ~3x3 area blast (cleared 3 yellow + 3 green). NOTE: column count was undercounted as 9 from the downscaled screenshot; actual is 11 (cells ~50px, not ~60px) — recount columns on every new board."
+  }
+}

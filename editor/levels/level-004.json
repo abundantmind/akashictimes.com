@@ -1,0 +1,33 @@
+{
+  "level": 4,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 9,
+    "cols": 8,
+    "layout": [
+      "...##...",
+      "########",
+      "########",
+      "#.####.#",
+      "..####..",
+      "#.####.#",
+      "########",
+      "########",
+      "...##..."
+    ]
+  },
+  "gemTypes": ["yellow", "green", "red", "blue", "white"],
+  "objectives": [
+    { "type": "collect", "gem": "white", "count": 25 }
+  ],
+  "moveLimit": 30,
+  "boosterSlots": 3,
+  "obstacles": [],
+  "rewards": { "energy": null },
+  "captureMeta": {
+    "source": "screenshot",
+    "verified": false,
+    "hasDynamicObstacles": false,
+    "notes": "8x9 cross with notched wings. Tutorial teaches the 2x2-square propeller booster. Single-gem objective (white/bell) — first level focused on one non-yellow color. Board mapped from in-play still after tutorial move; exact outline approximate. Layout symmetrical: both left and right wings are 2 cols wide, attached at rows 2-3 and 7-8, with single stubs at rows 4 and 6, absent at row 5."
+  }
+}

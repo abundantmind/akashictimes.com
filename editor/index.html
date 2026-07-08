@@ -656,7 +656,10 @@ let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (boar
 const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
 let board=[],flow=[],layer='tile',tool='paint',selGem=0,selPU=null;
-let GEMN=6; // how many gem types spawn — entrance level lowers this to 5 for easier big matches
+// Which gem indices spawn. Full set by default; levels narrow it via their
+// gemTypes list (Township L1–5 use 5 colors, no Amethyst), entrance uses 0–4.
+let GEM_POOL=[0,1,2,3,4,5];
+const randGem=()=>GEM_POOL[~~(Math.random()*GEM_POOL.length)];
 let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null,choosingGrasshopper=null;
 let undoQ=[],redoQ=[],moves=0,cleared=0,flowMode='down';
 window.moveHistory=[];
@@ -742,8 +745,9 @@ function initBlankBoard(){
 
 function clean(){
   let t=0;
+  // reroll only ACTIVE cells — inactive holes (L2/L4/L5 layouts) hold no gems
   while((find3().length||find2x2().length)&&t++<400)
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(!board[r][c].pu)board[r][c].gem=~~(Math.random()*GEMN);
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu)board[r][c].gem=randGem();
 }
 
 function save(){undoQ.push(JSON.stringify(board));if(undoQ.length>60)undoQ.shift();redoQ=[];updUB();}
@@ -1213,7 +1217,7 @@ function flood(r,c,from,to){
   flood(r-1,c,from,to);flood(r+1,c,from,to);flood(r,c-1,from,to);flood(r,c+1,from,to);
 }
 
-function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=~~(Math.random()*GEMN);board[r][c].pu=null;}clean();render();}
+function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=randGem();board[r][c].pu=null;}clean();render();}
 function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;board[r][c].sub=null;board[r][c].item=null;}render();}
 
 function togglePlay(){
@@ -1224,7 +1228,7 @@ function togglePlay(){
   document.getElementById('history-sec').style.display=playing?'block':'none';
   document.getElementById('playbtn').innerHTML=playing?'⏹ Stop':'▶ Play';
   if(playing){
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu)board[r][c].gem=~~(Math.random()*GEMN);
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu)board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
   }
   render();
@@ -1694,8 +1698,12 @@ function resolve(pats,dr,dc,snap,sr,sc){
 //                so fly elements spawn above the visible grid.
 function gravityWithMap(){
   const moves=[];
+  // Write pointer must only land on ACTIVE cells — inactive interior holes
+  // (L2/L4/L5 layouts) must never receive gems. Gems fall straight THROUGH
+  // holes; Township's lateral fill around holes is NOT modeled yet (see L2 notes).
+  const nextActive=(w,c)=>{while(w>=0&&!board[w][c].active)w--;return w;};
   for(let c=0;c<C;c++){
-    let w=R-1; // write pointer — next destination row
+    let w=nextActive(R-1,c); // write pointer — next ACTIVE destination row
     let newCount=0; // how many new gems have been added in this column
     // Slide existing gems down
     for(let r=R-1;r>=0;r--){
@@ -1705,13 +1713,13 @@ function gravityWithMap(){
           board[w][c].gem=board[r][c].gem;board[w][c].pu=board[r][c].pu;
           board[r][c].gem=null;board[r][c].pu=null;
         }
-        w--;
+        w=nextActive(w-1,c);
       }
     }
     // Fill remaining active cells with new gems, spawning from above the board
     for(let r=w;r>=0;r--){
       if(board[r][c].active){
-        board[r][c].gem=~~(Math.random()*GEMN);board[r][c].pu=null;
+        board[r][c].gem=randGem();board[r][c].pu=null;
         // fr is a virtual negative row: -1, -2, ... stacked above the board top
         moves.push({gem:board[r][c].gem,pu:null,fr:-(++newCount),fc:c,tr:r,tc:c,isNew:true});
       }
@@ -2110,6 +2118,10 @@ function loadLevelData(json,num){
   applyObstacles(json);
   curLevelNum=num;
   moveLimit=json.moveLimit||20;
+  // Honor the level's gem palette: only its declared colors spawn (Township
+  // L1–5 use 5 colors, no Amethyst). Fallback: full set.
+  const pool=(json.gemTypes||[]).map(g=>GEMMAP[g]).filter(i=>i!=null);
+  GEM_POOL=[...new Set(pool)].length?[...new Set(pool)]:[0,1,2,3,4,5];
   // objectives: collect-gem goals only for MVP (plant/key/acorn not simulated yet)
   playerGoals=(json.objectives||[])
     .filter(o=>o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null)
@@ -2164,7 +2176,7 @@ function beginPlaySession(){
 // 8×8 board with 5 gem colors so every power-up shape is realistically formable.
 function startEntrance(){
   entranceMode=true;
-  GEMN=5; // 5 gem colors (drops Pearl) — bigger matches come easier for newcomers
+  GEM_POOL=[0,1,2,3,4]; // 5 gem colors (drops Pearl) — bigger matches come easier for newcomers
   R=8;C=8;
   board=[];flow=[];
   for(let r=0;r<R;r++){board.push([]);flow.push([]);
@@ -2265,8 +2277,10 @@ function shapeDiagramSVG(rows,cols,hi){
 
 // Help copy + diagrams, keyed by goal. Diagrams show the match SHAPE that forms each power-up.
 const GOAL_HELP={
-  collect:{title:'Collect 12 Yellow Gems',diagram:()=>shapeDiagramSVG(1,3,[[0,0],[0,1],[0,2]]),
-    text:'Swap two neighboring gems to line up 3 or more yellow gems in a row or column. Each yellow gem cleared counts toward the goal — four 3-matches gets you all 12.'},
+  // collect help is built per-goal (color + count vary across levels)
+  collect:(g)=>({title:'Collect '+g.need+' '+(g.name.charAt(0).toUpperCase()+g.name.slice(1))+' Gems',
+    diagram:()=>shapeDiagramSVG(1,3,[[0,0],[0,1],[0,2]]),
+    text:'Swap two neighboring gems to line up 3 or more '+g.name+' gems in a row or column. Each '+g.name+' gem cleared counts toward the goal.'}),
   helicopter:{title:'Make a Grasshopper',diagram:()=>shapeDiagramSVG(2,2,[[0,0],[0,1],[1,0],[1,1]]),
     text:'Form a 2×2 square of the same color. The Grasshopper hops to a target of your choosing and clears it.'},
   rocket:{title:'Make a Dragonfly',diagram:()=>shapeDiagramSVG(1,4,[[0,0],[0,1],[0,2],[0,3]]),
@@ -2292,7 +2306,7 @@ const DET_HELP={
 
 function showGoalHelp(i){
   const g=playerGoals[i]; if(!g)return;
-  const h=g.kind==='collect'?GOAL_HELP.collect
+  const h=g.kind==='collect'?GOAL_HELP.collect(g)
         :g.kind==='detonate'?DET_HELP[g.pu]
         :g.kind==='pu'?(g.made?DET_HELP[g.pu]:GOAL_HELP[g.pu]) // help matches the current stage
         :GOAL_HELP[g.pu];
@@ -2339,7 +2353,7 @@ function surveyContinue(){
 }
 function leaveEntrance(){
   // common teardown for both paths out of the entrance level
-  entranceMode=false; GEMN=6; playerMode=false; playing=false; animating=false;
+  entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; playerMode=false; playing=false; animating=false;
   CELL_SIZE=44;
   document.getElementById('pchoice').classList.remove('open');
   document.body.classList.remove('player-playing');
@@ -2385,7 +2399,7 @@ function pwinContinue(){
 
 function exitToGrid(){
   playing=false; animating=false; playerMode=false;
-  entranceMode=false; GEMN=6; // leaving mid-entrance also restores full gem set
+  entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; // leaving mid-entrance also restores full gem set
   CELL_SIZE=44; // restore editor's fixed cell size
   document.body.classList.remove('player-playing');
   document.getElementById('editor').style.display='none';

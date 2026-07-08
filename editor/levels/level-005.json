@@ -1,0 +1,35 @@
+{
+  "level": 5,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 9,
+    "cols": 9,
+    "layout": [
+      "..#.#.#..",
+      ".#######.",
+      "#########",
+      ".#######.",
+      "#########",
+      ".#######.",
+      "#########",
+      ".#######.",
+      ".#.#.#..."
+    ]
+  },
+  "gemTypes": ["yellow", "green", "red", "blue", "white"],
+  "objectives": [
+    { "type": "collect", "gem": "green", "count": 40 },
+    { "type": "collect", "gem": "blue", "count": 30 }
+  ],
+  "moveLimit": 28,
+  "boosterSlots": 3,
+  "obstacles": [],
+  "rewards": { "energy": null },
+  "captureMeta": {
+    "source": "screenshot",
+    "verified": false,
+    "hasDynamicObstacles": false,
+    "tutorial": "Teaches 5-in-a-line -> Rainbow Ball (akashic: Akasha Ball). Activation (applies to all power-ups): DOUBLE-TAP the piece, OR SWAP it with an adjacent gem. For the Rainbow Ball specifically: swapping into a gem removes all gems of THAT color; double-tapping (no swap target) removes all gems of the DOMINATING color. (Capture note: single fast synthetic clicks are ignored by the engine; use a double-tap or a slow paced drag-swap.)",
+    "notes": "Dual-objective two-color collect (green 40 + blue 30), no obstacles — last pre-obstacle level before Box is introduced ~L20. 9x9 diamond-brick board: every other row full width, insets between, single-gem caps top/bottom offset brick-style. Cascade from the tutorial rainbow spawned two Dragonfly rockets (vertical) and one Grasshopper propeller — confirms 4-in-line=Dragonfly, 2x2=Grasshopper naming. Board outline approximate; r4 and bottom cap (r8) need a confirmation pass."
+  }
+}
