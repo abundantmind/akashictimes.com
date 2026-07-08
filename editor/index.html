@@ -1288,9 +1288,9 @@ function clearCell(r,c,phaseSet){
 }
 
 // ── Effect collectors: return cells to clear, don't clear or cascade themselves ──
-function scarabCells(r,c){
-  const cells=[];
-  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+function scarabCells(r,c,rad){
+  const cells=[],rr=rad||1; // rad 1 = solo 3×3; rad 2 = Scarab×Scarab combo 5×5
+  for(let dr=-rr;dr<=rr;dr++)for(let dc=-rr;dc<=rr;dc++){
     const nr=r+dr, nc=c+dc;
     if(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active) cells.push([nr,nc]);
   }
@@ -1428,17 +1428,19 @@ function processDetonations(queue,phase,onDone){
   if(!queue.length){onDone();return;}
   const det=queue.shift();
   const next=()=>processDetonations(queue,phase,onDone);
-  if(det.pu==='bomb')            detScarab(det.r,det.c,phase,queue,next);
-  else if(det.pu==='rocket_h')   detDragonfly(det.r,det.c,'h',phase,queue,next);
-  else if(det.pu==='rocket_v')   detDragonfly(det.r,det.c,'v',phase,queue,next);
+  if(det.pu==='bomb')            detScarab(det.r,det.c,phase,queue,next,det.rad);
+  else if(det.pu==='rocket_h')   detDragonfly(det.r,det.c,'h',phase,queue,next,det.wide);
+  else if(det.pu==='rocket_v')   detDragonfly(det.r,det.c,'v',phase,queue,next,det.wide);
   else if(det.pu==='rainbow')    detBall(det.r,det.c,det.color,phase,queue,next);
   else if(det.pu==='helicopter') detHopper(det.r,det.c,phase,queue,next);
+  else if(det.pu==='hopper_jump')detHopperJump(det.r,det.c,phase,queue,next); // combo-spawned jump (no orth blast)
   else next();
 }
 
-// SCARAB — 3×3 blast: one simultaneous pop, short beat, then the queue continues
-function detScarab(r,c,phase,queue,next){
-  scarabCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
+// SCARAB — 3×3 blast (rad 2 → 5×5 for Scarab×Scarab): one simultaneous pop,
+// short beat, then the queue continues
+function detScarab(r,c,phase,queue,next,rad){
+  scarabCells(r,c,rad).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
   render(null);
   phase.forEach(k=>{const[pr,pc]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
@@ -1446,9 +1448,14 @@ function detScarab(r,c,phase,queue,next){
 }
 
 // DRAGONFLY — twin beams race OUTWARD from the detonation point; cells clear
-// ring by ring as the beams pass them
-function detDragonfly(sr,sc,dir,phase,queue,next){
-  const cells=dragonflyCells(sr,sc,dir);
+// ring by ring as the beams pass them. wide (#2 Fly×Scarab combo): 3 parallel
+// lines centered on the detonation point, all racing together.
+function detDragonfly(sr,sc,dir,phase,queue,next,wide){
+  let cells=dragonflyCells(sr,sc,dir);
+  if(wide){
+    if(dir==='h'){if(sr>0)cells=cells.concat(dragonflyCells(sr-1,sc,'h'));if(sr<R-1)cells=cells.concat(dragonflyCells(sr+1,sc,'h'));}
+    else{if(sc>0)cells=cells.concat(dragonflyCells(sr,sc-1,'v'));if(sc<C-1)cells=cells.concat(dragonflyCells(sr,sc+1,'v'));}
+  }
   const rings=new Map();
   cells.forEach(([r,c])=>{
     const d=dir==='h'?Math.abs(c-sc):Math.abs(r-sr);
@@ -1456,8 +1463,13 @@ function detDragonfly(sr,sc,dir,phase,queue,next){
     rings.get(d).push([r,c]);
   });
   const dists=[...rings.keys()].sort((a,b)=>a-b);
-  if(dir==='h'){animateLaser(sr,sc,sr,0,()=>{});animateLaser(sr,sc,sr,C-1,()=>{});}
-  else{animateLaser(sr,sc,0,sc,()=>{});animateLaser(sr,sc,R-1,sc,()=>{});}
+  if(dir==='h'){
+    const rows=wide?[sr-1,sr,sr+1].filter(x=>x>=0&&x<R):[sr];
+    rows.forEach(x=>{animateLaser(sr,sc,x,0,()=>{});animateLaser(sr,sc,x,C-1,()=>{});});
+  }else{
+    const colsW=wide?[sc-1,sc,sc+1].filter(x=>x>=0&&x<C):[sc];
+    colsW.forEach(x=>{animateLaser(sr,sc,0,x,()=>{});animateLaser(sr,sc,R-1,x,()=>{});});
+  }
   let i=0;
   const RING_MS=55; // pace between rings — reads as a racing shockwave
   const step=()=>{
@@ -1510,6 +1522,91 @@ function detHopper(r,c,phase,queue,next){
   },200);
 }
 
+// GRASSHOPPER JUMP (combo-spawned, #8 Hopper×Hopper) — targeted jump ONLY:
+// laser to an auto-picked goal-oriented target, no orthogonal blast (the
+// combo's 3×3 origin blast already covered that ground).
+function detHopperJump(r,c,phase,queue,next){
+  const t=autoGrasshopperTarget(r,c,phase);
+  if(!t){setTimeout(next,120);return;}
+  animateLaser(r,c,t[0],t[1],()=>{
+    clearCellD(t[0],t[1],phase,queue);
+    if(playerMode)updatePlayerHUD();
+    render(null);
+    next();
+  });
+}
+
+// ═══ POWER-UP COMBOS ═══════════════════════════════════════════════════════
+// PU⇄PU swap triggers a combo (POWERUP-COMBO-SPEC.md, approved 2026-07-08).
+// Origin = the swap DESTINATION cell; both power-ups are consumed; everything
+// rides the existing detonation queue, so chain rules, cycle safety and settle
+// timing are untouched. EARNED mechanic: entranceMode still bounces the
+// gesture — the Qualifying level trains solo PUs only (combo level later).
+function startPUCombo(dr,dc,sr,sc){
+  const a={pu:board[dr][dc].pu,r:dr,c:dc}; // dragged PU — landed on the destination
+  const b={pu:board[sr][sc].pu,r:sr,c:sc};
+  const fam=p=>p==='rainbow'?'ball':p==='bomb'?'scarab':p==='helicopter'?'hopper':'fly';
+  const pick=f=>fam(a.pu)===f?a:b;         // the combo member of family f
+  const key=[fam(a.pu),fam(b.pu)].sort().join('+');
+  const consume=m=>{board[m.r][m.c].pu=null;puFired(m.pu);}; // goal event on consumption
+  moves++;updatePlayerHUD();
+  animating=true;
+
+  if(key==='fly+fly'){            // #7 — cross: full row + full column from the destination
+    consume(a);consume(b);
+    applyEffects([],dr,dc,[{pu:'rocket_h',r:dr,c:dc},{pu:'rocket_v',r:dr,c:dc}]);
+  }else if(key==='fly+scarab'){   // #2 — Scarab widens the Fly: 3 lines on the Fly's own axis
+    const flyM=pick('fly');consume(a);consume(b);
+    applyEffects([],dr,dc,[{pu:flyM.pu,r:dr,c:dc,wide:true}]);
+  }else if(key==='scarab+scarab'){// #9 — one bigger blast: 5×5 at the destination
+    consume(a);consume(b);
+    applyEffects([],dr,dc,[{pu:'bomb',r:dr,c:dc,rad:2}]);
+  }else if(key==='hopper+hopper'){// #8 — 3×3 origin blast + 3 auto-picked jumps (auto per Jed 07-08)
+    consume(a);consume(b);
+    applyEffects([],dr,dc,[{pu:'bomb',r:dr,c:dc},
+      {pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc}]);
+  }else if(key==='fly+hopper'||key==='hopper+scarab'){ // #1/#4 — jump first, partner fires at the landing
+    const hop=pick('hopper'),partner=hop===a?b:a;
+    consume(partner); // hopper stays visible until the jump commits (solo behavior)
+    animating=false;  // choosing state needs player input
+    choosingGrasshopper={r:hop.r,c:hop.c,excluded:new Set([hop.r+','+hop.c]),
+      orthCells:grasshopperOrthCells(hop.r,hop.c),comboPartner:partner.pu};
+    render(); // vibe opens
+  }else if(key==='ball+ball'){    // #10 — one hit point to the ENTIRE board
+    consume(a);consume(b);
+    // Obstacle HP decrement ships with obstacle break mechanics (not built yet);
+    // gems-only version first, per spec. Any PU caught on board chains normally.
+    const all=[];
+    for(let rr=0;rr<R;rr++)for(let cc=0;cc<C;cc++)if(board[rr][cc].active)all.push([rr,cc]);
+    applyEffects(all,dr,dc,[]);
+  }else{                          // #3/#5/#6 — Ball family: vibe → chosen color BECOMES the partner
+    const ball=pick('ball'),partner=ball===a?b:a;
+    consume(a);consume(b);
+    animating=false; // waiting on the color pick
+    choosingRainbow={r:ball.r,c:ball.c,
+      convertTo:partner.pu==='helicopter'?'helicopter':partner.pu==='bomb'?'bomb':'rocket'};
+    render();
+  }
+}
+
+// Ball-family conversion (#3/#5/#6): every gem of the chosen color becomes the
+// partner power-up, beat, then all of them detonate through the queue in
+// reading order. Fly conversions get a random H/V axis each (spec is silent on
+// axis — flagged as an assumption in the combo spec review).
+function comboConvertAndDetonate(src,gemIdx){
+  animating=true;
+  const cells=rainbowCells(gemIdx);
+  cells.forEach(([r,c])=>{
+    if(playerMode)playerTally(gemIdx); // conversion consumes the gem (same rule as match anchors)
+    board[r][c].gem=null;
+    board[r][c].pu=src.convertTo==='rocket'?(Math.random()<0.5?'rocket_h':'rocket_v'):src.convertTo;
+  });
+  render();
+  // beat so the conversion reads, then mass-detonate: clearCellD consumes each
+  // spawned PU (goal events fire) and enqueues its cinematic
+  setTimeout(()=>applyEffects(cells,src.r,src.c,[]),380/playbackSpeed);
+}
+
 // ── Apply a combined set of cleared cells: pop, run detonation queue, settle ──
 // initialQueue lets callers enqueue already-consumed PUs (e.g. a swap-fired
 // Dragonfly) so their cinematics play through the same engine.
@@ -1535,6 +1632,8 @@ function playTap(r,c){
     if(!cd2||!cd2.active||cd2.gem===null||cd2.pu) return; // invalid pick — stay in choosing
     const src=choosingRainbow; // lasers originate from the Ball's cell
     choosingRainbow=null;
+    // Ball-family combo (#3/#5/#6): the pick converts instead of clearing
+    if(src.convertTo){comboConvertAndDetonate(src,board[r][c].gem);return;}
     // player-picked color rides the queue entry; chains it causes play out after
     applyEffects([],src.r,src.c,[{pu:'rainbow',r:src.r,c:src.c,color:board[r][c].gem}]);
     return;
@@ -1563,6 +1662,9 @@ function playTap(r,c){
     setTimeout(()=>{
       animateLaser(hop.r,hop.c,r,c,()=>{
         clearCellD(r,c,phase,queue);
+        // Combo partner (#1 Fly×Hopper / #4 Hopper×Scarab): fires FROM the
+        // landing cell, ahead of any chain-caught PUs from the orth blast
+        if(hop.comboPartner)queue.unshift({pu:hop.comboPartner,r,c});
         if(playerMode)updatePlayerHUD();
         render(null);
         // Step 3: play out every chained detonation, then settle once
@@ -1627,13 +1729,17 @@ function playTap(r,c){
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
     // Unified post-swap: PU activations are ENQUEUED at their post-swap
     // positions; pattern matches ride the same resolution (anchor logic in resolve).
-    // PU⇄PU swap = Super Power-up territory — mechanics NOT designed yet
-    // (Jed, 2026-07-07). Until they are, the gesture is an invalid move:
-    // revert and bounce. No combo logic exists on purpose.
+    // PU⇄PU swap = POWER-UP COMBO (POWERUP-COMBO-SPEC.md, approved 2026-07-08).
+    // EARNED mechanic: in the Qualifying level the gesture stays an invalid
+    // move — solo mastery first, combo qualification level later (spec §3).
     if(board[r][c].pu&&board[sr][sc].pu){
-      const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
-      const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
-      render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
+      if(entranceMode){
+        const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
+        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
+        render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
+      }
+      startPUCombo(r,c,sr,sc);
+      return;
     }
     const detQueue=[];
     let hasPU=false;
@@ -2267,6 +2373,7 @@ async function startPlayerLevel(num){
   }catch(e){ alert('Level '+num+' is not available yet.'); return; }
 
   loadLevelData(json,num);
+  entranceMode=false; // a bundle level is never the Qualifying level — combos live here
   beginPlaySession();
 }
 
