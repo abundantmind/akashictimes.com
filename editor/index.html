@@ -614,6 +614,42 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 </div>
 
 <script>
+// ── Version watchdog — "New version — tap to reload" ─────────────────────────
+// Stale cached builds cost two debugging cycles on 2026-07-08. Zero-maintenance:
+// compare this page's ETag/Last-Modified against the server on tab focus (and
+// every 5 min). GitHub Pages updates these headers on every deploy — no version
+// file to remember to bump.
+(function(){
+  let pageTag=null;
+  async function fetchTag(){
+    try{
+      const r=await fetch(location.pathname,{method:'HEAD',cache:'no-store'});
+      return r.headers.get('etag')||r.headers.get('last-modified');
+    }catch(e){return null;} // offline/transient — never nag on network errors
+  }
+  fetchTag().then(t=>{pageTag=t;});
+  let toastShown=false;
+  function showReloadToast(){
+    if(toastShown)return;
+    toastShown=true;
+    const t=document.createElement('div');
+    t.textContent='New version — tap to reload';
+    t.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:9999;'
+      +'background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;border-radius:8px;'
+      +'padding:12px 22px;font-family:var(--font-sans);font-size:14px;cursor:pointer;'
+      +'box-shadow:0 4px 16px rgba(0,0,0,.5);';
+    t.onclick=()=>location.reload();
+    document.body.appendChild(t);
+  }
+  async function checkVersion(){
+    if(!pageTag)return;
+    const t=await fetchTag();
+    if(t&&t!==pageTag)showReloadToast();
+  }
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVersion();});
+  setInterval(checkVersion,300000); // 5-min heartbeat while the tab stays open
+})();
+
 // Font size preference — persists via localStorage
 function setFontSize(size) {
   document.body.classList.remove("font-sm","font-md","font-lg");
