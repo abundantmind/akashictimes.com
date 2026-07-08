@@ -796,18 +796,24 @@ function updUB(){
 
 function gemSVG(idx,size){
   const g=GDEFS[idx],s=size||44,h=s/2,q=s*.42;
+  // Gradient/filter ids MUST be unique per invocation. url(#id) resolves to the
+  // FIRST matching id in the whole document — if that copy sits in a hidden
+  // subtree (e.g. the palette while playing), the gradient doesn't render and
+  // fills silently fail (L4 outline-gems bug, 2026-07-08: board gemSize hit the
+  // palette's 34px and every gem lost its fill).
+  const uid=(gemSVG._u=(gemSVG._u||0)+1);
   let shape='';
   if(g.shape==='heart'){
-    shape=`<path d="M${h} ${s*.88} C${h} ${s*.88} ${s*.12} ${s*.62} ${s*.12} ${s*.38} C${s*.12} ${s*.22} ${s*.22} ${s*.14} ${s*.34} ${s*.14} C${s*.41} ${s*.14} ${s*.46} ${s*.17} ${h} ${s*.24} C${s*.54} ${s*.17} ${s*.59} ${s*.14} ${s*.66} ${s*.14} C${s*.78} ${s*.14} ${s*.88} ${s*.22} ${s*.88} ${s*.38} C${s*.88} ${s*.62} ${h} ${s*.88} ${h} ${s*.88}Z" fill="url(#rg${idx}_${size})" stroke="${g.dark}" stroke-width="1.2"/>`;
+    shape=`<path d="M${h} ${s*.88} C${h} ${s*.88} ${s*.12} ${s*.62} ${s*.12} ${s*.38} C${s*.12} ${s*.22} ${s*.22} ${s*.14} ${s*.34} ${s*.14} C${s*.41} ${s*.14} ${s*.46} ${s*.17} ${h} ${s*.24} C${s*.54} ${s*.17} ${s*.59} ${s*.14} ${s*.66} ${s*.14} C${s*.78} ${s*.14} ${s*.88} ${s*.22} ${s*.88} ${s*.38} C${s*.88} ${s*.62} ${h} ${s*.88} ${h} ${s*.88}Z" fill="url(#rg${idx}_${size}_${uid})" stroke="${g.dark}" stroke-width="1.2"/>`;
   } else if(g.shape==='square'){
-    shape=`<rect x="${s*.1}" y="${s*.1}" width="${s*.8}" height="${s*.8}" rx="4" fill="url(#rg${idx}_${size})" stroke="${g.dark}" stroke-width="1.2"/>`;
+    shape=`<rect x="${s*.1}" y="${s*.1}" width="${s*.8}" height="${s*.8}" rx="4" fill="url(#rg${idx}_${size}_${uid})" stroke="${g.dark}" stroke-width="1.2"/>`;
   } else if(g.shape==='tri'){
-    shape=`<polygon points="${h},${s*.08} ${s*.9},${s*.88} ${s*.1},${s*.88}" fill="url(#rg${idx}_${size})" stroke="${g.dark}" stroke-width="1.2"/>`;
+    shape=`<polygon points="${h},${s*.08} ${s*.9},${s*.88} ${s*.1},${s*.88}" fill="url(#rg${idx}_${size}_${uid})" stroke="${g.dark}" stroke-width="1.2"/>`;
   } else if(g.shape==='diamond'){
-    shape=`<polygon points="${h},${s*.06} ${s*.92},${h} ${h},${s*.94} ${s*.08},${h}" fill="url(#rg${idx}_${size})" stroke="${g.dark}" stroke-width="1.2"/>`;
+    shape=`<polygon points="${h},${s*.06} ${s*.92},${h} ${h},${s*.94} ${s*.08},${h}" fill="url(#rg${idx}_${size}_${uid})" stroke="${g.dark}" stroke-width="1.2"/>`;
   } else if(g.shape==='hex'){
     const pts=[];for(let i=0;i<6;i++){const a=Math.PI/180*(60*i-30);pts.push(`${h+q*Math.cos(a)},${h+q*Math.sin(a)}`);}
-    shape=`<polygon points="${pts.join(' ')}" fill="url(#rg${idx}_${size})" stroke="${g.dark}" stroke-width="1.2"/>`;
+    shape=`<polygon points="${pts.join(' ')}" fill="url(#rg${idx}_${size}_${uid})" stroke="${g.dark}" stroke-width="1.2"/>`;
   } else {
     const op=[],ip=[];
     for(let i=0;i<5;i++){
@@ -816,11 +822,11 @@ function gemSVG(idx,size){
       ip.push(`${h+q*.42*Math.cos(b)},${h+q*.42*Math.sin(b)}`);
     }
     const pts=[];for(let i=0;i<5;i++){pts.push(op[i]);pts.push(ip[i]);}
-    shape=`<polygon points="${pts.join(' ')}" fill="url(#rg${idx}_${size})" stroke="${g.dark}" stroke-width="1.2"/>`;
+    shape=`<polygon points="${pts.join(' ')}" fill="url(#rg${idx}_${size}_${uid})" stroke="${g.dark}" stroke-width="1.2"/>`;
   }
   const hilite=`<ellipse cx="${s*.36}" cy="${s*.28}" rx="${s*.13}" ry="${s*.07}" fill="white" opacity="0.22" transform="rotate(-20,${s*.36},${s*.28})"/>`;
-  const rune=`<text x="${h}" y="${g.shape==='tri'?s*.66:s*.58}" text-anchor="middle" dominant-baseline="middle" font-size="${s*.26}" fill="${g.dark}" opacity="0.75" font-family="serif" filter="url(#ri${idx}_${size})">${g.rune}</text>`;
-  return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="rg${idx}_${size}" cx="36%" cy="28%" r="64%"><stop offset="0%" stop-color="${g.hi}"/><stop offset="50%" stop-color="${g.color}"/><stop offset="100%" stop-color="${g.dark}"/></radialGradient><filter id="ri${idx}_${size}" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity="0.7"/></filter></defs>${shape}${hilite}${rune}</svg>`;
+  const rune=`<text x="${h}" y="${g.shape==='tri'?s*.66:s*.58}" text-anchor="middle" dominant-baseline="middle" font-size="${s*.26}" fill="${g.dark}" opacity="0.75" font-family="serif" filter="url(#ri${idx}_${size}_${uid})">${g.rune}</text>`;
+  return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="rg${idx}_${size}_${uid}" cx="36%" cy="28%" r="64%"><stop offset="0%" stop-color="${g.hi}"/><stop offset="50%" stop-color="${g.color}"/><stop offset="100%" stop-color="${g.dark}"/></radialGradient><filter id="ri${idx}_${size}_${uid}" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity="0.7"/></filter></defs>${shape}${hilite}${rune}</svg>`;
 }
 
 // Power-up artwork — hand-drawn inline SVG creatures, one per type.
