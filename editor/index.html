@@ -268,6 +268,17 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 #ghelp-diagram{margin-bottom:14px;}
 #ghelp .wmsg{color:#d8cce8;line-height:1.5;} /* readable body text — default .wmsg was too close to the dark background */
 #ghelp button{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:8px 26px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);cursor:pointer;}
+/* Qualification survey opt-in — sits above the choice screen in the flow */
+#qsurvey{position:fixed;inset:0;background:rgba(13,10,20,.94);display:none;align-items:center;justify-content:center;z-index:218;}
+#qsurvey.open{display:flex;}
+#qsurvey .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:32px 40px;text-align:center;max-width:380px;}
+#qsurvey h2{font-size:var(--fz-xl);color:#c792ea;margin-bottom:10px;font-weight:500;}
+#qsurvey .wmsg{color:#d8cce8;font-size:var(--fz-base);line-height:1.5;margin-bottom:22px;}
+.qsurvey-btns{display:flex;gap:14px;justify-content:center;}
+.qs-yes{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:10px 28px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);font-weight:500;cursor:pointer;}
+.qs-yes:hover{background:#4a3580;}
+.qs-no{background:transparent;color:#887a9a;border:0.5px solid #2d2040;padding:10px 22px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);cursor:pointer;}
+.qs-no:hover{color:#c792ea;border-color:#3d2060;}
 /* Qualifying Level intro — auto-dismisses; tap to skip */
 #qintro{position:fixed;inset:0;background:rgba(13,10,20,.82);display:none;align-items:center;justify-content:center;z-index:215;cursor:pointer;}
 #qintro.open{display:flex;}
@@ -568,6 +579,18 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
         <h3>Explorer</h3>
         <p>Play the levels and follow the build as it happens.</p>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Qualification survey opt-in — shown at "You Qualify", before the path split -->
+<div id="qsurvey">
+  <div class="wbox">
+    <h2>You just did something most players won't.</h2>
+    <p class="wmsg">Got 5 minutes? A short survey helps shape what comes next.</p>
+    <div class="qsurvey-btns">
+      <button class="qs-yes" onclick="surveyIn()">I'm in</button>
+      <button class="qs-no" onclick="surveyNot()">Not now</button>
     </div>
   </div>
 </div>
@@ -2281,11 +2304,37 @@ function showGoalHelp(i){
 }
 function closeGoalHelp(){document.getElementById('ghelp').classList.remove('open');}
 
-// ── Entrance completion → two-path choice ────────────────────────────────────
+// ── Qualification survey opt-in ───────────────────────────────────────────────
+// Google Form link-out — Jed supplies the real URL; notifications ride Google
+// Forms' native email (no backend here, by design).
+const QUALIFY_SURVEY_URL='';  // ← paste Google Form URL; empty = modal skipped
+
+// Lightweight dev-tools logging only — NOT an analytics pipeline (out of scope).
+function qlog(event){console.log('[qualify]',new Date().toISOString(),event);}
+
+// ── Entrance completion → survey opt-in → two-path choice ────────────────────
 function showEntranceChoice(){
   playing=false; animating=true; // lock the board under the overlay
   // NOTE: qualification is NOT persisted yet — entrance spec still evolving
   // (Jed 2026-07-06). Every fresh visit replays the entrance; only #dev persists.
+  if(QUALIFY_SURVEY_URL){
+    qlog('survey modal shown');
+    document.getElementById('qsurvey').classList.add('open');
+  } else {
+    document.getElementById('pchoice').classList.add('open'); // no URL configured — straight to paths
+  }
+}
+function surveyIn(){
+  qlog('survey: I\'m in');
+  window.open(QUALIFY_SURVEY_URL,'_blank','noopener');
+  surveyContinue();
+}
+function surveyNot(){
+  qlog('survey: not now');
+  surveyContinue();
+}
+function surveyContinue(){
+  document.getElementById('qsurvey').classList.remove('open');
   document.getElementById('pchoice').classList.add('open');
 }
 function leaveEntrance(){
@@ -2297,14 +2346,16 @@ function leaveEntrance(){
   document.getElementById('editor').style.display='none';
 }
 function chooseEditorPath(){
-  // Editor/Player — creator track: land on the editor home screen
+  qlog('path chosen: Architect');
+  // Architect — creator track: land on the editor home screen
   leaveEntrance();
   document.getElementById('player').classList.remove('active');
   document.getElementById('shell').style.display='';
   document.getElementById('home').style.display='flex';
 }
 function choosePlayerPath(){
-  // Player/Contributor — consumption track: bundles (docs/content page comes later)
+  qlog('path chosen: Explorer');
+  // Explorer — consumption track: bundles (docs/content page comes later)
   leaveEntrance();
   document.getElementById('shell').style.display='none';
   renderBundles();
