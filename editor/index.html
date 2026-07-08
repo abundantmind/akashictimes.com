@@ -1733,40 +1733,107 @@ function resolve(pats,dr,dc,snap,sr,sc){
   },230);
 }
 
-// gravityWithMap — applies gravity to board data and returns a move list for animation.
-// Each entry: {gem, pu, fr, fc, tr, tc, isNew}
-//   isNew=false: existing gem slid from row fr to row tr (same column fc=tc).
-//   isNew=true:  new random gem spawned; fr is a negative virtual row above the board
-//                so fly elements spawn above the visible grid.
+// gravityWithMap — FLOW-AWARE gravity: applies gravity to board data and returns
+// a move list for animation. Each entry: {gem, pu, fr, fc, tr, tc, isNew, path}
+//   path:  waypoint list [{r,c},...] — bends where a gem slips diagonally around
+//          an inactive INTERIOR hole (Township L2/L4/L5 lateral-fill behavior).
+//   isNew: spawned gem; path starts at a virtual cell outside the board
+//          (negative row for 'down' flow) so fly elements enter from off-grid.
+//
+// Engine model — stepwise simulation, one cell per step, runs to fixpoint:
+//   1. STRAIGHT: each gem advances one cell along its cell's flow direction
+//      (flow[][] — 'down' everywhere unless painted / level flowDirection).
+//   2. DIAGONAL SLIP: an empty active cell whose upstream neighbor is an
+//      inactive INTERIOR hole pulls a RESTING gem from one of its two upstream
+//      diagonals (random side when both offer) — gems route AROUND holes
+//      instead of teleporting through them.
+//   3. SPAWN: only ENTRY cells receive new gems — first active cell walking
+//      downstream from the board edge. Inactive-EDGE run above = open sky
+//      (spawns); inactive-INTERIOR gap = hole (lateral fill only).
+// Active cells sealed off from every feeder (e.g. an island) stay empty.
+const FLOW_VEC={down:[1,0],up:[-1,0],left:[0,-1],right:[0,1]};
 function gravityWithMap(){
   const moves=[];
-  // Write pointer must only land on ACTIVE cells — inactive interior holes
-  // (L2/L4/L5 layouts) must never receive gems. Gems fall straight THROUGH
-  // holes; Township's lateral fill around holes is NOT modeled yet (see L2 notes).
-  const nextActive=(w,c)=>{while(w>=0&&!board[w][c].active)w--;return w;};
-  for(let c=0;c<C;c++){
-    let w=nextActive(R-1,c); // write pointer — next ACTIVE destination row
-    let newCount=0; // how many new gems have been added in this column
-    // Slide existing gems down
-    for(let r=R-1;r>=0;r--){
-      if(board[r][c].active&&(board[r][c].gem!==null||board[r][c].pu)){
-        if(w!==r){
-          moves.push({gem:board[r][c].gem,pu:board[r][c].pu,fr:r,fc:c,tr:w,tc:c,isNew:false});
-          board[w][c].gem=board[r][c].gem;board[w][c].pu=board[r][c].pu;
-          board[r][c].gem=null;board[r][c].pu=null;
-        }
-        w=nextActive(w-1,c);
-      }
-    }
-    // Fill remaining active cells with new gems, spawning from above the board
-    for(let r=w;r>=0;r--){
-      if(board[r][c].active){
-        board[r][c].gem=randGem();board[r][c].pu=null;
-        // fr is a virtual negative row: -1, -2, ... stacked above the board top
-        moves.push({gem:board[r][c].gem,pu:null,fr:-(++newCount),fc:c,tr:r,tc:c,isNew:true});
-      }
-    }
+  const vecAt=(r,c)=>FLOW_VEC[(flow[r]&&flow[r][c])||'down'];
+  const inGrid=(r,c)=>r>=0&&r<R&&c>=0&&c<C;
+  const occ=(r,c)=>board[r][c].gem!==null||!!board[r][c].pu;
+  const emptyActive=(r,c)=>inGrid(r,c)&&board[r][c].active&&!occ(r,c);
+
+  // carrier[r][c] = move record of the gem sitting at (r,c) IF it has already
+  // moved this gravity pass — lets one gem accumulate a multi-bend path.
+  const carrier=board.map(row=>row.map(()=>null));
+
+  // Entry cells: walking UPSTREAM hits only inactive cells to the board edge.
+  // (Topology is static during gravity, so compute once.)
+  const entry=board.map((row,r)=>row.map((cd,c)=>{
+    if(!cd.active)return false;
+    const [dr,dc]=vecAt(r,c);
+    for(let rr=r-dr,cc=c-dc;inGrid(rr,cc);rr-=dr,cc-=dc)if(board[rr][cc].active)return false;
+    return true;
+  }));
+  const spawnN=board.map(row=>row.map(()=>0)); // virtual-row stack per entry
+
+  // Move the gem at (r,c) one step to (nr,nc), extending its recorded path
+  function step(r,c,nr,nc){
+    let m=carrier[r][c];
+    if(!m){m={gem:board[r][c].gem,pu:board[r][c].pu,fr:r,fc:c,tr:nr,tc:nc,isNew:false,path:[{r,c}]};moves.push(m);}
+    m.path.push({r:nr,c:nc});m.tr=nr;m.tc=nc;
+    board[nr][nc].gem=board[r][c].gem;board[nr][nc].pu=board[r][c].pu;
+    board[r][c].gem=null;board[r][c].pu=null;
+    carrier[nr][nc]=m;carrier[r][c]=null;
   }
+
+  // Every move strictly advances a gem downstream, and spawns are bounded by
+  // empty cells, so the loop terminates; guard is belt-and-braces.
+  let guard=0;
+  while(guard++<R*C*4){
+    let progress=false;
+    // 1) STRAIGHT — bottom-up scan so a down-flow column compacts slinky-style
+    for(let r=R-1;r>=0;r--)for(let c=0;c<C;c++){
+      if(!board[r][c].active||!occ(r,c))continue;
+      const [dr,dc]=vecAt(r,c);
+      if(emptyActive(r+dr,c+dc)){step(r,c,r+dr,c+dc);progress=true;}
+    }
+    // 2) DIAGONAL SLIP — into hole-blocked cells, from resting donors only
+    for(let r=R-1;r>=0;r--)for(let c=0;c<C;c++){
+      if(!emptyActive(r,c)||entry[r][c])continue;
+      const [dr,dc]=vecAt(r,c);
+      const ur=r-dr,uc=c-dc; // upstream neighbor
+      if(!inGrid(ur,uc)||board[ur][uc].active)continue; // not hole-blocked
+      // the two upstream diagonals, perpendicular to the flow axis
+      const perp=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
+      const donors=perp.filter(([pr,pc])=>{
+        if(!inGrid(pr,pc)||!board[pr][pc].active||!occ(pr,pc))return false;
+        const [ddr,ddc]=vecAt(pr,pc);
+        return !emptyActive(pr+ddr,pc+ddc); // resting — cannot fall straight
+      });
+      if(!donors.length)continue;
+      const [pr,pc]=donors[Math.floor(Math.random()*donors.length)];
+      step(pr,pc,r,c);progress=true;
+    }
+    // 3) SPAWN — entry cells pull new gems in from stacked off-grid cells
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      if(!entry[r][c]||occ(r,c))continue;
+      const [dr,dc]=vecAt(r,c);
+      const n=++spawnN[r][c];
+      board[r][c].gem=randGem();board[r][c].pu=null;
+      const m={gem:board[r][c].gem,pu:null,fr:r-dr*n,fc:c-dc*n,tr:r,tc:c,isNew:true,
+               path:[{r:r-dr*n,c:c-dc*n},{r,c}]};
+      moves.push(m);carrier[r][c]=m;progress=true;
+    }
+    if(!progress)break;
+  }
+
+  // Compress collinear waypoints — a straight N-row fall becomes one segment,
+  // only real direction changes (hole detours) keep their bend points.
+  moves.forEach(m=>{
+    const p=m.path,out=[p[0]];
+    for(let i=1;i<p.length-1;i++){
+      const a=out[out.length-1],b=p[i],d=p[i+1];
+      if((b.r-a.r)*(d.c-b.c)!==(b.c-a.c)*(d.r-b.r))out.push(b); // bend
+    }
+    out.push(p[p.length-1]);m.path=out;
+  });
   return moves;
 }
 
@@ -1854,7 +1921,7 @@ function animateFall(fallMoves,onDone){
   // Group moves by column so each column animates independently.
   const byCol={};
   fallMoves.forEach(m=>{
-    if(!m.isNew&&m.fr===m.tr)return; // gem didn't move — skip
+    if(!m.isNew&&m.fr===m.tr&&m.fc===m.tc)return; // gem didn't move — skip
     if(!byCol[m.fc])byCol[m.fc]=[];
     byCol[m.fc].push(m);
   });
@@ -1881,11 +1948,21 @@ function animateFall(fallMoves,onDone){
 
     sorted.forEach((m,rank)=>{
       const delay=rank*STAGGER_MS;
-      const dist=Math.abs(m.tr-m.fr);
-      const dur=BASE_DUR*Math.sqrt(Math.max(dist,1));
+      // Waypoint polyline in pixels: a straight fall is 2 points; hole-routing
+      // paths carry the bend points recorded by gravityWithMap.
+      const wps=(m.path&&m.path.length>1?m.path:[{r:m.fr,c:m.fc},{r:m.tr,c:m.tc}])
+        .map(p=>px(p.r,p.c));
+      // Cumulative pixel length along the polyline; duration scales with the
+      // TOTAL travelled cells (√d gravity feel), not just vertical drop.
+      const segLen=[0];let totalLen=0;
+      for(let i=1;i<wps.length;i++){
+        totalLen+=Math.hypot(wps[i].x-wps[i-1].x,wps[i].y-wps[i-1].y);
+        segLen.push(totalLen);
+      }
+      const cellSpan=Math.max(totalLen/(CELL_SIZE+CELL_GAP),1);
+      const dur=BASE_DUR*Math.sqrt(cellSpan);
 
-      const originPos=px(m.fr,m.fc);
-      const destPos  =px(m.tr,m.tc);
+      const originPos=wps[0];
 
       // Hide destination cell — appears empty while gem flies in.
       const destEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"]`);
@@ -1915,7 +1992,13 @@ function animateFall(fallMoves,onDone){
           const stretchY=t<1?1+0.07*(2*t):1; // max 1.14
           const squashX =t<1?1-0.03*(2*t):1; // min 0.94
 
-          fly.style.top=(originPos.y+(destPos.y-originPos.y)*eased)+'px';
+          // Walk the eased distance along the waypoint polyline — x AND y move,
+          // so gems visibly detour around inactive holes instead of teleporting.
+          const dNow=eased*totalLen;
+          let si=1;while(si<segLen.length-1&&segLen[si]<dNow)si++;
+          const a=wps[si-1],b=wps[si],f=(dNow-segLen[si-1])/((segLen[si]-segLen[si-1])||1);
+          fly.style.left=(a.x+(b.x-a.x)*f)+'px';
+          fly.style.top =(a.y+(b.y-a.y)*f)+'px';
           fly.style.transform=`scaleX(${squashX.toFixed(3)}) scaleY(${stretchY.toFixed(3)})`;
 
           if(t<1){requestAnimationFrame(step);}
