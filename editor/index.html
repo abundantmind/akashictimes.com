@@ -1674,9 +1674,11 @@ function comboConvertAndDetonate(src,gemIdx){
     },HIT_MS);
   };
   const deploy=()=>{
+    // Hoppers deploy as a SWARM (flights overlap); scarabs/dragonflies use the
     // consume-on-play queue: each converted PU is consumed (and its cell
     // cleared) only when ITS cinematic starts — chains catching it earlier
     // turn its entry into a no-op (cycle-safe both ways).
+    if(src.convertTo==='helicopter'){hopperSwarm(cells,src);return;}
     const phase=new Set(),queue=[];
     cells.forEach(([r,c])=>{
       if(!board[r][c].pu)return; // already chained away (shouldn't happen pre-deploy)
@@ -1757,8 +1759,63 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed){
   },Math.round(240/playbackSpeed));
 }
 
-// COMBO GRASSHOPPER (#5 deployment, sequential) — feed & swell, then the jump
-// laser fires at a random target; the creature pops as it fires.
+// THE SWARM (#5 deployment — Township behavior, Jed 2026-07-09): takeoffs
+// sequence in READING ORDER but flights OVERLAP — nobody waits for a landing.
+// Each hopper feeds (suck-in + swell), then FLIES to its random target — no
+// laser — and pops it on touchdown. Gravity holds until the LAST landing;
+// chain-caught PUs collected along the way play out afterwards.
+function hopperSwarm(cells,src){
+  const phase=new Set(),chainQueue=[];
+  const hoppers=cells.filter(([r,c])=>board[r][c].pu==='helicopter'); // reading order preserved
+  if(!hoppers.length){settleAndCascade(phase,src.r,src.c);return;}
+  const TAKEOFF_MS=Math.round(170/playbackSpeed);
+  let landed=0;
+  const finish=()=>processDetonations(chainQueue,phase,()=>settleAndCascade(phase,src.r,src.c));
+  const done=()=>{if(++landed===hoppers.length)finish();};
+  hoppers.forEach(([r,c],idx)=>{
+    setTimeout(()=>{
+      if(board[r][c].pu!=='helicopter'){done();return;} // a chain ate it first
+      board[r][c].pu=null;puFired('helicopter');
+      hopperFeedAndSwell(r,c,phase,chainQueue,(actor)=>{
+        const t=randomHopperTarget(r,c,phase);
+        if(!t){actor.style.opacity='0';setTimeout(()=>{actor.remove();done();},150);return;}
+        hopperFlight(actor,r,c,t[0],t[1],()=>{
+          clearCellD(t[0],t[1],phase,chainQueue);
+          if(playerMode)updatePlayerHUD();
+          render(null);
+          const el=document.querySelector(`[data-r="${t[0]}"][data-c="${t[1]}"]`);
+          if(el)el.classList.add('popping');
+          done();
+        });
+      });
+    },idx*TAKEOFF_MS);
+  });
+}
+
+// One hopper's flight: eased arc from origin to target, lift scaling with
+// distance; the swollen actor rides the whole way and vanishes on touchdown.
+function hopperFlight(actor,fr,fc,tr,tc,onLand){
+  const from=cellPos(fr,fc),to=cellPos(tr,tc);
+  const dist=Math.hypot(to.x-from.x,to.y-from.y);
+  const dur=Math.max(300,dist*2.2)/playbackSpeed;
+  const lift=Math.min(60,20+dist*0.15);
+  const start=performance.now();
+  function step(now){
+    const t=Math.min((now-start)/dur,1);
+    const e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2; // easeInOut — takeoff and landing both read
+    const x=from.x+(to.x-from.x)*e;
+    const y=from.y+(to.y-from.y)*e-Math.sin(t*Math.PI)*lift;
+    actor.style.left=(x-CELL_SIZE/2)+'px';
+    actor.style.top =(y-CELL_SIZE/2)+'px';
+    if(t<1){requestAnimationFrame(step);}
+    else{actor.remove();onLand();}
+  }
+  requestAnimationFrame(step);
+}
+
+// COMBO GRASSHOPPER (sequential fallback — superseded by hopperSwarm for #5;
+// kept for any future queue entry flagged {pu:'helicopter',combo:true}) —
+// feed & swell, then the jump laser fires at a random target.
 function detHopperCombo(r,c,phase,queue,next){
   hopperFeedAndSwell(r,c,phase,queue,(actor)=>{
     const t=randomHopperTarget(r,c,phase);
