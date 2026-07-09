@@ -311,6 +311,7 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
     </div>
     <div class="nav">
       <button class="navbtn active">Home</button>
+      <button class="navbtn" onclick="renderBundles()">Play</button>
       <button class="navbtn">Browse</button>
       <button class="navbtn">My Levels</button>
       <button class="navbtn">Community</button>
@@ -1880,6 +1881,44 @@ function gravityWithMap(){
     for(let rr=r-dr,cc=c-dc;inGrid(rr,cc);rr-=dr,cc-=dc)if(board[rr][cc].active)return false;
     return true;
   }));
+
+  // STARVED POCKETS BECOME SOURCES (Jed's rule, 2026-07-09): a cell that can
+  // never be refilled — not straight from upstream, not diagonally around a
+  // hole (L4 wing pockets: hole above AND both diagonals inactive) — behaves
+  // like a top-row position: new gems spawn into it. Feedability fixpoint;
+  // each starved region's most-upstream cell gets promoted to an entry.
+  {
+    const feed=board.map((row,r)=>row.map((cd,c)=>cd.active&&entry[r][c]));
+    for(;;){
+      let grew=false;
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+        if(!board[r][c].active||feed[r][c])continue;
+        const [dr,dc]=vecAt(r,c);
+        const ur=r-dr,uc=c-dc;
+        if(inGrid(ur,uc)&&board[ur][uc].active){          // straight feed
+          if(feed[ur][uc]){feed[r][c]=true;grew=true;}
+        }else if(inGrid(ur,uc)){                          // hole above: diagonal feed
+          const perp=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
+          if(perp.some(([pr,pc])=>inGrid(pr,pc)&&board[pr][pc].active&&feed[pr][pc])){
+            feed[r][c]=true;grew=true;
+          }
+        }
+      }
+      if(grew)continue;
+      // no growth left: promote each starved region's root, or finish
+      let promoted=false;
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+        if(!board[r][c].active||feed[r][c])continue;
+        const [dr,dc]=vecAt(r,c);
+        const ur=r-dr,uc=c-dc;
+        // root = upstream is NOT an active starved cell (it's a hole/edge/fed)
+        if(!(inGrid(ur,uc)&&board[ur][uc].active&&!feed[ur][uc])){
+          entry[r][c]=true;feed[r][c]=true;promoted=true;
+        }
+      }
+      if(!promoted)break; // every active cell is feedable
+    }
+  }
   const spawnN=board.map(row=>row.map(()=>0)); // virtual-row stack per entry
 
   // Move the gem at (r,c) one step to (nr,nc), extending its recorded path
