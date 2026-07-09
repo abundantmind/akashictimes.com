@@ -109,6 +109,9 @@ body.font-lg{--base-font:20px;}
 .lb-sub{font-size:var(--fz-sm);color:#554470;}
 .lb-score{font-size:var(--fz-md);font-weight:500;color:#c792ea;}
 .new-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:0.5px dashed #2d2040;border-radius:6px;cursor:pointer;color:#554470;font-size:var(--fz-md);font-family:var(--font-sans);background:transparent;width:100%;margin-top:4px;}
+.tmpl-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:var(--fz-sm);font-family:var(--font-sans);color:#554470;flex-wrap:wrap;}
+.tmpl-btn{padding:6px 12px;border:0.5px solid #2d2040;border-radius:6px;cursor:pointer;color:#8a74b0;background:transparent;font-size:var(--fz-sm);font-family:var(--font-sans);}
+.tmpl-btn:hover{border-color:#8a74b0;color:#c9b8e8;}
 .new-btn:hover{border-color:#c792ea;color:#c792ea;background:#0d0818;}
 
 /* ── GRID SETUP MODAL ── */
@@ -314,7 +317,7 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
       <button class="navbtn" onclick="renderBundles()">Play</button>
       <button class="navbtn">Browse</button>
       <button class="navbtn">My Levels</button>
-      <button class="navbtn">Community</button>
+      <button class="navbtn" onclick="window.open('https://www.reddit.com/r/AkashicSwapsGame/','_blank','noopener')">Community</button>
       <button class="navbtn">Docs</button>
     </div>
     <div class="user">
@@ -352,6 +355,14 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
       <div class="draft-row"><div class="draft-thumb">▦</div><div class="draft-info"><div class="draft-name">The Overlap Experiment</div><div class="draft-meta">Grid Edit · Zone 2 of 3 · edited yesterday</div></div><span class="draft-status ds-draft">Draft</span></div>
       <div class="draft-row"><div class="draft-thumb">▦</div><div class="draft-info"><div class="draft-name">Wooden Box Gauntlet</div><div class="draft-meta">Play Test · ready to publish · edited 3d ago</div></div><span class="draft-status ds-review">In review</span></div>
       <button class="new-btn" id="btn-new-level2">+ Start a new level</button>
+      <!-- Township templates: the 5 free levels, gifted as editable starting points -->
+      <div class="tmpl-row">Start from a classic:
+        <button class="tmpl-btn" onclick="openTemplate(1)">L1</button>
+        <button class="tmpl-btn" onclick="openTemplate(2)">L2</button>
+        <button class="tmpl-btn" onclick="openTemplate(3)">L3</button>
+        <button class="tmpl-btn" onclick="openTemplate(4)">L4</button>
+        <button class="tmpl-btn" onclick="openTemplate(5)">L5</button>
+      </div>
     </div>
     <div class="quad">
       <div class="quad-header">
@@ -766,10 +777,36 @@ function openEditor(){
   updUB();
 }
 
+// ── Township templates — gift the free levels to Architects as starting points ──
+// Loads a bundle level's JSON into the EDITOR (not Play mode): layout, flow
+// regions and pre-placed power-ups arrive fully paintable; gems fill randomly
+// (match-free) so the board is instantly testable with ▶. Edit from there.
+async function openTemplate(n){
+  let json;
+  try{
+    const resp=await fetch('levels/level-'+String(n).padStart(3,'0')+'.json');
+    if(!resp.ok)throw new Error('http '+resp.status);
+    json=await resp.json();
+  }catch(e){alert('Template '+n+' is not available.');return;}
+  loadLevelData(json,n); // board/flow/gem palette/objectives from the JSON
+  playerMode=false;playing=false;entranceMode=false;animating=false;CELL_SIZE=44;
+  // fill gems for a ready-to-play board; pre-placed PUs stay as painted
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu)board[r][c].gem=randGem();
+  clean(); // no pre-made matches on open
+  document.getElementById('home').style.display='none';
+  document.getElementById('editor').style.display='flex';
+  document.getElementById('info-r').textContent=R;
+  document.getElementById('info-c').textContent=C;
+  buildGPal();buildPUPal();buildObsPal();
+  undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null;
+  render();updUB();
+}
+
 function goHome(){
   document.getElementById('editor').style.display='none';
   document.getElementById('home').style.display='flex';
   playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;animating=false;selCell=null;
+  GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
 }
 
 /* ── BOARD ── */
@@ -1887,6 +1924,9 @@ function gravityWithMap(){
   // hole (L4 wing pockets: hole above AND both diagonals inactive) — behaves
   // like a top-row position: new gems spawn into it. Feedability fixpoint;
   // each starved region's most-upstream cell gets promoted to an entry.
+  // Promoted entries are remembered: their spawns FADE IN (no flight path
+  // exists — the pocket's ceiling is a hole, not open sky).
+  const promotedEntry=board.map(row=>row.map(()=>false));
   {
     const feed=board.map((row,r)=>row.map((cd,c)=>cd.active&&entry[r][c]));
     for(;;){
@@ -1913,7 +1953,7 @@ function gravityWithMap(){
         const ur=r-dr,uc=c-dc;
         // root = upstream is NOT an active starved cell (it's a hole/edge/fed)
         if(!(inGrid(ur,uc)&&board[ur][uc].active&&!feed[ur][uc])){
-          entry[r][c]=true;feed[r][c]=true;promoted=true;
+          entry[r][c]=true;promotedEntry[r][c]=true;feed[r][c]=true;promoted=true;
         }
       }
       if(!promoted)break; // every active cell is feedable
@@ -1959,13 +1999,15 @@ function gravityWithMap(){
       const [pr,pc]=donors[Math.floor(Math.random()*donors.length)];
       step(pr,pc,r,c);progress=true;
     }
-    // 3) SPAWN — entry cells pull new gems in from stacked off-grid cells
+    // 3) SPAWN — entry cells pull new gems in from stacked off-grid cells;
+    //    promoted (starved-pocket) entries fade in instead of flying in
     for(let r=0;r<R;r++)for(let c=0;c<C;c++){
       if(!entry[r][c]||occ(r,c))continue;
       const [dr,dc]=vecAt(r,c);
       const n=++spawnN[r][c];
       board[r][c].gem=randGem();board[r][c].pu=null;
       const m={gem:board[r][c].gem,pu:null,fr:r-dr*n,fc:c-dc*n,tr:r,tc:c,isNew:true,
+               fadeIn:promotedEntry[r][c],
                path:[{r:r-dr*n,c:c-dc*n},{r,c}]};
       moves.push(m);carrier[r][c]=m;progress=true;
     }
@@ -2096,6 +2138,40 @@ function animateFall(fallMoves,onDone){
 
     sorted.forEach((m,rank)=>{
       const delay=rank*STAGGER_MS;
+
+      // Starved-pocket spawn (fadeIn): the gem has no flight path — its
+      // ceiling is an inactive hole, not open sky — so it materializes at its
+      // destination, opacity 0 → 1, instead of falling through the wall.
+      if(m.fadeIn){
+        const dpos=px(m.tr,m.tc);
+        const dEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"]`);
+        if(dEl)dEl.style.opacity='0';
+        const ghost=document.createElement('div');
+        ghost.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
+          +`pointer-events:none;z-index:20;display:flex;align-items:center;`
+          +`justify-content:center;opacity:0;`;
+        ghost.innerHTML=m.gem!==null?`<div class="gem-inner">${gemSVG(m.gem,gemSize())}</div>`:'';
+        ghost.style.left=dpos.x+'px';
+        ghost.style.top =dpos.y+'px';
+        wrap.appendChild(ghost);
+        setTimeout(()=>{
+          const start=performance.now(),fdur=BASE_DUR*1.2;
+          function fstep(now){
+            const t=Math.min((now-start)/fdur,1);
+            ghost.style.opacity=t.toFixed(3);
+            if(t<1){requestAnimationFrame(fstep);}
+            else{
+              ghost.remove();
+              if(dEl)dEl.style.opacity='';
+              doneGems++;
+              if(doneGems===totalGems)onDone();
+            }
+          }
+          requestAnimationFrame(fstep);
+        },delay);
+        return;
+      }
+
       // Waypoint polyline in pixels: a straight fall is 2 points; hole-routing
       // paths carry the bend points recorded by gravityWithMap.
       const wps=(m.path&&m.path.length>1?m.path:[{r:m.fr,c:m.fc},{r:m.tr,c:m.tc}])
