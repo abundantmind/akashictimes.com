@@ -2564,8 +2564,11 @@ function qlog(event){console.log('[qualify]',new Date().toISOString(),event);}
 // ── Entrance completion → survey opt-in → two-path choice ────────────────────
 function showEntranceChoice(){
   playing=false; animating=true; // lock the board under the overlay
-  // NOTE: qualification is NOT persisted yet — entrance spec still evolving
-  // (Jed 2026-07-06). Every fresh visit replays the entrance; only #dev persists.
+  // Qualification persists on THIS device via localStorage (re-enabled 2026-07-09,
+  // Jed's call — entrance spec settled). No server/database: clearing site data
+  // (or a different browser/device) re-qualifies. #dev remains the instant bypass.
+  localStorage.setItem('akashicswaps-qualified','1');
+  qlog('qualified — persisted to localStorage');
   if(QUALIFY_SURVEY_URL){
     qlog('survey modal shown');
     document.getElementById('qsurvey').classList.add('open');
@@ -2596,6 +2599,7 @@ function leaveEntrance(){
 }
 function chooseEditorPath(){
   qlog('path chosen: Architect');
+  localStorage.setItem('akashicswaps-path','architect'); // return visits land here directly
   // Architect — creator track: land on the editor home screen
   leaveEntrance();
   document.getElementById('player').classList.remove('active');
@@ -2604,6 +2608,7 @@ function chooseEditorPath(){
 }
 function choosePlayerPath(){
   qlog('path chosen: Explorer');
+  localStorage.setItem('akashicswaps-path','explorer'); // return visits land here directly
   // Explorer — consumption track: bundles (docs/content page comes later)
   leaveEntrance();
   document.getElementById('shell').style.display='none';
@@ -2643,16 +2648,23 @@ function exitToGrid(){
 }
 
 // ── Entry routing ─────────────────────────────────────────────────────────────
-// The editor is gated: only visitors who completed the Level 1 entrance
-// (or hold the #dev key) see the editor home. Everyone else gets the entrance.
+// The editor is gated: only visitors who completed the Qualifying entrance
+// (or hold the #dev key) get past it. Qualification + chosen path persist in
+// localStorage (this device only — no server), so returning visitors skip the
+// entrance and land on their track. Replaying it requires clearing site data.
 if(location.hash==='#dev'){
   localStorage.setItem('akashicswaps-qualified','1'); // dev/architect bypass
 }else if(location.hash==='#play'||location.hash==='#player'){
   renderBundles();
-}else if(location.hash==='#enter'){
-  startEntrance();
-}else if(localStorage.getItem('akashicswaps-qualified')!=='1'){
-  startEntrance(); // unqualified visitors: the entrance IS the front door
+}else{
+  // #enter and plain visits share one rule: unqualified → the entrance IS the
+  // front door; qualified → straight to the visitor's earned track.
+  if(localStorage.getItem('akashicswaps-qualified')!=='1'){
+    startEntrance();
+  }else if(localStorage.getItem('akashicswaps-path')==='explorer'){
+    renderBundles(); // returning Explorer: bundles
+  }
+  // returning Architect (or choice not yet made): editor home = default view
 }
 
 // ── Bug Report Button ─────────────────────────────────────────────────────────
