@@ -1469,6 +1469,19 @@ function processDetonations(queue,phase,onDone){
   if(!queue.length){onDone();return;}
   const det=queue.shift();
   const next=()=>processDetonations(queue,phase,onDone);
+  // Consume-on-play (staged Ball-family combos): the converted PU stays
+  // VISIBLE on its cell until this moment. If a chain already caught it
+  // (pu gone), the entry is a no-op — the chain path owns its cinematic.
+  if(det.consumeOnPlay){
+    if(board[det.r][det.c].pu!==det.pu){next();return;}
+    board[det.r][det.c].pu=null;
+    puFired(det.pu);
+    clearCell(det.r,det.c,phase);
+    render(null);
+    const selfEl=document.querySelector(`[data-r="${det.r}"][data-c="${det.c}"]`);
+    if(selfEl)selfEl.classList.add('popping');
+  }
+  if(det.pu==='helicopter'&&det.combo){detHopperCombo(det.r,det.c,phase,queue,next);return;}
   if(det.pu==='bomb')            detScarab(det.r,det.c,phase,queue,next,det.rad);
   else if(det.pu==='rocket_h')   detDragonfly(det.r,det.c,'h',phase,queue,next,det.wide);
   else if(det.pu==='rocket_v')   detDragonfly(det.r,det.c,'v',phase,queue,next,det.wide);
@@ -1630,22 +1643,74 @@ function startPUCombo(dr,dc,sr,sc){
   }
 }
 
-// Ball-family conversion (#3/#5/#6): every gem of the chosen color becomes the
-// partner power-up, beat, then all of them detonate through the queue in
-// reading order. Fly conversions get a random H/V axis each (spec is silent on
-// axis — flagged as an assumption in the combo spec review).
+// Ball-family conversion (#3/#5/#6) — STAGED (Jed's redesign, 2026-07-09).
+// Phase A: the Ball lasers each chosen-color tile IN READING ORDER; each hit
+//   converts that tile to the partner power-up on arrival — no instant blink.
+// Phase B: deployment. Hoppers detonate one at a time in reading order, each
+//   staying VISIBLE until its own turn ("+" pop + jump laser together);
+//   scarabs/dragonflies likewise stay on the board until their cinematic.
+// Fly conversions get a random H/V axis each (spec silent on axis).
 function comboConvertAndDetonate(src,gemIdx){
   animating=true;
   const cells=rainbowCells(gemIdx);
-  cells.forEach(([r,c])=>{
-    if(playerMode)playerTally(gemIdx); // conversion consumes the gem (same rule as match anchors)
-    board[r][c].gem=null;
-    board[r][c].pu=src.convertTo==='rocket'?(Math.random()<0.5?'rocket_h':'rocket_v'):src.convertTo;
+  cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); // reading order: row 1 L→R, row 2…
+  const HIT_MS=110; // same pace as the solo Ball's laser sweep
+  let i=0;
+  const convertNext=()=>{
+    if(i>=cells.length){setTimeout(deploy,180/playbackSpeed);return;}
+    const [r,c]=cells[i++];
+    animateLaser(src.r,src.c,r,c,()=>{});
+    setTimeout(()=>{
+      if(playerMode){playerTally(gemIdx);updatePlayerHUD();} // conversion consumes the gem
+      board[r][c].gem=null;
+      board[r][c].pu=src.convertTo==='rocket'?(Math.random()<0.5?'rocket_h':'rocket_v'):src.convertTo;
+      render(null);
+      convertNext();
+    },HIT_MS);
+  };
+  const deploy=()=>{
+    // consume-on-play queue: each converted PU is consumed (and its cell
+    // cleared) only when ITS cinematic starts — chains catching it earlier
+    // turn its entry into a no-op (cycle-safe both ways).
+    const phase=new Set(),queue=[];
+    cells.forEach(([r,c])=>{
+      if(!board[r][c].pu)return; // already chained away (shouldn't happen pre-deploy)
+      queue.push({pu:board[r][c].pu,r,c,consumeOnPlay:true,combo:true});
+    });
+    processDetonations(queue,phase,()=>settleAndCascade(phase,src.r,src.c));
+  };
+  convertNext();
+}
+
+// Random-target pick for combo-spawned Grasshoppers (Jed 2026-07-09: combo
+// hoppers jump at RANDOM targets — the swarm reads chaotic on purpose;
+// chain-caught hoppers stay goal-oriented via autoGrasshopperTarget).
+function randomHopperTarget(r,c,excludeSet){
+  const opts=[];
+  for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
+    if(nr===r&&nc===c)continue;
+    if(excludeSet&&excludeSet.has(nr+','+nc))continue;
+    if(board[nr][nc].active&&(board[nr][nc].gem!==null||board[nr][nc].pu))opts.push([nr,nc]);
+  }
+  return opts.length?opts[Math.floor(Math.random()*opts.length)]:null;
+}
+
+// COMBO GRASSHOPPER (#5 deployment) — "+"-shaped 5-cell pop (self was cleared
+// by the consume-on-play step) with the jump laser firing simultaneously at a
+// random target.
+function detHopperCombo(r,c,phase,queue,next){
+  grasshopperOrthCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
+  if(playerMode)updatePlayerHUD();
+  render(null);
+  phase.forEach(k=>{const[pr,pc]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
+  const t=randomHopperTarget(r,c,phase);
+  if(!t){setTimeout(next,180);return;}
+  animateLaser(r,c,t[0],t[1],()=>{
+    clearCellD(t[0],t[1],phase,queue);
+    if(playerMode)updatePlayerHUD();
+    render(null);
+    next();
   });
-  render();
-  // beat so the conversion reads, then mass-detonate: clearCellD consumes each
-  // spawned PU (goal events fire) and enqueues its cinematic
-  setTimeout(()=>applyEffects(cells,src.r,src.c,[]),380/playbackSpeed);
 }
 
 // ── Apply a combined set of cleared cells: pop, run detonation queue, settle ──
