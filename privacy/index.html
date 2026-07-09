@@ -8,6 +8,9 @@
   <!-- Plausible analytics — privacy-first, no cookie banner -->
   <script defer data-domain="akashictimes.com" src="https://plausible.io/js/script.js"></script>
 
+  <!-- Unmoatable Analytics — cookieless; no-ops on localhost; SPA routing tracked automatically -->
+  <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
+
   <style>
     /* ── Reset ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -118,11 +121,12 @@
 
     <h2>Analytics</h2>
     <p>
-      We use <a href="https://plausible.io" target="_blank" rel="noopener">Plausible</a>,
-      a privacy-first analytics service, to count visits and see which pages
-      are used. Plausible uses no cookies, stores no personal data, and does
-      not track you across sites. We see aggregate numbers (visits, pages,
-      countries) — never who you are.
+      We use privacy-first analytics services —
+      <a href="https://plausible.io" target="_blank" rel="noopener">Plausible</a>
+      and <a href="https://unmoatable.com" target="_blank" rel="noopener">Unmoatable Analytics</a> —
+      to count visits and see which pages are used. Both are cookieless and
+      store no personal data; neither tracks you across sites. We see aggregate
+      numbers (visits, pages, countries) — never who you are.
     </p>
 
     <h2>Forms you choose to submit</h2>
