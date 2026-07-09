@@ -1476,6 +1476,11 @@ function processDetonations(queue,phase,onDone){
     if(board[det.r][det.c].pu!==det.pu){next();return;}
     board[det.r][det.c].pu=null;
     puFired(det.pu);
+    if(det.pu==='helicopter'&&det.combo){
+      // The creature stays alive as a DOM actor (feed → swell → jump);
+      // its cell is cleared by the actor flow, not here.
+      detHopperCombo(det.r,det.c,phase,queue,next);return;
+    }
     clearCell(det.r,det.c,phase);
     render(null);
     const selfEl=document.querySelector(`[data-r="${det.r}"][data-c="${det.c}"]`);
@@ -1695,21 +1700,77 @@ function randomHopperTarget(r,c,excludeSet){
   return opts.length?opts[Math.floor(Math.random()*opts.length)]:null;
 }
 
-// COMBO GRASSHOPPER (#5 deployment) — "+"-shaped 5-cell pop (self was cleared
-// by the consume-on-play step) with the jump laser firing simultaneously at a
-// random target.
-function detHopperCombo(r,c,phase,queue,next){
-  grasshopperOrthCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
+// FEED & SWELL — shared by the sequential combo hopper and (next step) the
+// swarm takeoff. The hopper's board PU is already logically consumed; a DOM
+// actor carries its art. Orthogonal gems visually get SUCKED INTO the creature
+// (clones tween to its center and shrink away) as it swells ~25% — eating for
+// energy before the jump. Data-side the orths clear through clearCellD, so
+// chains and goal tallies are untouched. Calls onFed(actor) when swollen.
+function hopperFeedAndSwell(r,c,phase,queue,onFed){
+  const wrap=document.getElementById('board-wrap');
+  const center=cellPos(r,c);
+  // actor: the living creature, above the (about-to-clear) cell
+  const actor=document.createElement('div');
+  actor.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
+    +`pointer-events:none;z-index:22;display:flex;align-items:center;justify-content:center;`
+    +`transition:transform ${Math.round(220/playbackSpeed)}ms ease-out;`;
+  actor.innerHTML=puSVG('helicopter',gemSize());
+  actor.style.left=(center.x-CELL_SIZE/2)+'px';
+  actor.style.top =(center.y-CELL_SIZE/2)+'px';
+  wrap.appendChild(actor);
+  // clone each orthogonal's contents BEFORE clearing the data, so the visuals
+  // can fly into the mouth while the board is already square underneath
+  const meals=[];
+  grasshopperOrthCells(r,c).forEach(([or,oc])=>{
+    const el=document.querySelector(`[data-r="${or}"][data-c="${oc}"]`);
+    const hasContent=board[or][oc].gem!==null||board[or][oc].pu;
+    if(el&&hasContent){
+      const p=cellPos(or,oc);
+      const bite=document.createElement('div');
+      bite.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
+        +`pointer-events:none;z-index:21;display:flex;align-items:center;justify-content:center;`
+        +`transition:all ${Math.round(200/playbackSpeed)}ms ease-in;`;
+      bite.innerHTML=el.innerHTML;
+      bite.style.left=(p.x-CELL_SIZE/2)+'px';
+      bite.style.top =(p.y-CELL_SIZE/2)+'px';
+      wrap.appendChild(bite);
+      meals.push({bite,p});
+    }
+    clearCellD(or,oc,phase,queue); // data clears now; PU meals chain-enqueue
+  });
+  clearCell(r,c,phase); // the hopper's own cell counts in the phase
   if(playerMode)updatePlayerHUD();
   render(null);
-  phase.forEach(k=>{const[pr,pc]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-  const t=randomHopperTarget(r,c,phase);
-  if(!t){setTimeout(next,180);return;}
-  animateLaser(r,c,t[0],t[1],()=>{
-    clearCellD(t[0],t[1],phase,queue);
-    if(playerMode)updatePlayerHUD();
-    render(null);
-    next();
+  // one tick so the clones' start positions paint, then suck them in + swell
+  requestAnimationFrame(()=>{
+    meals.forEach(({bite})=>{
+      bite.style.left=(center.x-CELL_SIZE/2)+'px';
+      bite.style.top =(center.y-CELL_SIZE/2)+'px';
+      bite.style.transform='scale(0.1)';
+      bite.style.opacity='0';
+    });
+    actor.style.transform='scale(1.25)';
+  });
+  setTimeout(()=>{
+    meals.forEach(({bite})=>bite.remove());
+    onFed(actor);
+  },Math.round(240/playbackSpeed));
+}
+
+// COMBO GRASSHOPPER (#5 deployment, sequential) — feed & swell, then the jump
+// laser fires at a random target; the creature pops as it fires.
+function detHopperCombo(r,c,phase,queue,next){
+  hopperFeedAndSwell(r,c,phase,queue,(actor)=>{
+    const t=randomHopperTarget(r,c,phase);
+    if(!t){actor.remove();render(null);setTimeout(next,120);return;}
+    actor.style.transform='scale(0.1)';actor.style.opacity='0'; // pops on takeoff
+    animateLaser(r,c,t[0],t[1],()=>{
+      actor.remove();
+      clearCellD(t[0],t[1],phase,queue);
+      if(playerMode)updatePlayerHUD();
+      render(null);
+      next();
+    });
   });
 }
 
