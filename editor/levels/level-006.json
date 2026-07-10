@@ -1,0 +1,48 @@
+{
+  "level": 6,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 9,
+    "cols": 9,
+    "layout": [
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########"
+    ]
+  },
+  "gemTypes": [
+    "red",
+    "blue",
+    "yellow",
+    "green"
+  ],
+  "objectives": [
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 80
+    }
+  ],
+  "moveLimit": 22,
+  "boosterSlots": 3,
+  "obstacles": [
+    {
+      "functionalId": "substrate.clover",
+      "positions": [
+        "R4C4"
+      ],
+      "note": "Single seed cell at board center (authored by Jed 2026-07-10 \u2014 no L6 video exists). Tutorial level: clover debuts. 81 active - 1 seed = plant 80."
+    }
+  ],
+  "captureMeta": {
+    "source": "live-stills + authored seed",
+    "verified": false,
+    "notes": "Board/goal/moves from live capture; seed cell authored (center). Township tutorial text: 'Make a match with a piece on the Grass to plant more!' / 'Activate Boosters on the Grass to spread it over a larger area.'"
+  }
+}

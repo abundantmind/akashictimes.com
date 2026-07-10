@@ -1,0 +1,96 @@
+{
+  "level": 7,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 8,
+    "cols": 11,
+    "layout": [
+      ".#.#####.#.",
+      "#.#######.#",
+      ".#########.",
+      "###########",
+      ".#########.",
+      "#.#######.#",
+      ".#.......#.",
+      "...#####..."
+    ]
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "objectives": [
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 47
+    }
+  ],
+  "moveLimit": 25,
+  "boosterSlots": 3,
+  "obstacles": [
+    {
+      "functionalId": "substrate.clover",
+      "positions": [
+        "R0C1",
+        "R1C0",
+        "R2C1",
+        "R3C0",
+        "R4C1",
+        "R5C0",
+        "R6C1",
+        "R0C9",
+        "R1C10",
+        "R2C9",
+        "R3C10",
+        "R4C9",
+        "R5C10",
+        "R6C9"
+      ],
+      "note": "14 seeds, frame-exact trace (zigzag borders). 61 active - 14 = plant 47."
+    },
+    {
+      "functionalId": "powerup.seeker",
+      "positions": [
+        "R0C1",
+        "R0C9",
+        "R1C0",
+        "R1C10",
+        "R5C0",
+        "R5C10",
+        "R6C1",
+        "R6C9"
+      ],
+      "note": "8 pre-placed Grasshoppers on the corner seeds \u2014 isolated cells, double-tap to launch; landings plant."
+    },
+    {
+      "functionalId": "powerup.area",
+      "positions": [
+        "R5C2"
+      ],
+      "note": "1 pre-placed Scarab (library: approx R5C2)."
+    },
+    {
+      "functionalId": "powerup.rainbow",
+      "positions": [
+        "R7C6"
+      ],
+      "note": "Island Akasha Ball (island row R7 C3-C7, disconnected)."
+    },
+    {
+      "functionalId": "powerup.dragonfly",
+      "positions": [
+        "R7C7"
+      ],
+      "note": "Island Dragonfly (vertical)."
+    }
+  ],
+  "captureMeta": {
+    "source": "Layout confirmed by Jed (direct observation). BoardState: Township-Level-0007-BoardState.png.",
+    "verified": true,
+    "notes": "Active cell counts: R0=7, R1=9, R2=9, R3=11, R4=9, R5=9, R6=2, R7=5 \u2192 61 total.",
+    "cloverTraced": true
+  }
+}
