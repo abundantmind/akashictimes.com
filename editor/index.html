@@ -1572,7 +1572,7 @@ function detHopper(r,c,phase,queue,next){
   const t=autoGrasshopperTarget(r,c,phase);
   if(!t){setTimeout(next,200);return;}
   setTimeout(()=>{
-    animateLaser(r,c,t[0],t[1],()=>{
+    hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
       clearCellD(t[0],t[1],phase,queue);
       if(playerMode)updatePlayerHUD();
       render(null);
@@ -1587,7 +1587,7 @@ function detHopper(r,c,phase,queue,next){
 function detHopperJump(r,c,phase,queue,next){
   const t=autoGrasshopperTarget(r,c,phase);
   if(!t){setTimeout(next,120);return;}
-  animateLaser(r,c,t[0],t[1],()=>{
+  hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
     clearCellD(t[0],t[1],phase,queue);
     if(playerMode)updatePlayerHUD();
     render(null);
@@ -1792,6 +1792,25 @@ function hopperSwarm(cells,src){
   });
 }
 
+// Grasshoppers are JUMPERS, not laser turrets (Jed 2026-07-09): every jump —
+// solo, chain-caught, combo-spawned — is a physical flight. This spawns the
+// flying actor; hopperFlight carries it.
+function makeHopperActor(r,c){
+  const wrap=document.getElementById('board-wrap');
+  const p=cellPos(r,c);
+  const actor=document.createElement('div');
+  actor.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
+    +`pointer-events:none;z-index:22;display:flex;align-items:center;justify-content:center;`;
+  actor.innerHTML=puSVG('helicopter',gemSize());
+  actor.style.left=(p.x-CELL_SIZE/2)+'px';
+  actor.style.top =(p.y-CELL_SIZE/2)+'px';
+  wrap.appendChild(actor);
+  return actor;
+}
+function hopperJumpTo(r,c,tr,tc,onLand){
+  hopperFlight(makeHopperActor(r,c),r,c,tr,tc,onLand);
+}
+
 // One hopper's flight: eased arc from origin to target, lift scaling with
 // distance; the swollen actor rides the whole way and vanishes on touchdown.
 function hopperFlight(actor,fr,fc,tr,tc,onLand){
@@ -1820,9 +1839,7 @@ function detHopperCombo(r,c,phase,queue,next){
   hopperFeedAndSwell(r,c,phase,queue,(actor)=>{
     const t=randomHopperTarget(r,c,phase);
     if(!t){actor.remove();render(null);setTimeout(next,120);return;}
-    actor.style.transform='scale(0.1)';actor.style.opacity='0'; // pops on takeoff
-    animateLaser(r,c,t[0],t[1],()=>{
-      actor.remove();
+    hopperFlight(actor,r,c,t[0],t[1],()=>{ // the fed actor flies — no laser
       clearCellD(t[0],t[1],phase,queue);
       if(playerMode)updatePlayerHUD();
       render(null);
@@ -1875,6 +1892,9 @@ function playTap(r,c){
     // consume the PU and fire the goal event at the moment of takeoff.
     board[hop.r][hop.c].pu=null;
     puFired('helicopter'); // goal event: detonated (jump committed)
+    // The creature lifts off as a flying actor the instant it's consumed —
+    // it stays visible through the orth blast and rides the jump itself.
+    const hopActor=makeHopperActor(hop.r,hop.c);
     // Step 1: blast the orthogonals — any PU caught is ENQUEUED, not instant
     const phase=new Set();
     const queue=[];
@@ -1884,7 +1904,7 @@ function playTap(r,c){
     phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
     // Step 2: after pop, laser to the chosen target, clear it (PU there enqueues too)
     setTimeout(()=>{
-      animateLaser(hop.r,hop.c,r,c,()=>{
+      hopperFlight(hopActor,hop.r,hop.c,r,c,()=>{ // jumpers, not lasers
         clearCellD(r,c,phase,queue);
         // Combo partner (#1 Fly×Hopper / #4 Hopper×Scarab): fires FROM the
         // landing cell, ahead of any chain-caught PUs from the orth blast
