@@ -1413,6 +1413,42 @@ function mostPrevalentGem(){
   return best;
 }
 
+// ═══ SPREAD CLOVER ═══════════════════════════════════════════════════════════
+// Spec: spread_clover_findings.md (confirmed from Township L6-L9 footage,
+// 2026-07-10; Township's own L6 tutorial text states both rules).
+// ONE CLEAR EVENT = ONE CELL SET: a match's cells, a detonation's cells
+// (ball = its whole color set), a hopper's feed blast. If the set touches
+// clover ANYWHERE, every active cell in the set gets clover — scattered,
+// non-contiguous cells included (L9 ball-sweep proof). Hopper LANDINGS plant
+// unconditionally (force=true) — that's how remote regions get seeded.
+// Clover is permanent; planting an already-clover cell is a no-op.
+function plantClover(cells,force){
+  const inG=(r,c)=>r>=0&&r<R&&c>=0&&c<C;
+  const touches=force||cells.some(([r,c])=>inG(r,c)&&board[r][c].sub==='clover');
+  if(!touches)return;
+  let planted=0;
+  cells.forEach(([r,c])=>{
+    if(!inG(r,c))return;
+    const cd=board[r][c];
+    if(!cd.active||cd.sub==='clover')return;
+    cd.sub='clover';planted++;
+  });
+  if(planted&&playerMode){
+    playerGoals.forEach(g=>{if(g.kind==='plant')g.have=Math.min(g.need,g.have+planted);});
+    updatePlayerHUD();
+  }
+}
+
+// HUD icon for the plant goal — green clover patch
+function cloverIconSVG(s){
+  let dots='';
+  [[.25,.3],[.55,.2],[.75,.55],[.35,.62],[.6,.8],[.22,.8]].forEach(([x,y])=>{
+    dots+='<circle cx="'+(s*x)+'" cy="'+(s*y)+'" r="'+(s*.07)+'" fill="#6fce7f"/>';
+  });
+  return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 '+s+' '+s+'" xmlns="http://www.w3.org/2000/svg">'
+    +'<rect x="1" y="1" width="'+(s-2)+'" height="'+(s-2)+'" rx="'+(s*.18)+'" fill="#3a9a4a" stroke="#2d7a3a" stroke-width="1.5"/>'+dots+'</svg>';
+}
+
 // ── Cascade end: shared by applyEffects and resolve ──
 function cascadeEnd(){
   updStats();
@@ -1499,7 +1535,9 @@ function processDetonations(queue,phase,onDone){
 // SCARAB — 3×3 blast (rad 2 → 5×5 for Scarab×Scarab): one simultaneous pop,
 // short beat, then the queue continues
 function detScarab(r,c,phase,queue,next,rad){
-  scarabCells(r,c,rad).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
+  const cells=scarabCells(r,c,rad);
+  plantClover(cells); // blast = one clear event (origin is inside the 3×3/5×5)
+  cells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
   render(null);
   phase.forEach(k=>{const[pr,pc]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
@@ -1515,6 +1553,7 @@ function detDragonfly(sr,sc,dir,phase,queue,next,wide){
     if(dir==='h'){if(sr>0)cells=cells.concat(dragonflyCells(sr-1,sc,'h'));if(sr<R-1)cells=cells.concat(dragonflyCells(sr+1,sc,'h'));}
     else{if(sc>0)cells=cells.concat(dragonflyCells(sr,sc-1,'v'));if(sc<C-1)cells=cells.concat(dragonflyCells(sr,sc+1,'v'));}
   }
+  plantClover(cells); // line sweep = one clear event (origin is on the line)
   const rings=new Map();
   cells.forEach(([r,c])=>{
     const d=dir==='h'?Math.abs(c-sc):Math.abs(r-sr);
@@ -1546,6 +1585,9 @@ function detDragonfly(sr,sc,dir,phase,queue,next,wide){
 function detBall(sr,sc,color,phase,queue,next){
   const gemIdx=(color!=null)?color:mostPrevalentGem();
   const cells=rainbowCells(gemIdx).filter(([r,c])=>!phase.has(r+','+c));
+  // SPREAD CLOVER: the sweep's WHOLE color set + origin = one clear event —
+  // scattered bare cells plant if the set touches clover anywhere (L9 f110 proof)
+  plantClover(cells.concat([[sr,sc]]));
   cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
   let i=0;
   const HIT_MS=110; // pace between laser hits
@@ -1566,6 +1608,7 @@ function detBall(sr,sc,color,phase,queue,next){
 // GRASSHOPPER (chain-caught) — orthogonals blast, then laser to an auto-picked
 // goal-oriented target. Player-fired hoppers never reach here (choice flow).
 function detHopper(r,c,phase,queue,next){
+  plantClover(grasshopperOrthCells(r,c).concat([[r,c]])); // orth blast = one event
   grasshopperOrthCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
   render(null);
@@ -1573,6 +1616,7 @@ function detHopper(r,c,phase,queue,next){
   if(!t){setTimeout(next,200);return;}
   setTimeout(()=>{
     hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
+      plantClover([[t[0],t[1]]],true); // landings plant UNCONDITIONALLY (remote seeding)
       clearCellD(t[0],t[1],phase,queue);
       if(playerMode)updatePlayerHUD();
       render(null);
@@ -1588,6 +1632,7 @@ function detHopperJump(r,c,phase,queue,next){
   const t=autoGrasshopperTarget(r,c,phase);
   if(!t){setTimeout(next,120);return;}
   hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
+    plantClover([[t[0],t[1]]],true); // landings plant unconditionally
     clearCellD(t[0],t[1],phase,queue);
     if(playerMode)updatePlayerHUD();
     render(null);
@@ -1722,6 +1767,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed){
   wrap.appendChild(actor);
   // clone each orthogonal's contents BEFORE clearing the data, so the visuals
   // can fly into the mouth while the board is already square underneath
+  plantClover(grasshopperOrthCells(r,c).concat([[r,c]])); // feed blast = one event
   const meals=[];
   grasshopperOrthCells(r,c).forEach(([or,oc])=>{
     const el=document.querySelector(`[data-r="${or}"][data-c="${oc}"]`);
@@ -1780,6 +1826,7 @@ function hopperSwarm(cells,src){
         const t=randomHopperTarget(r,c,phase);
         if(!t){actor.style.opacity='0';setTimeout(()=>{actor.remove();done();},150);return;}
         hopperFlight(actor,r,c,t[0],t[1],()=>{
+          plantClover([[t[0],t[1]]],true); // swarm landings plant unconditionally
           clearCellD(t[0],t[1],phase,chainQueue);
           if(playerMode)updatePlayerHUD();
           render(null);
@@ -1840,6 +1887,7 @@ function detHopperCombo(r,c,phase,queue,next){
     const t=randomHopperTarget(r,c,phase);
     if(!t){actor.remove();render(null);setTimeout(next,120);return;}
     hopperFlight(actor,r,c,t[0],t[1],()=>{ // the fed actor flies — no laser
+      plantClover([[t[0],t[1]]],true); // landings plant unconditionally
       clearCellD(t[0],t[1],phase,queue);
       if(playerMode)updatePlayerHUD();
       render(null);
@@ -1855,6 +1903,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue){
   animating=true;
   const phase=new Set();
   const queue=initialQueue||[];
+  if(cellsToClear.length)plantClover(cellsToClear); // direct clears = one event (e.g. Ball×Ball board wipe)
   cellsToClear.forEach(([r,c])=>clearCellD(r,c,phase,queue));
   if(playerMode) updatePlayerHUD();
   render(null);
@@ -1898,6 +1947,7 @@ function playTap(r,c){
     // Step 1: blast the orthogonals — any PU caught is ENQUEUED, not instant
     const phase=new Set();
     const queue=[];
+    plantClover(hop.orthCells.concat([[hop.r,hop.c]])); // orth blast = one event
     hop.orthCells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
     if(playerMode)updatePlayerHUD();
     render(null);
@@ -1905,6 +1955,7 @@ function playTap(r,c){
     // Step 2: after pop, laser to the chosen target, clear it (PU there enqueues too)
     setTimeout(()=>{
       hopperFlight(hopActor,hop.r,hop.c,r,c,()=>{ // jumpers, not lasers
+        plantClover([[r,c]],true); // landings plant unconditionally
         clearCellD(r,c,phase,queue);
         // Combo partner (#1 Fly×Hopper / #4 Hopper×Scarab): fires FROM the
         // landing cell, ahead of any chain-caught PUs from the orth blast
@@ -2036,6 +2087,10 @@ function playTap(r,c){
 
 function resolve(pats,dr,dc,snap,sr,sc){
   const p=pats[0];const toClear=[];
+  // SPREAD CLOVER: the match is one clear event — if any matched cell sits on
+  // clover, the whole matched set plants (anchor cell included: a PU created
+  // on clover keeps the clover under it).
+  plantClover(p.cells);
   // Anchor the power-up ON the matched run, at the cell the player touched.
   // The completing gem may sit at EITHER swap cell: the dragged gem lands at
   // (dr,dc), but its swap partner lands at (sr,sc) and can be what closes the
@@ -2600,14 +2655,17 @@ function renderBundles(){
     '</div>';
 }
 
+const MAX_BUILT_LEVEL=7; // levels with shipped JSONs — bump as the bundle grows
+
 function renderGrid(){
   showPlayerShell();
   document.getElementById('pback-top').style.display='';
   let html='<div id="pgrid-title">Go with the Flow</div>'+
            '<div id="pgrid-sub">Bundle 1 · 25 levels</div><div class="pgrid">';
   for(let i=1;i<=25;i++){
-    const open=PlayerProgress.unlocked(i), st=PlayerProgress.stars(i);
+    const open=PlayerProgress.unlocked(i)&&i<=MAX_BUILT_LEVEL, st=PlayerProgress.stars(i);
     if(open) html+='<div class="pcell open" onclick="startPlayerLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span></div>';
+    else if(i>MAX_BUILT_LEVEL) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">Soon</span><span>'+i+'</span></div>';
     else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
   }
   html+='</div>';
@@ -2639,16 +2697,22 @@ function applyFlow(json){
   });
 }
 
-// MVP: pre-placed power-ups map onto engine power-ups. Other obstacle types
-// (clover/chains/leaves/crates/keys) are not simulated yet — cells stay normal gems.
+// Pre-placed power-ups map onto engine power-ups; substrate.clover positions
+// become live seed cells (spread mechanics: plantClover). Chains/leaves/
+// crates/keys are not simulated yet — those cells stay normal gems.
 function applyObstacles(json){
-  const PU={'powerup.rainbow':'rainbow','powerup.seeker':'helicopter','powerup.dragonfly':'rocket_v'};
+  const PU={'powerup.rainbow':'rainbow','powerup.seeker':'helicopter',
+            'powerup.dragonfly':'rocket_v','powerup.area':'bomb'};
   (json.obstacles||[]).forEach(ob=>{
-    const pu=PU[ob.functionalId]; if(!pu)return;
+    const isClover=ob.functionalId==='substrate.clover';
+    const pu=PU[ob.functionalId];
+    if(!pu&&!isClover)return;
     (ob.positions||[]).forEach(pos=>{
       const m=pos.match(/R(\d+)C(\d+)/); if(!m)return;
       const r=+m[1],c=+m[2];
-      if(board[r]&&board[r][c]&&board[r][c].active){board[r][c].pu=pu;board[r][c].gem=null;}
+      if(!(board[r]&&board[r][c]&&board[r][c].active))return;
+      if(isClover){board[r][c].sub='clover';}
+      else{board[r][c].pu=pu;board[r][c].gem=null;}
     });
   });
 }
@@ -2674,10 +2738,16 @@ function loadLevelData(json,num){
   // L1–5 use 5 colors, no Amethyst). Fallback: full set.
   const pool=(json.gemTypes||[]).map(g=>GEMMAP[g]).filter(i=>i!=null);
   GEM_POOL=[...new Set(pool)].length?[...new Set(pool)]:[0,1,2,3,4,5];
-  // objectives: collect-gem goals only for MVP (plant/key/acorn not simulated yet)
+  // objectives: collect-gem + plant-clover goals (key/acorn not simulated yet)
   playerGoals=(json.objectives||[])
-    .filter(o=>o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null)
-    .map(o=>({kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem}));
+    .map(o=>{
+      if(o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null)
+        return {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem};
+      if(o.type==='plant')
+        return {kind:'plant',need:o.count,have:0,name:'clover'};
+      return null;
+    })
+    .filter(Boolean);
   // star thresholds (fewer moves = more stars)
   document.getElementById('s3').value=Math.ceil(moveLimit/3);
   document.getElementById('s2').value=Math.ceil(2*moveLimit/3);
@@ -2774,23 +2844,23 @@ function updatePlayerHUD(){
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
   if(!playerGoals.length){goalEl.innerHTML='';return;}
-  if(playerGoals.length===1&&playerGoals[0].kind==='collect'){
-    // Single collect goal — classic big-icon layout. Counts DOWN, 0 = done.
+  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant')){
+    // Single collect/plant goal — classic big-icon layout. Counts DOWN, 0 = done.
     const g=playerGoals[0];
     const remaining=Math.max(0,g.need-g.have);
-    goalEl.innerHTML='<div class="phud-cap">Collect</div>'+
-      '<div class="phud-icon">'+gemSVG(g.gemIdx,48)+'</div>'+
+    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='plant'?'Plant':'Collect')+'</div>'+
+      '<div class="phud-icon">'+(g.kind==='plant'?cloverIconSVG(48):gemSVG(g.gemIdx,48))+'</div>'+
       '<div class="phud-gcount">'+remaining+'</div>';
     return;
   }
   // Multi-goal (entrance) — one row per goal: verb, icon, remaining/✓, and a "?" help button.
   // Two-stage 'pu' goals show "Make" until the power-up exists, then flip to "Fire".
-  const VERBS={collect:'Get',create:'Make',detonate:'Fire'};
+  const VERBS={collect:'Get',create:'Make',detonate:'Fire',plant:'Plant'};
   let html='<div class="phud-cap">Goals</div>';
   playerGoals.forEach((g,i)=>{
     const done=goalDone(g);
     const verb=g.kind==='pu'?(g.made?'Fire':'Make'):(VERBS[g.kind]||'');
-    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):puSVG(goalPuIcon(g.pu),30);
+    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):puSVG(goalPuIcon(g.pu),30);
     const status=done?'<span class="goal-done">✓</span>'
       :g.kind==='pu'?'<span class="goal-count"></span>'
       :'<span class="goal-count">'+Math.max(0,g.need-g.have)+'</span>';
@@ -2860,6 +2930,8 @@ const DET_HELP={
 function showGoalHelp(i){
   const g=playerGoals[i]; if(!g)return;
   const h=g.kind==='collect'?GOAL_HELP.collect(g)
+        :g.kind==='plant'?{title:'Plant '+g.need+' Clover',
+            text:'Make a match with a gem standing on clover to plant clover under every gem in the match. Power-up blasts that touch clover plant their whole area — and a Grasshopper plants wherever it lands. Cover the board!'}
         :g.kind==='detonate'?DET_HELP[g.pu]
         :g.kind==='pu'?(g.made?DET_HELP[g.pu]:GOAL_HELP[g.pu]) // help matches the current stage
         :GOAL_HELP[g.pu];
