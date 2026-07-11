@@ -2180,6 +2180,29 @@ function gravityWithMap(){
   // moved this gravity pass — lets one gem accumulate a multi-bend path.
   const carrier=board.map(row=>row.map(()=>null));
 
+  // GRAVITY REGIONS (Jed's drift fix, 2026-07-10): orthogonal flood-fill of
+  // active cells. Diagonal slip may only pull a donor from the RECEIVER's own
+  // region — an orthogonally isolated pocket (L7 corner Grasshoppers, the
+  // island) is a separate region and can never leak into the main board,
+  // exactly like Township (corner pinwheels are inert until tapped).
+  const region=board.map(row=>row.map(()=>-1));
+  {
+    let rid=0;
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      if(!board[r][c].active||region[r][c]!==-1)continue;
+      const stack=[[r,c]];region[r][c]=rid;
+      while(stack.length){
+        const [qr,qc]=stack.pop();
+        for(const [nr,nc] of [[qr-1,qc],[qr+1,qc],[qr,qc-1],[qr,qc+1]]){
+          if(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active&&region[nr][nc]===-1){
+            region[nr][nc]=rid;stack.push([nr,nc]);
+          }
+        }
+      }
+      rid++;
+    }
+  }
+
   // Entry cells: walking UPSTREAM hits only inactive cells to the board edge.
   // (Topology is static during gravity, so compute once.)
   const entry=board.map((row,r)=>row.map((cd,c)=>{
@@ -2209,7 +2232,8 @@ function gravityWithMap(){
           if(feed[ur][uc]){feed[r][c]=true;grew=true;}
         }else if(inGrid(ur,uc)){                          // hole above: diagonal feed
           const perp=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
-          if(perp.some(([pr,pc])=>inGrid(pr,pc)&&board[pr][pc].active&&feed[pr][pc])){
+          if(perp.some(([pr,pc])=>inGrid(pr,pc)&&board[pr][pc].active
+              &&region[pr][pc]===region[r][c]&&feed[pr][pc])){ // own region only
             feed[r][c]=true;grew=true;
           }
         }
@@ -2262,6 +2286,7 @@ function gravityWithMap(){
       const perp=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
       const donors=perp.filter(([pr,pc])=>{
         if(!inGrid(pr,pc)||!board[pr][pc].active||!occ(pr,pc))return false;
+        if(region[pr][pc]!==region[r][c])return false; // own region only — no pocket leakage
         const [ddr,ddc]=vecAt(pr,pc);
         return !emptyActive(pr+ddr,pc+ddc); // resting — cannot fall straight
       });
