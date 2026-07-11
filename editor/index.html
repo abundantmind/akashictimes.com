@@ -154,11 +154,20 @@ body.font-lg{--base-font:20px;}
 .lbtn:hover{background:#1a1530;}
 .lbtn.on{background:#2a1d4a;color:#c8a8ff;border-color:#5a3a9a;}
 .ldot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+/* SCENE LAYER (Jed 2026-07-10): the darkness behind the board IS the bottom
+   layer — inactive cells are true holes showing it. When Akashic artwork
+   exists, set a background-image here and it replaces the dark, one layer
+   below the substrate. Layer stack per cell: scene < sand floor (active
+   cells) < substrate (clover) < gem/PU < overlay (chains, future). */
 #board-wrap{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;position:relative;}
-#board{display:grid;gap:3px;background:#d4b483;position:relative;}
+#board{display:grid;gap:3px;background:transparent;position:relative;}
 .cell{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;background:#d4b483;box-shadow:0 0 0 1.5px #b8935a;transition:box-shadow .15s;}
 .cell:hover{box-shadow:0 0 0 1.5px #e8c99a;}
-.cell.inactive{background:transparent;opacity:.4;}
+/* editor: faint ghost tile so the Base layer stays paintable/visible */
+.cell.inactive{background:#241b30;opacity:.5;box-shadow:0 0 0 1px #33264a;}
+/* play: inactive = a real hole — nothing but the scene shows through */
+body.player-playing .cell.inactive{background:transparent;opacity:1;box-shadow:none;border-radius:0;}
+body.player-playing .cell.inactive:hover{box-shadow:none;}
 .cell.empty-hint{background:#d4b483;border:0.5px dashed #b8935a;}
 .cell.throb{animation:throb 500ms ease-in-out infinite;}
 .cell.rainbow-pick .gem-inner,.cell.hopper-pick .gem-inner{animation:rainbow-pulse 600ms ease-in-out infinite;}
@@ -790,6 +799,7 @@ async function openTemplate(n){
   }catch(e){alert('Template '+n+' is not available.');return;}
   loadLevelData(json,n); // board/flow/gem palette/objectives from the JSON
   playerMode=false;playing=false;entranceMode=false;animating=false;CELL_SIZE=44;
+  document.body.classList.remove('player-playing'); // editor styling (inactive ghost tiles)
   // fill gems for a ready-to-play board; pre-placed PUs stay as painted
   for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu)board[r][c].gem=randGem();
   clean(); // no pre-made matches on open
