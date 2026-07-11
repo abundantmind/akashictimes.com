@@ -155,12 +155,26 @@
       <span class="virtue">Be Humble.</span>
     </div>
 
-    <!-- Primary CTA — Level 1 entrance (power-up training) -->
-    <a class="cta"
+    <!-- Primary CTA — Level 1 entrance (power-up training).
+         Qualified visitors are greeted by their earned title instead
+         (localStorage is shared with the game — same origin); the #enter
+         routing already sends them straight to their track. -->
+    <a class="cta" id="cta-main"
        href="./editor/index.html#enter"
        target="_blank" rel="noopener">
       See if you qualify...
     </a>
+    <script>
+      (function(){
+        try{
+          if(localStorage.getItem('akashicswaps-qualified')!=='1')return;
+          var path=localStorage.getItem('akashicswaps-path');
+          document.getElementById('cta-main').textContent=
+            path==='architect'?'Hello, Architect':
+            path==='explorer' ?'Hello, Explorer' :'Welcome back';
+        }catch(e){/* storage blocked — keep the default CTA */}
+      })();
+    </script>
 
     <!-- Secondary links -->
     <div class="links">
