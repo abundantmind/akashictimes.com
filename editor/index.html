@@ -939,9 +939,11 @@ function animateSwap(r1,c1,r2,c2,html1,html2,onDone){
   fly1.innerHTML=html1;fly2.innerHTML=html2;
   fly1.style.left=(p1.x-CELL_SIZE/2)+'px';fly1.style.top=(p1.y-CELL_SIZE/2)+'px';
   fly2.style.left=(p2.x-CELL_SIZE/2)+'px';fly2.style.top=(p2.y-CELL_SIZE/2)+'px';
-  const src1=document.querySelector(`[data-r="${r1}"][data-c="${c1}"]`);
-  const src2=document.querySelector(`[data-r="${r2}"][data-c="${c2}"]`);
-  if(src1)src1.style.opacity='0';if(src2)src2.style.opacity='0';
+  // Hide only the GEM layers during the swap — the cells (and their substrate)
+  // stay painted; hiding whole cells blinked clover to sand (Jed, 2026-07-10).
+  const src1=document.querySelector(`[data-r="${r1}"][data-c="${c1}"] .gem-inner`);
+  const src2=document.querySelector(`[data-r="${r2}"][data-c="${c2}"] .gem-inner`);
+  if(src1)src1.style.visibility='hidden';if(src2)src2.style.visibility='hidden';
   const dur=220,start=performance.now();
   const dx=p2.x-p1.x,dy=p2.y-p1.y;
   const arc=Math.min(Math.abs(dx),Math.abs(dy),20);
@@ -954,7 +956,7 @@ function animateSwap(r1,c1,r2,c2,html1,html2,onDone){
     fly2.style.left=(p2.x+(p1.x-p2.x)*overshoot-CELL_SIZE/2)+'px';
     fly2.style.top=(p2.y+(p1.y-p2.y)*overshoot-Math.sin(t*Math.PI)*arc-CELL_SIZE/2)+'px';
     if(t<1){requestAnimationFrame(step);}
-    else{fly1.remove();fly2.remove();if(src1)src1.style.opacity='';if(src2)src2.style.opacity='';onDone();}
+    else{fly1.remove();fly2.remove();if(src1)src1.style.visibility='';if(src2)src2.style.visibility='';onDone();}
   }
   requestAnimationFrame(step);
 }
@@ -2402,8 +2404,9 @@ function animateFall(fallMoves,onDone){
       // destination, opacity 0 → 1, instead of falling through the wall.
       if(m.fadeIn){
         const dpos=px(m.tr,m.tc);
-        const dEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"]`);
-        if(dEl)dEl.style.opacity='0';
+        // gem layer only — the cell keeps its substrate visible (no blink)
+        const dEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"] .gem-inner`);
+        if(dEl)dEl.style.visibility='hidden';
         const ghost=document.createElement('div');
         ghost.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
           +`pointer-events:none;z-index:20;display:flex;align-items:center;`
@@ -2420,7 +2423,7 @@ function animateFall(fallMoves,onDone){
             if(t<1){requestAnimationFrame(fstep);}
             else{
               ghost.remove();
-              if(dEl)dEl.style.opacity='';
+              if(dEl)dEl.style.visibility='';
               doneGems++;
               if(doneGems===totalGems)onDone();
             }
@@ -2446,9 +2449,11 @@ function animateFall(fallMoves,onDone){
 
       const originPos=wps[0];
 
-      // Hide destination cell — appears empty while gem flies in.
-      const destEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"]`);
-      if(destEl)destEl.style.opacity='0';
+      // Hide only the destination cell's GEM layer while the fly is inbound —
+      // never the cell itself: the cell carries the substrate (clover), and
+      // hiding it blinked planted cells back to sand (Jed, 2026-07-10).
+      const destEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"] .gem-inner`);
+      if(destEl)destEl.style.visibility='hidden';
 
       // Absolutely-positioned fly element carrying the gem's own graphic.
       const fly=document.createElement('div');
@@ -2485,9 +2490,9 @@ function animateFall(fallMoves,onDone){
 
           if(t<1){requestAnimationFrame(step);}
           else{
-            // Snap into cell flow: remove fly, reveal destination cell.
+            // Snap into cell flow: remove fly, reveal the destination's gem layer.
             fly.remove();
-            if(destEl)destEl.style.opacity='';
+            if(destEl)destEl.style.visibility='';
             // onDone fires only when the last gem across all columns lands.
             doneGems++;
             if(doneGems===totalGems)onDone();
