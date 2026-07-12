@@ -168,6 +168,11 @@ body.font-lg{--base-font:20px;}
 /* play: inactive = a real hole — nothing but the scene shows through */
 body.player-playing .cell.inactive{background:transparent;opacity:1;box-shadow:none;border-radius:0;}
 body.player-playing .cell.inactive:hover{box-shadow:none;}
+/* play: boards are sized to fit the viewport, so clip animation overshoot —
+   fly elements / vibe pulses / fall stretch poking past the wrap edge were
+   blinking scrollbars in and out (Jed, 2026-07-12). Editor keeps overflow:auto
+   for tall boards (L20 is 18 rows). */
+body.player-playing #board-wrap{overflow:hidden;}
 .cell.empty-hint{background:#d4b483;border:0.5px dashed #b8935a;}
 .cell.throb{animation:throb 500ms ease-in-out infinite;}
 .cell.rainbow-pick .gem-inner,.cell.hopper-pick .gem-inner{animation:rainbow-pulse 600ms ease-in-out infinite;}
