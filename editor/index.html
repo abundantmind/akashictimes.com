@@ -837,9 +837,10 @@ function initBlankBoard(){
 
 function clean(){
   let t=0;
-  // reroll only ACTIVE cells — inactive holes (L2/L4/L5 layouts) hold no gems
+  // reroll only ACTIVE cells that HOLD a gem — inactive holes and startEmpty
+  // cells (L8 sealed bottom / clover donut) must stay gem-free
   while((find3().length||find2x2().length)&&t++<400)
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu)board[r][c].gem=randGem();
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&board[r][c].gem!==null)board[r][c].gem=randGem();
 }
 
 function save(){undoQ.push(JSON.stringify(board));if(undoQ.length>60)undoQ.shift();redoQ=[];updUB();}
@@ -1328,7 +1329,10 @@ function togglePlay(){
   document.getElementById('history-sec').style.display=playing?'block':'none';
   document.getElementById('playbtn').innerHTML=playing?'⏹ Stop':'▶ Play';
   if(playing){
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu)board[r][c].gem=randGem();
+    // startEmpty cells (field.empty in level JSONs — L8's sealed bottom and
+    // clover donut) begin GEM-FREE; gravity fills them during play as the
+    // level's design allows (chain breaks, the donut's drip-feed gap).
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty)board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
   }
   render();
@@ -2752,7 +2756,7 @@ function renderBundles(){
     '</div>';
 }
 
-const MAX_BUILT_LEVEL=7; // levels with shipped JSONs — bump as the bundle grows
+const MAX_BUILT_LEVEL=8; // levels with shipped JSONs — bump as the bundle grows
 
 function renderGrid(){
   showPlayerShell();
@@ -2803,8 +2807,9 @@ function applyObstacles(json){
   (json.obstacles||[]).forEach(ob=>{
     const isClover=ob.functionalId==='substrate.clover';
     const isChain=ob.functionalId==='overlay.bind';
+    const isEmpty=ob.functionalId==='field.empty';
     const pu=PU[ob.functionalId];
-    if(!pu&&!isClover&&!isChain)return;
+    if(!pu&&!isClover&&!isChain&&!isEmpty)return;
     // chain HP: entry-level 'hp' field, else 1 (footage: L8-L21 chains are HP1)
     const chainId='bind'+Math.min(3,Math.max(1,ob.hp||1));
     (ob.positions||[]).forEach(pos=>{
@@ -2813,6 +2818,7 @@ function applyObstacles(json){
       if(!(board[r]&&board[r][c]&&board[r][c].active))return;
       if(isClover){board[r][c].sub='clover';}
       else if(isChain){board[r][c].obs=chainId;}
+      else if(isEmpty){board[r][c].startEmpty=true;}
       else{board[r][c].pu=pu;board[r][c].gem=null;}
     });
   });
