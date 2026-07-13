@@ -1335,9 +1335,29 @@ function togglePlay(){
 }
 
 // ── Unified cell-clear: tally, fragment, null — each cell cleared at most once per phase ──
+// ═══ CHAINS (obstacle mechanics v1, spec: spread_clover_findings.md) ═══════════
+// A chained gem cannot MOVE (swap or gravity) but CAN match in place. Any hit
+// that would clear the cell — match or blast — is ABSORBED by the chain:
+// HP walks bind3→bind2→bind1→gone and the gem SURVIVES. A chained cell never
+// vacates, so chains also BLOCK gravity: cells beneath a chain wall stay
+// empty (SEALED, not starved — they fill when the chains break and the freed
+// gems move; promotion to spawn-source stays chain-blind topology, so sealed
+// areas are never promoted).
+const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2'};
+function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
+function damageChain(r,c){board[r][c].obs=CHAIN_DOWN[board[r][c].obs];} // null = broken
+
 function clearCell(r,c,phaseSet){
   const k=r+','+c;
   if(phaseSet.has(k)) return; // already cleared this phase
+  // CHAIN ABSORB: one hit per phase; the gem is untouched and NOT counted cleared
+  if(isChained(r,c)){
+    phaseSet.chainHits=phaseSet.chainHits||new Set();
+    if(phaseSet.chainHits.has(k))return;
+    phaseSet.chainHits.add(k);
+    damageChain(r,c);
+    return;
+  }
   phaseSet.add(k);
   if(playerMode&&board[r][c].gem!==null) playerTally(board[r][c].gem);
   if(board[r][c].gem!==null) spawnFragments(r,c,board[r][c].gem);
@@ -1491,6 +1511,9 @@ function cascadeEnd(){
     if(playerMode)updatePlayerHUD();
     return;
   }
+  // ★3 sensor publish (dormant until the star system activates)
+  window.lastMovePUs=window._swapPU||0;
+  if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs detonated from one move');
   animating=false;render();
   if(playerMode){updatePlayerHUD();checkPlayerEnd();}
 }
@@ -1520,6 +1543,8 @@ function settleAndCascade(phase,sr,sc){
 function clearCellD(r,c,phase,queue){
   const k=r+','+c;
   if(phase.has(k))return;
+  // chain absorbs the hit — nothing underneath detonates or clears
+  if(isChained(r,c)){clearCell(r,c,phase);return;}
   const pu=board[r][c].pu;
   if(pu){
     board[r][c].pu=null;      // consume BEFORE enqueue — no re-trigger possible
@@ -2004,6 +2029,7 @@ function playTap(r,c){
   // Double-tap on same cell: activate if it's a power-up, otherwise deselect
   if(sr===r&&sc===c){
     if(cd.pu){
+      if(isChained(r,c)){render();return;} // chained PU can't be activated until freed
       if(cd.pu==='rainbow'){
         // Akasha Ball double-tap → enter choosing state
         board[r][c].pu=null;
@@ -2045,8 +2071,11 @@ function playTap(r,c){
     return;
   }
   if(Math.abs(sr-r)+Math.abs(sc-c)!==1){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
+  // Chained gems cannot MOVE — the swap bounces; match them in place instead
+  if(isChained(sr,sc)||isChained(r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
+  window._swapPU=0; // ★3 sensor: new swap, new count
   animating=true;
   animateSwap(sr,sc,r,c,html1,html2,()=>{
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
@@ -2287,9 +2316,12 @@ function gravityWithMap(){
   let guard=0;
   while(guard++<R*C*4){
     let progress=false;
-    // 1) STRAIGHT — bottom-up scan so a down-flow column compacts slinky-style
+    // 1) STRAIGHT — bottom-up scan so a down-flow column compacts slinky-style.
+    // Chained gems are IMMOVABLE: they never fall, never vacate — which is
+    // also what seals the cells beneath a chain wall (promotion stays
+    // chain-blind topology, so sealed areas never become spawn sources).
     for(let r=R-1;r>=0;r--)for(let c=0;c<C;c++){
-      if(!board[r][c].active||!occ(r,c))continue;
+      if(!board[r][c].active||!occ(r,c)||isChained(r,c))continue;
       const [dr,dc]=vecAt(r,c);
       if(emptyActive(r+dr,c+dc)){step(r,c,r+dr,c+dc);progress=true;}
     }
@@ -2298,11 +2330,16 @@ function gravityWithMap(){
       if(!emptyActive(r,c)||entry[r][c])continue;
       const [dr,dc]=vecAt(r,c);
       const ur=r-dr,uc=c-dc; // upstream neighbor
-      if(!inGrid(ur,uc)||board[ur][uc].active)continue; // not hole-blocked
+      // hole-blocked OR chain-blocked: a chained cell never vacates, so gems
+      // route around it diagonally exactly like a hole (L9 footage: 40% chains,
+      // board stays full). A full chain WALL still seals — its diagonals are
+      // chained too, so no donors qualify.
+      if(!inGrid(ur,uc)||(board[ur][uc].active&&!isChained(ur,uc)))continue;
       // the two upstream diagonals, perpendicular to the flow axis
       const perp=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
       const donors=perp.filter(([pr,pc])=>{
         if(!inGrid(pr,pc)||!board[pr][pc].active||!occ(pr,pc))return false;
+        if(isChained(pr,pc))return false; // chained gems can't slide anywhere
         if(region[pr][pc]!==region[r][c])return false; // own region only — no pocket leakage
         const [ddr,ddc]=vecAt(pr,pc);
         return !emptyActive(pr+ddr,pc+ddc); // resting — cannot fall straight
@@ -2670,6 +2707,9 @@ function puMade(type){
 // caught in another power-up's blast (chain). Ticks 'detonate' goals and the
 // Fire stage of two-stage 'pu' goals.
 function puFired(type){
+  // ★3 SENSOR (star canon, dormant until the star system activates): count
+  // every PU detonation since the last player swap; cascadeEnd publishes it.
+  window._swapPU=(window._swapPU||0)+1;
   if(!playerMode)return;
   const key=(type==='rocket_h'||type==='rocket_v')?'rocket':type;
   playerGoals.forEach(g=>{
@@ -2762,13 +2802,17 @@ function applyObstacles(json){
             'powerup.dragonfly':'rocket_v','powerup.area':'bomb'};
   (json.obstacles||[]).forEach(ob=>{
     const isClover=ob.functionalId==='substrate.clover';
+    const isChain=ob.functionalId==='overlay.bind';
     const pu=PU[ob.functionalId];
-    if(!pu&&!isClover)return;
+    if(!pu&&!isClover&&!isChain)return;
+    // chain HP: entry-level 'hp' field, else 1 (footage: L8-L21 chains are HP1)
+    const chainId='bind'+Math.min(3,Math.max(1,ob.hp||1));
     (ob.positions||[]).forEach(pos=>{
       const m=pos.match(/R(\d+)C(\d+)/); if(!m)return;
       const r=+m[1],c=+m[2];
       if(!(board[r]&&board[r][c]&&board[r][c].active))return;
       if(isClover){board[r][c].sub='clover';}
+      else if(isChain){board[r][c].obs=chainId;}
       else{board[r][c].pu=pu;board[r][c].gem=null;}
     });
   });
