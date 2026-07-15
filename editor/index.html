@@ -1332,7 +1332,7 @@ function togglePlay(){
     // startEmpty cells (field.empty in level JSONs — L8's sealed bottom and
     // clover donut) begin GEM-FREE; gravity fills them during play as the
     // level's design allows (chain breaks, the donut's drip-feed gap).
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty)board[r][c].gem=randGem();
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item)board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
   }
   render();
@@ -1347,13 +1347,29 @@ function togglePlay(){
 // empty (SEALED, not starved — they fill when the chains break and the freed
 // gems move; promotion to spawn-source stays chain-blind topology, so sealed
 // areas are never promoted).
-const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2'};
+// LEAVES ride the same machinery (immovable, hit-absorbing) with two twists:
+// they ALSO take splash damage from orthogonally adjacent matches (chains
+// don't — chains need direct hits), and an acorn-bearing leaf COLLECTS its
+// acorn on break (goal tick), leaving the cell empty to refill.
+const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2',
+                  leaf1:null,leaf2:'leaf1',leaf3:'leaf2'};
 function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
+function isLeafy(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('leaf'));}
 function damageChain(r,c){
+  const wasLeaf=isLeafy(r,c);
   const left=CHAIN_DOWN[board[r][c].obs];
   board[r][c].obs=left;
-  // shattered links rain off the cell when the chain BREAKS (gold, like Township)
-  if(!left&&window.spawnFragments)spawnFragments(r,c,0,'#e8c060');
+  if(left)return;
+  // BREAK: shattered bits rain off — gold links for chains, green for leaves
+  if(window.spawnFragments)spawnFragments(r,c,0,wasLeaf?'#4a8a3a':'#e8c060');
+  if(wasLeaf&&board[r][c].item==='acorn'){
+    board[r][c].item=null; // acorn freed = COLLECTED
+    if(window.spawnFragments)spawnFragments(r,c,0,'#8a6a3a');
+    if(playerMode){
+      playerGoals.forEach(g=>{if(g.kind==='acorn')g.have=Math.min(g.need,g.have+1);});
+      updatePlayerHUD();
+    }
+  }
 }
 
 function clearCell(r,c,phaseSet){
@@ -1497,6 +1513,14 @@ function plantClover(cells,force){
   }
 }
 
+// HUD icon for the acorn goal — brown acorn with a cap
+function acornIconSVG(s){
+  return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 '+s+' '+s+'" xmlns="http://www.w3.org/2000/svg">'
+    +'<ellipse cx="'+(s*.5)+'" cy="'+(s*.6)+'" rx="'+(s*.28)+'" ry="'+(s*.32)+'" fill="#8a6a3a" stroke="#5a4020" stroke-width="1.5"/>'
+    +'<path d="M '+(s*.18)+' '+(s*.38)+' Q '+(s*.5)+' '+(s*.18)+' '+(s*.82)+' '+(s*.38)+' L '+(s*.78)+' '+(s*.46)+' Q '+(s*.5)+' '+(s*.32)+' '+(s*.22)+' '+(s*.46)+' Z" fill="#6a4a1a" stroke="#4a3010" stroke-width="1"/>'
+    +'<rect x="'+(s*.46)+'" y="'+(s*.12)+'" width="'+(s*.08)+'" height="'+(s*.12)+'" rx="'+(s*.03)+'" fill="#4a3010"/></svg>';
+}
+
 // HUD icon for the plant goal — green clover patch
 function cloverIconSVG(s){
   let dots='';
@@ -1520,9 +1544,13 @@ function cascadeEnd(){
     if(playerMode)updatePlayerHUD();
     return;
   }
-  // ★3 sensor publish (dormant until the star system activates)
-  window.lastMovePUs=window._swapPU||0;
-  if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs detonated from one move');
+  // STAR SENSOR: PU detonations in this move's resolution. A PU⇄PU combo swap
+  // contributes only ONE initiator toward the "in sequence" count (Jed's
+  // canon: not attainable with only a PU swap — the pair is simultaneous
+  // input, not sequence).
+  window.lastMovePUs=Math.max(0,(window._swapPU||0)-(window._comboSwap?1:0));
+  window.runMaxSeq=Math.max(window.runMaxSeq||0,window.lastMovePUs);
+  if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs in sequence from one move');
   animating=false;render();
   if(playerMode){updatePlayerHUD();checkPlayerEnd();}
 }
@@ -1716,6 +1744,7 @@ function startPUCombo(dr,dc,sr,sc){
   const pick=f=>fam(a.pu)===f?a:b;         // the combo member of family f
   const key=[fam(a.pu),fam(b.pu)].sort().join('+');
   const consume=m=>{board[m.r][m.c].pu=null;puFired(m.pu);}; // goal event on consumption
+  window._comboSwap=true; // star sensor: the swapped pair counts as ONE initiator
   moves++;updatePlayerHUD();
   animating=true;
 
@@ -2039,6 +2068,7 @@ function playTap(r,c){
   if(sr===r&&sc===c){
     if(cd.pu){
       if(isChained(r,c)){render();return;} // chained PU can't be activated until freed
+      window._swapPU=0;window._comboSwap=false; // star sensor: double-tap = new move
       if(cd.pu==='rainbow'){
         // Akasha Ball double-tap → enter choosing state
         board[r][c].pu=null;
@@ -2084,7 +2114,7 @@ function playTap(r,c){
   if(isChained(sr,sc)||isChained(r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
-  window._swapPU=0; // ★3 sensor: new swap, new count
+  window._swapPU=0;window._comboSwap=false; // star sensor: new move, new count
   animating=true;
   animateSwap(sr,sc,r,c,html1,html2,()=>{
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
@@ -2194,6 +2224,16 @@ function resolve(pats,dr,dc,snap,sr,sc){
   const phase=new Set();
   const detQueue=[];
   toClear.forEach(([r,c])=>clearCellD(r,c,phase,detQueue));
+  // LEAF SPLASH: leaves (unlike chains) also take one hit from any orthogonally
+  // adjacent match — once per leaf per match event
+  const splashed=new Set();
+  p.cells.forEach(([r,c])=>{
+    for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+      const k=nr+','+nc;
+      if(nr<0||nr>=R||nc<0||nc>=C||splashed.has(k))continue;
+      if(board[nr][nc].active&&isLeafy(nr,nc)){splashed.add(k);damageChain(nr,nc);}
+    }
+  });
   if(playerMode) updatePlayerHUD();
   render(null);
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
@@ -2228,7 +2268,8 @@ function gravityWithMap(){
   const moves=[];
   const vecAt=(r,c)=>FLOW_VEC[(flow[r]&&flow[r][c])||'down'];
   const inGrid=(r,c)=>r>=0&&r<R&&c>=0&&c<C;
-  const occ=(r,c)=>board[r][c].gem!==null||!!board[r][c].pu;
+  // items (acorns under leaves) occupy their cell — gravity must not fill it
+  const occ=(r,c)=>board[r][c].gem!==null||!!board[r][c].pu||!!board[r][c].item;
   const emptyActive=(r,c)=>inGrid(r,c)&&board[r][c].active&&!occ(r,c);
 
   // carrier[r][c] = move record of the gem sitting at (r,c) IF it has already
@@ -2731,12 +2772,15 @@ function puFired(type){
 function goalDone(g){return g.kind==='pu'?(g.made&&g.fired):g.have>=g.need;}
 
 // progress store (separate key from the editor's own prefs)
+// Per-level living state (STAR CANON, era 1): s = stars, rec = personal move
+// record. Backward-compatible with the old plain-number entries.
 const PlayerProgress={
   key:'akashicswaps-player', data:{},
   load(){try{this.data=JSON.parse(localStorage.getItem(this.key))||{};}catch(e){this.data={};}},
   save(){localStorage.setItem(this.key,JSON.stringify(this.data));},
-  stars(n){return this.data[n]||0;},
-  set(n,s){if(s>(this.data[n]||0)){this.data[n]=s;this.save();}},
+  stars(n){const d=this.data[n];return typeof d==='number'?d:(d&&d.s)||0;},
+  record(n){const d=this.data[n];return (d&&d.rec)||0;},
+  set(n,s,rec){this.data[n]={s:s,rec:rec||this.record(n)||0};this.save();},
   unlocked(n){return n===1||this.stars(n-1)>0;}
 };
 PlayerProgress.load();
@@ -2761,7 +2805,7 @@ function renderBundles(){
     '</div>';
 }
 
-const MAX_BUILT_LEVEL=8; // levels with shipped JSONs — bump as the bundle grows
+const MAX_BUILT_LEVEL=15; // levels with shipped JSONs — bump as the bundle grows
 
 function renderGrid(){
   showPlayerShell();
@@ -2812,17 +2856,22 @@ function applyObstacles(json){
   (json.obstacles||[]).forEach(ob=>{
     const isClover=ob.functionalId==='substrate.clover';
     const isChain=ob.functionalId==='overlay.bind';
+    const isLeaf=ob.functionalId==='overlay.leaf';
+    const isAcorn=ob.functionalId==='item.acorn';
     const isEmpty=ob.functionalId==='field.empty';
     const pu=PU[ob.functionalId];
-    if(!pu&&!isClover&&!isChain&&!isEmpty)return;
-    // chain HP: entry-level 'hp' field, else 1 (footage: L8-L21 chains are HP1)
-    const chainId='bind'+Math.min(3,Math.max(1,ob.hp||1));
+    if(!pu&&!isClover&&!isChain&&!isLeaf&&!isAcorn&&!isEmpty)return;
+    // overlay HP: entry-level 'hp' field, else 1 (footage: L8-L21 chains are HP1)
+    const hpN=Math.min(3,Math.max(1,ob.hp||1));
+    const chainId='bind'+hpN, leafId='leaf'+hpN;
     (ob.positions||[]).forEach(pos=>{
       const m=pos.match(/R(\d+)C(\d+)/); if(!m)return;
       const r=+m[1],c=+m[2];
       if(!(board[r]&&board[r][c]&&board[r][c].active))return;
       if(isClover){board[r][c].sub='clover';}
       else if(isChain){board[r][c].obs=chainId;}
+      else if(isLeaf){board[r][c].obs=leafId;}
+      else if(isAcorn){board[r][c].item='acorn';board[r][c].gem=null;} // acorn occupies the gem slot
       else if(isEmpty){board[r][c].startEmpty=true;}
       else{board[r][c].pu=pu;board[r][c].gem=null;}
     });
@@ -2855,6 +2904,8 @@ function loadLevelData(json,num){
     .map(o=>{
       if(o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null)
         return {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem};
+      if(o.type==='collect'&&o.item==='acorn')
+        return {kind:'acorn',need:o.count,have:0,name:'acorn'};
       if(o.type==='plant')
         return {kind:'plant',need:o.count,have:0,name:'clover'};
       return null;
@@ -2901,6 +2952,7 @@ function beginPlaySession(){
   document.getElementById('info-c').textContent=C;
   buildGPal();buildPUPal();buildObsPal();
   playerMode=true; playing=false;
+  window.runMaxSeq=0; // star canon: best PU-sequence of THIS run (era-1 ★2/★3)
   render();
   togglePlay();      // fills empty active cells, removes initial matches, starts Play
   updatePlayerHUD();
@@ -2956,23 +3008,24 @@ function updatePlayerHUD(){
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
   if(!playerGoals.length){goalEl.innerHTML='';return;}
-  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant')){
-    // Single collect/plant goal — classic big-icon layout. Counts DOWN, 0 = done.
+  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='acorn')){
+    // Single collect/plant/acorn goal — classic big-icon layout. Counts DOWN, 0 = done.
     const g=playerGoals[0];
     const remaining=Math.max(0,g.need-g.have);
-    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='plant'?'Plant':'Collect')+'</div>'+
-      '<div class="phud-icon">'+(g.kind==='plant'?cloverIconSVG(48):gemSVG(g.gemIdx,48))+'</div>'+
+    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='acorn'?acornIconSVG(48):gemSVG(g.gemIdx,48);
+    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'?'Collect':g.kind==='acorn'?'Free':'Plant')+'</div>'+
+      '<div class="phud-icon">'+icon+'</div>'+
       '<div class="phud-gcount">'+remaining+'</div>';
     return;
   }
   // Multi-goal (entrance) — one row per goal: verb, icon, remaining/✓, and a "?" help button.
   // Two-stage 'pu' goals show "Make" until the power-up exists, then flip to "Fire".
-  const VERBS={collect:'Get',create:'Make',detonate:'Fire',plant:'Plant'};
+  const VERBS={collect:'Get',create:'Make',detonate:'Fire',plant:'Plant',acorn:'Free'};
   let html='<div class="phud-cap">Goals</div>';
   playerGoals.forEach((g,i)=>{
     const done=goalDone(g);
     const verb=g.kind==='pu'?(g.made?'Fire':'Make'):(VERBS[g.kind]||'');
-    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):puSVG(goalPuIcon(g.pu),30);
+    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):g.kind==='acorn'?acornIconSVG(30):puSVG(goalPuIcon(g.pu),30);
     const status=done?'<span class="goal-done">✓</span>'
       :g.kind==='pu'?'<span class="goal-count"></span>'
       :'<span class="goal-count">'+Math.max(0,g.need-g.have)+'</span>';
@@ -3044,6 +3097,8 @@ function showGoalHelp(i){
   const h=g.kind==='collect'?GOAL_HELP.collect(g)
         :g.kind==='plant'?{title:'Plant '+g.need+' Clover',
             text:'Make a match with a gem standing on clover to plant clover under every gem in the match. Power-up blasts that touch clover plant their whole area — and a Grasshopper plants wherever it lands. Cover the board!'}
+        :g.kind==='acorn'?{title:'Free '+g.need+' Acorns',
+            text:'Acorns are trapped under leaves. Match right next to a leaf (or hit it with a power-up blast) to tear it away — the last hit frees the acorn and collects it. Leaves without acorns hold gems hostage the same way.'}
         :g.kind==='detonate'?DET_HELP[g.pu]
         :g.kind==='pu'?(g.made?DET_HELP[g.pu]:GOAL_HELP[g.pu]) // help matches the current stage
         :GOAL_HELP[g.pu];
@@ -3121,8 +3176,20 @@ function playerFinish(win){
   // Entrance level ends with the two-path choice, not the stars overlay
   if(entranceMode&&win){showEntranceChoice();return;}
   playing=false; animating=true; // lock the board
-  const stars= win ? (moves<=Math.ceil(moveLimit/3)?3:moves<=Math.ceil(2*moveLimit/3)?2:1) : 0;
-  if(win) PlayerProgress.set(curLevelNum,stars);
+  // STAR CANON (era 1, pre-booster-panel): ★1 = complete (sets/updates the
+  // personal move RECORD); ★2 = 2 PUs detonated in sequence from one move
+  // this run; ★3 = 3 in sequence. RECORD RESET RULE: a strictly lower move
+  // count starts a new record era — banked ★2/★3 reset, this run's feats
+  // then count toward the new era.
+  let stars=0;
+  if(win){
+    const rec=PlayerProgress.record(curLevelNum);
+    const isNewRecord=rec===0||moves<rec;
+    const prior=(rec!==0&&moves<rec)?1:PlayerProgress.stars(curLevelNum);
+    const runStars=1+((window.runMaxSeq||0)>=2?1:0)+((window.runMaxSeq||0)>=3?1:0);
+    stars=Math.max(prior,runStars,1);
+    PlayerProgress.set(curLevelNum,stars,isNewRecord?moves:rec);
+  }
   document.getElementById('pwin-title').textContent=win?'Well done!':'Out of moves';
   document.getElementById('pwin-stars').textContent=pStarStr(stars);
   document.getElementById('pwin-msg').textContent=win
