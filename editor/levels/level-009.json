@@ -1,0 +1,104 @@
+{
+  "level": 9,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 7,
+    "cols": 12,
+    "layout": [
+      ".####..####.",
+      "#####..#####",
+      "############",
+      "#####..#####",
+      "######.#####",
+      "#####..#####",
+      ".#####..###."
+    ]
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "blue",
+    "yellow",
+    "white"
+  ],
+  "objectives": [
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 65
+    }
+  ],
+  "moveLimit": 35,
+  "boosterSlots": 3,
+  "obstacles": [
+    {
+      "functionalId": "substrate.clover",
+      "positions": [
+        "R3C3",
+        "R3C8",
+        "R5C0",
+        "R5C11"
+      ],
+      "note": "4 starting clover: 2 mid-lobe under chained greens (R3C3/R3C8) + 2 bottom corners under the pinwheel Grasshoppers (R5C0/R5C11 \u2014 Jed's 'row 6' 1-indexed)."
+    },
+    {
+      "functionalId": "overlay.bind",
+      "hp": 1,
+      "positions": [
+        "R0C3",
+        "R1C3",
+        "R2C3",
+        "R2C4",
+        "R2C5",
+        "R2C6",
+        "R3C3",
+        "R4C0",
+        "R4C1",
+        "R4C3",
+        "R4C4",
+        "R4C5",
+        "R5C1",
+        "R5C3",
+        "R6C3",
+        "R0C8",
+        "R1C8",
+        "R2C7",
+        "R2C8",
+        "R3C8",
+        "R4C7",
+        "R4C8",
+        "R4C10",
+        "R4C11",
+        "R5C8",
+        "R5C10",
+        "R6C8"
+      ],
+      "note": "27 HP1 chains (~39% of the board), incl. both mid-lobe clover seeds and the bridge row."
+    },
+    {
+      "functionalId": "powerup.seeker",
+      "positions": [
+        "R5C0",
+        "R5C11"
+      ],
+      "note": "2 Grasshoppers on the bottom-corner clover seeds. Isolated pond cells \u2014 double-tap to launch; landings plant."
+    },
+    {
+      "functionalId": "field.empty",
+      "positions": [
+        "R5C4",
+        "R5C7",
+        "R6C4",
+        "R6C5"
+      ],
+      "note": "4 waist cells start gem-free (BoardState lavender cells)."
+    }
+  ],
+  "captureMeta": {
+    "source": "BoardState.png full re-trace 2026-07-15 (hi-res half crops)",
+    "verified": true,
+    "puRuling": "RULING (Jed 2026-07-12): 2 corner hoppers are design; the former '2x2 cluster of 4' was fiction.",
+    "shape": "Two-lobe DUMBBELL, 7 rows x 12 cols; lobes joined by the full R2 bridge and the R4C5 shelf.",
+    "notes": "69 active = 65 plant goal + 4 seeds (arithmetic exact). Waist-cell details (R3C5 vs R4C5) resolved by the goal arithmetic; residual +/-1 risk flagged at the waist only. Replaces the fictional 6x7 staircase."
+  }
+}
