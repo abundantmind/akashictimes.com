@@ -3,15 +3,15 @@
   "source": "Township (com.playrix.township-mac) Match-3 minigame",
   "board": {
     "rows": 7,
-    "cols": 12,
+    "cols": 11,
     "layout": [
-      ".####..####.",
-      "#####..#####",
-      "############",
-      "#####..#####",
-      "######.#####",
-      "#####..#####",
-      ".#####..###."
+      ".####.####.",
+      "#####.#####",
+      "###########",
+      "###########",
+      "###########",
+      "#####.#####",
+      ".####.####."
     ]
   },
   "gemTypes": [
@@ -35,11 +35,11 @@
       "functionalId": "substrate.clover",
       "positions": [
         "R3C3",
-        "R3C8",
+        "R3C7",
         "R5C0",
-        "R5C11"
+        "R5C10"
       ],
-      "note": "4 starting clover: 2 mid-lobe under chained greens (R3C3/R3C8) + 2 bottom corners under the pinwheel Grasshoppers (R5C0/R5C11 \u2014 Jed's 'row 6' 1-indexed)."
+      "note": "4 starting clover: 2 mid-lobe under chained greens (R3C3/R3C7) + 2 bottom corners under the pinwheel Grasshoppers (R5C0/R5C10 — Jed's 'row 6' 1-indexed)."
     },
     {
       "functionalId": "overlay.bind",
@@ -51,54 +51,55 @@
         "R2C4",
         "R2C5",
         "R2C6",
+        "R2C7",
         "R3C3",
+        "R3C7",
         "R4C0",
         "R4C1",
         "R4C3",
         "R4C4",
         "R4C5",
+        "R4C6",
+        "R4C7",
+        "R4C9",
+        "R4C10",
         "R5C1",
         "R5C3",
+        "R5C7",
+        "R5C9",
         "R6C3",
-        "R0C8",
-        "R1C8",
-        "R2C7",
-        "R2C8",
-        "R3C8",
-        "R4C7",
-        "R4C8",
-        "R4C10",
-        "R4C11",
-        "R5C8",
-        "R5C10",
-        "R6C8"
+        "R6C7",
+        "R0C7",
+        "R1C7"
       ],
-      "note": "27 HP1 chains (~39% of the board), incl. both mid-lobe clover seeds and the bridge row."
+      "note": "26 HP1 chains (~38% of the board), incl. both mid-lobe clover seeds, the full R2 bridge chain run C3-C7, and the near-full R4 run."
     },
     {
       "functionalId": "powerup.seeker",
       "positions": [
         "R5C0",
-        "R5C11"
+        "R5C10"
       ],
-      "note": "2 Grasshoppers on the bottom-corner clover seeds. Isolated pond cells \u2014 double-tap to launch; landings plant."
+      "note": "2 Grasshoppers on the bottom-corner clover seeds. Isolated pond cells — double-tap to launch; landings plant."
     },
     {
       "functionalId": "field.empty",
       "positions": [
+        "R3C5",
         "R5C4",
-        "R5C7",
+        "R5C6",
         "R6C4",
-        "R6C5"
+        "R6C6"
       ],
-      "note": "4 waist cells start gem-free (BoardState lavender cells)."
+      "note": "5 waist cells start gem-free (BoardState lavender cells). R3C5 is ACTIVE-empty, not a hole — lavender with no hole border, unlike the R1C5/R5C5 gaps which show scene background."
     }
   ],
   "captureMeta": {
-    "source": "BoardState.png full re-trace 2026-07-15 (hi-res half crops)",
+    "source": "BoardState.png full re-trace 2026-07-15; waist column pixel re-check under Jed's 11-col layout edit (same day)",
     "verified": true,
     "puRuling": "RULING (Jed 2026-07-12): 2 corner hoppers are design; the former '2x2 cluster of 4' was fiction.",
-    "shape": "Two-lobe DUMBBELL, 7 rows x 12 cols; lobes joined by the full R2 bridge and the R4C5 shelf.",
-    "notes": "69 active = 65 plant goal + 4 seeds (arithmetic exact). Waist-cell details (R3C5 vs R4C5) resolved by the goal arithmetic; residual +/-1 risk flagged at the waist only. Replaces the fictional 6x7 staircase."
+    "layoutRuling": "Jed's 2026-07-15 manual edit fixed the board to 11 cols (single waist column C5, symmetric dumbbell). Agent pixel re-check found ONE correction to his row 3: R3C5 is an active empty-start cell (board lavender, no hole border), not inactive — this restores exact goal arithmetic.",
+    "shape": "Two-lobe DUMBBELL, 7 rows x 11 cols; lobes joined by fully-active rows R2-R4 (R3C5 starts gem-free); waist holes at R0C5, R1C5, R5C5, R6C5.",
+    "notes": "69 active = 65 plant goal + 4 seeds (arithmetic exact). The old +/-1 waist risk is resolved: R3C5 active-empty confirmed by both pixels and arithmetic. Replaces the fictional 6x7 staircase and the 12-col trace."
   }
 }
