@@ -1349,7 +1349,12 @@ function togglePlay(){
 // areas are never promoted).
 const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2'};
 function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
-function damageChain(r,c){board[r][c].obs=CHAIN_DOWN[board[r][c].obs];} // null = broken
+function damageChain(r,c){
+  const left=CHAIN_DOWN[board[r][c].obs];
+  board[r][c].obs=left;
+  // shattered links rain off the cell when the chain BREAKS (gold, like Township)
+  if(!left&&window.spawnFragments)spawnFragments(r,c,0,'#e8c060');
+}
 
 function clearCell(r,c,phaseSet){
   const k=r+','+c;
@@ -2393,9 +2398,9 @@ function gravityWithMap(){
   const GRAV=0.28;      // px/frame² downward acceleration
   const fragSize=()=>Math.round(gemSize()/5); // ~1/5 of gem
 
-  window.spawnFragments=function(r,c,gemIdx){
+  window.spawnFragments=function(r,c,gemIdx,colorOverride){
     const pos=cellPos(r,c);
-    const color=GDEFS[gemIdx].color;
+    const color=colorOverride||GDEFS[gemIdx].color;
     const wrap=document.getElementById('board-wrap');
     const count=3+Math.floor(Math.random()*3); // 3–5 fragments
     for(let i=0;i<count;i++){

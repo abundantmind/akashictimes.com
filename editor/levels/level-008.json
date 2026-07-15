@@ -44,7 +44,7 @@
         "R5C4",
         "R5C5"
       ],
-      "note": "3x3 clover donut ringing the center hole R4C4. Cells start GEM-FREE (see field.empty); the unchained R2C4 gap is the designed drip-feed."
+      "note": "3x3 clover donut ringing the center hole R4C4. Cells start GEM-FREE and fully SEALED (row-2 chains above) \u2014 the donut fills only after chains break."
     },
     {
       "functionalId": "overlay.bind",
@@ -52,6 +52,7 @@
       "positions": [
         "R2C2",
         "R2C3",
+        "R2C4",
         "R2C5",
         "R2C6",
         "R3C2",
@@ -70,7 +71,7 @@
         "R6C5",
         "R6C6"
       ],
-      "note": "19 HP1 chains: cross around the donut + 5-wide band R6C2-C6 sealing the bottom."
+      "note": "20 HP1 chains: FULL row-2 band C2-C6 sealing the donut from above, cross flanks, and the 5-wide R6 band sealing the bottom. (R2C4 confirmed chained by Jed's review + pixel zoom 2026-07-15 \u2014 the donut has NO drip-feed; it opens only by breaking row-2 chains.)"
     },
     {
       "functionalId": "field.empty",
