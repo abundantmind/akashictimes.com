@@ -329,45 +329,28 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
     <div class="nav">
       <button class="navbtn active">Home</button>
       <button class="navbtn" onclick="renderBundles()">Play</button>
-      <button class="navbtn">Browse</button>
-      <button class="navbtn">My Levels</button>
       <button class="navbtn" onclick="window.open('https://www.reddit.com/r/AkashicSwapsGame/','_blank','noopener')">Community</button>
-      <button class="navbtn">Docs</button>
-    </div>
-    <div class="user">
-      <span class="tier-badge">Pro</span>
-      <div class="avatar">A</div>
     </div>
   </div>
   <div id="hero">
     <div>
       <h1>Good morning, Architect.</h1>
-      <p>Day 13 · 3 drafts in progress · r/AkashicSwapsGame is live</p>
-    </div>
-    <div class="hero-stats">
-      <div class="hstat"><div class="n">3,092</div><div class="l">Community levels</div></div>
-      <div class="hstat"><div class="n">847</div><div class="l">Active editors</div></div>
-      <div class="hstat"><div class="n">14</div><div class="l">Your commits today</div></div>
+      <p>Built in public · r/AkashicSwapsGame is live</p>
     </div>
   </div>
   <div id="grid">
     <div class="quad">
       <div class="quad-header">
         <div class="quad-title"><div class="quad-icon qi-interact">▦</div><span class="quad-name">Interact</span></div>
-        <button class="quad-action">Browse all</button>
       </div>
-      <div class="level-row"><div class="level-thumb lt-a">L·41</div><div class="level-info"><div class="level-name">The Cascade Trap</div><div class="level-meta">by heejung · 2 zones · 3,204 plays</div></div><div class="level-stat"><span>4.9</span> ★</div></div>
-      <div class="level-row"><div class="level-thumb lt-b">L·22</div><div class="level-info"><div class="level-name">Wooden Box Reveal</div><div class="level-meta">by architect · 1 zone · 1,847 plays</div></div><div class="level-stat"><span>4.7</span> ★</div></div>
-      <div class="level-row"><div class="level-thumb lt-c">L·07</div><div class="level-info"><div class="level-name">Helicopter Rush</div><div class="level-meta">by grasshopper · 1 zone · 982 plays</div></div><div class="level-stat"><span>4.5</span> ★</div></div>
+      <!-- honest empty state: community rows return when real published levels exist (Supabase) -->
+      <div class="draft-meta" style="padding:14px 0;">Community levels will appear here once publishing opens.</div>
     </div>
     <div class="quad">
       <div class="quad-header">
         <div class="quad-title"><div class="quad-icon qi-create">✏</div><span class="quad-name">Create</span></div>
         <button class="quad-action primary" id="btn-new-level">+ New level</button>
       </div>
-      <div class="draft-row"><div class="draft-thumb">▦</div><div class="draft-info"><div class="draft-name">Untitled Level 4</div><div class="draft-meta">9R × 11C · 2 zones · edited 2h ago</div></div><span class="draft-status ds-draft">Draft</span></div>
-      <div class="draft-row"><div class="draft-thumb">▦</div><div class="draft-info"><div class="draft-name">The Overlap Experiment</div><div class="draft-meta">Grid Edit · Zone 2 of 3 · edited yesterday</div></div><span class="draft-status ds-draft">Draft</span></div>
-      <div class="draft-row"><div class="draft-thumb">▦</div><div class="draft-info"><div class="draft-name">Wooden Box Gauntlet</div><div class="draft-meta">Play Test · ready to publish · edited 3d ago</div></div><span class="draft-status ds-review">In review</span></div>
       <button class="new-btn" id="btn-new-level2">+ Start a new level</button>
       <!-- Township templates: the 5 free levels, gifted as editable starting points -->
       <div class="tmpl-row">Start from a classic:
@@ -381,20 +364,16 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
     <div class="quad">
       <div class="quad-header">
         <div class="quad-title"><div class="quad-icon qi-publish">↗</div><span class="quad-name">Publish</span></div>
-        <button class="quad-action">All my levels</button>
       </div>
-      <div class="pub-row"><div class="pub-info"><div class="pub-name">Wooden Box Reveal</div><div class="pub-meta">Published May 29 · 1 zone · 9R × 11C</div></div><div class="pub-bars"><div class="pub-bar-wrap"><div class="v">1.8k</div><div class="l">Plays</div></div><div class="pub-bar-wrap"><div class="v">4.7</div><div class="l">Rating</div></div><div class="pub-bar-wrap"><div class="v">94%</div><div class="l">Complete</div></div></div></div>
-      <div class="pub-row"><div class="pub-info"><div class="pub-name">Key Drop Sequence</div><div class="pub-meta">Published May 27 · 2 zones · 9R × 11C</div></div><div class="pub-bars"><div class="pub-bar-wrap"><div class="v">642</div><div class="l">Plays</div></div><div class="pub-bar-wrap"><div class="v">4.2</div><div class="l">Rating</div></div><div class="pub-bar-wrap"><div class="v">71%</div><div class="l">Complete</div></div></div></div>
+      <!-- honest empty state: publish stats return when levels + accounts are real (Supabase) -->
+      <div class="draft-meta" style="padding:14px 0;">Your published levels and their stats will live here.</div>
     </div>
     <div class="quad">
       <div class="quad-header">
         <div class="quad-title"><div class="quad-icon qi-board">★</div><span class="quad-name">Leaderboards</span></div>
-        <button class="quad-action">Full board</button>
       </div>
-      <div class="lb-row"><div class="lb-rank gold">1</div><div class="lb-av" style="background:#2a1a00;color:#ffcb6b">H</div><div class="lb-info"><div class="lb-name">heejung</div><div class="lb-sub">12 levels · 48k plays</div></div><div class="lb-score">9,840</div></div>
-      <div class="lb-row"><div class="lb-rank silver">2</div><div class="lb-av" style="background:#1a0030;color:#c792ea">A</div><div class="lb-info"><div class="lb-name">architect</div><div class="lb-sub">3 levels · 2.7k plays</div></div><div class="lb-score">2,760</div></div>
-      <div class="lb-row"><div class="lb-rank bronze">3</div><div class="lb-av" style="background:#001a10;color:#c3e88d">G</div><div class="lb-info"><div class="lb-name">grasshopper</div><div class="lb-sub">1 level · 982 plays</div></div><div class="lb-score">982</div></div>
-      <div class="lb-row"><div class="lb-rank">4</div><div class="lb-av" style="background:#1a1000;color:#f78c6c">M</div><div class="lb-info"><div class="lb-name">matchmaker_99</div><div class="lb-sub">2 levels · 441 plays</div></div><div class="lb-score">441</div></div>
+      <!-- honest empty state: leaderboards need accounts (Supabase) -->
+      <div class="draft-meta" style="padding:14px 0;">Leaderboards open when player accounts arrive.</div>
     </div>
   </div>
 </div>
