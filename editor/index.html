@@ -649,6 +649,8 @@ en:{
   toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
   win_title:'Well done!',lose_title:'Out of moves',
   win_msg:(n,m)=>'Level '+n+' complete — '+m+' moves',try_again:'Try again?',cont:'Continue',retry:'Retry',got_it:'Got it',
+  reset_btn:'Reset all stars',
+  reset_confirm:'This wipes ALL stars and move records on this device.\nIt cannot be undone.\n\nReset everything?',
   verb_get:'Get',verb_make:'Make',verb_fire:'Fire',verb_plant:'Plant',verb_free:'Free',
   cap_collect:'Collect',cap_plant:'Plant',cap_free:'Free',
   qintro_title:'Qualifying Level',qintro_msg:'Match 12 Yellow Gems.<br>Create and Fire all Power-Ups.',
@@ -694,6 +696,8 @@ ko:{
   toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
   win_title:'잘했어요!',lose_title:'이동 횟수 소진',
   win_msg:(n,m)=>'레벨 '+n+' 완료 — 이동 '+m+'회',try_again:'다시 도전할까요?',cont:'계속',retry:'다시 시도',got_it:'알겠어요',
+  reset_btn:'별 기록 초기화',
+  reset_confirm:'이 기기의 모든 별과 이동 기록이 삭제됩니다.\n되돌릴 수 없습니다.\n\n전부 초기화할까요?',
   verb_get:'모으기',verb_make:'만들기',verb_fire:'발동',verb_plant:'심기',verb_free:'구출',
   cap_collect:'수집',cap_plant:'심기',cap_free:'구출',
   qintro_title:'자격 레벨',qintro_msg:'노란 보석 12개를 맞추세요.<br>모든 파워업을 만들고 발동하세요.',
@@ -2481,16 +2485,31 @@ function gravityWithMap(){
       const [dr,dc]=vecAt(r,c);
       if(emptyActive(r+dr,c+dc)){step(r,c,r+dr,c+dc);progress=true;}
     }
-    // 2) DIAGONAL SLIP — into hole-blocked cells, from resting donors only
+    // 2) DIAGONAL SLIP — into cells whose straight feed is blocked FOREVER,
+    //    from resting donors only
     for(let r=R-1;r>=0;r--)for(let c=0;c<C;c++){
       if(!emptyActive(r,c)||entry[r][c])continue;
       const [dr,dc]=vecAt(r,c);
       const ur=r-dr,uc=c-dc; // upstream neighbor
-      // hole-blocked OR chain-blocked: a chained cell never vacates, so gems
-      // route around it diagonally exactly like a hole (L9 footage: 40% chains,
-      // board stays full). A full chain WALL still seals — its diagonals are
-      // chained too, so no donors qualify.
-      if(!inGrid(ur,uc)||(board[ur][uc].active&&!isChained(ur,uc)))continue;
+      // Walk upstream past EMPTY active cells to find what actually feeds this
+      // cell (L11 bug, Jed 2026-07-16: the old check looked only at the
+      // immediate neighbor, so an empty RUN under a chain never refilled —
+      // mid-run cells saw "empty active above" and waited for a straight feed
+      // that the chain blocks forever). Slip is allowed only when the first
+      // thing found is a PERMANENT blocker: a hole gap, a chained gem (never
+      // vacates — L9 footage: gems route around chains like holes), or an
+      // item cell (acorns don't fall). A plain gem/PU means straight feed is
+      // coming — no slip, which is what keeps the corner-drift fix intact.
+      // A full chain WALL still seals: its diagonals are chained too, so no
+      // donors qualify (L8 donut / L9 waist stay empty by design).
+      let br=ur,bc=uc,blockedForever=false;
+      for(;;){
+        if(!inGrid(br,bc))break;                       // open sky: spawns feed it
+        if(!board[br][bc].active){blockedForever=true;break;} // hole gap
+        if(occ(br,bc)){blockedForever=isChained(br,bc)||!!board[br][bc].item;break;}
+        br-=dr;bc-=dc;                                 // empty active: keep walking
+      }
+      if(!blockedForever)continue;
       // the two upstream diagonals, perpendicular to the flow axis
       const perp=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
       const donors=perp.filter(([pr,pc])=>{
@@ -2822,10 +2841,13 @@ function findPatterns(dr,dc,sr,sc){
     const g=board[r][c].gem;if(g===null||!board[r][c].active||board[r][c].pu)continue;
     let hl=1;while(c+hl<C&&board[r][c+hl].active&&board[r][c+hl].gem===g&&!board[r][c+hl].pu)hl++;
     if(hl>=5){const cells=[];for(let i=0;i<hl;i++)cells.push([r,c+i]);pats.push({type:'rainbow',cells,dest:[dr,dc],pri:1});}
-    else if(hl===4){const cells=[];for(let i=0;i<4;i++)cells.push([r,c+i]);pats.push({type:Math.abs(sr-dr)===0?'rocket_h':'rocket_v',cells,dest:[dr,dc],pri:2});}
+    // 4-match spawns the PERPENDICULAR Dragonfly (Township canon, Jed 2026-07-16):
+    // horizontal match → vertical rocket. Was keyed to swap direction — wrong.
+    else if(hl===4){const cells=[];for(let i=0;i<4;i++)cells.push([r,c+i]);pats.push({type:'rocket_v',cells,dest:[dr,dc],pri:2});}
     let vl=1;while(r+vl<R&&board[r+vl][c].active&&board[r+vl][c].gem===g&&!board[r+vl][c].pu)vl++;
     if(vl>=5){const cells=[];for(let i=0;i<vl;i++)cells.push([r+i,c]);pats.push({type:'rainbow',cells,dest:[dr,dc],pri:1});}
-    else if(vl===4){const cells=[];for(let i=0;i<4;i++)cells.push([r+i,c]);pats.push({type:Math.abs(sc-dc)===0?'rocket_v':'rocket_h',cells,dest:[dr,dc],pri:2});}
+    // vertical match → horizontal rocket (perpendicular rule, see above)
+    else if(vl===4){const cells=[];for(let i=0;i<4;i++)cells.push([r+i,c]);pats.push({type:'rocket_h',cells,dest:[dr,dc],pri:2});}
   }
   const b3=find3();if(b3.length)pats.push({type:'basic3',cells:b3,dest:[dr,dc],pri:4});
   pats.sort((a,b)=>a.pri-b.pri);
@@ -2927,7 +2949,21 @@ function renderGrid(){
     else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
   }
   html+='</div>';
+  // Star reset (Jed 2026-07-16) — wipes ALL attainments after an explicit
+  // cannot-be-undone warning. Muted styling: it's maintenance, not gameplay.
+  html+='<button onclick="resetAllStars()" style="margin:26px auto 0;display:block;background:transparent;'
+       +'border:0.5px solid #3d2060;border-radius:6px;color:#665580;padding:7px 16px;'
+       +'font-size:var(--fz-sm);cursor:pointer;font-family:var(--font-sans);">'+TXT('reset_btn')+'</button>';
   document.getElementById('pbody').innerHTML=html;
+}
+
+// Wipe every star + move record on this device. confirm() is deliberate —
+// a native modal the player must acknowledge; there is no undo.
+function resetAllStars(){
+  if(!confirm(TXT('reset_confirm')))return;
+  PlayerProgress.data={};
+  PlayerProgress.save();
+  renderGrid(); // grid re-locks everything past L1 immediately
 }
 
 function playerBack(){renderBundles();}
