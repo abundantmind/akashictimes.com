@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Akashic Times</title>
+  <title>Akashic Swaps</title>
 
   <!-- Plausible analytics — privacy-first, no cookie banner -->
   <!-- Requires free account activation at plausible.io (Architect action) -->
@@ -26,6 +26,16 @@
       flex-direction: column;
       align-items: center;
     }
+
+    /* ── Korean mode — language selection drives the type/appearance ──
+       Hangul needs a Gothic stack (Courier New has no Korean glyphs and
+       falls back inconsistently); uppercase + wide tracking are Latin
+       tricks that do nothing good to Korean, so both relax under ko. */
+    html[lang="ko"] body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+    html[lang="ko"] h1 { letter-spacing: 0.04em; font-weight: 800; }
+    html[lang="ko"] nav { text-transform: none; letter-spacing: 0.05em; }
+    html[lang="ko"] .cta { font-family: inherit; text-transform: none; letter-spacing: 0.04em; }
+    html[lang="ko"] .tagline, html[lang="ko"] .virtue { letter-spacing: 0.02em; }
 
     /* ── Nav ── */
     nav {
@@ -146,7 +156,7 @@
   </nav>
 
   <main>
-    <h1>AKASHIC TIMES</h1>
+    <h1 data-i18n="brand">AKASHIC SWAPS</h1>
     <p class="tagline" data-i18n="tagline">The Record of Creator Action</p>
 
     <!-- BeCCH virtues — core identity, preserved -->
@@ -181,6 +191,7 @@
     (function(){
       var I18N={
         en:{nav_home:'Home',nav_history:'History',nav_bug:'Bug Report',
+            brand:'AKASHIC SWAPS',
             tagline:'The Record of Creator Action',
             v1:'Be Curious.',v2:'Be Confident.',v3:'Be Humble.',
             cta:'See if you qualify...',hi_arch:'Hello, Architect',hi_exp:'Hello, Explorer',hi_back:'Welcome back',
@@ -188,6 +199,7 @@
             lnk_reddit:'r/AkashicSwapsGame — Follow the Build, Join In',
             lnk_patreon:'Patreon — Fund the Future',lnk_privacy:'Privacy'},
         ko:{nav_home:'홈',nav_history:'히스토리',nav_bug:'버그 신고',
+            brand:'아카식 스왑스',
             tagline:'창작자 행동의 기록',
             v1:'호기심 있게.',v2:'자신 있게.',v3:'겸손하게.',
             cta:'자격이 있는지 확인해 보세요...',hi_arch:'안녕하세요, 설계자님',hi_exp:'안녕하세요, 탐험가님',hi_back:'다시 오신 것을 환영합니다',
