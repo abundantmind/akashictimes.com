@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Akashic Times — History, Phase 2</title>
+
+  <!-- Plausible analytics — privacy-first, no cookie banner -->
+  <!-- Requires free account activation at plausible.io (Architect action) -->
+  <script defer data-domain="akashictimes.com" src="https://plausible.io/js/script.js"></script>
+
+  <!-- Unmoatable Analytics — cookieless; no-ops on localhost; SPA routing tracked automatically -->
+  <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
+
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Base ── */
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Nav ── */
+    nav {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      padding: 18px 24px;
+      border-bottom: 1px solid #0a3a0a;
+      font-size: 0.85em;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    nav a {
+      color: #0f0;
+      text-decoration: none;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+
+    /* ── Hero ── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 24px 80px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: clamp(2.5em, 8vw, 4.5em);
+      letter-spacing: 0.08em;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .tagline {
+      font-size: clamp(0.9em, 2.5vw, 1.15em);
+      opacity: 0.5;
+      letter-spacing: 0.06em;
+      margin-bottom: 48px;
+    }
+
+    /* ── Virtues ── */
+    .virtues {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 56px;
+    }
+    .virtue {
+      font-size: clamp(1em, 3vw, 1.5em);
+      opacity: 0.8;
+    }
+    .virtue::before { content: "◆ "; font-size: 0.6em; vertical-align: middle; }
+
+    /* ── CTA ── */
+    .cta {
+      display: inline-block;
+      padding: 16px 40px;
+      border: 2px solid #0f0;
+      color: #000;
+      background: #0f0;
+      font-family: 'Courier New', monospace;
+      font-size: 1.1em;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      margin-bottom: 56px;
+    }
+    .cta:hover {
+      background: #000;
+      color: #0f0;
+    }
+
+    /* ── Links ── */
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 0.9em;
+      opacity: 0.6;
+      margin-bottom: 56px;
+    }
+    .links a { color: #0f0; text-decoration: underline; }
+    .links a:hover { opacity: 1; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 20px 24px;
+      font-size: 0.75em;
+      opacity: 0.35;
+      letter-spacing: 0.1em;
+      border-top: 1px solid #0a3a0a;
+      width: 100%;
+      text-align: center;
+    }
+    footer a { color: #0f0; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- Archive strip — this is a preserved snapshot, not the live landing -->
+  <div style="width:100%;text-align:center;padding:8px 24px;font-size:0.75em;letter-spacing:0.12em;
+              background:#031a03;color:#0f0;opacity:0.8;border-bottom:1px solid #0a3a0a;">
+    ARCHIVE · PHASE 2 — THE AKASHIC TIMES ERA · PRESERVED 2026-07-16 · <a href="/history/" style="color:#0f0;">ALL PHASES</a>
+  </div>
+
+  <!-- Navigation -->
+  <nav>
+    <a href="/" class="active" data-i18n="nav_home">Home</a>
+    <a href="/history/" data-i18n="nav_history">History</a>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLScgCSDp9VM766fnAswlI9hEUJ4YanJ_jBKLkcLrHCyUydqf5Q/viewform" target="_blank" rel="noopener" data-i18n="nav_bug">Bug Report</a>
+    <a href="#" id="lang-toggle">한국어</a>
+  </nav>
+
+  <main>
+    <h1>AKASHIC TIMES</h1>
+    <p class="tagline" data-i18n="tagline">The Record of Creator Action</p>
+
+    <!-- BeCCH virtues — core identity, preserved -->
+    <div class="virtues">
+      <span class="virtue" data-i18n="v1">Be Curious.</span>
+      <span class="virtue" data-i18n="v2">Be Confident.</span>
+      <span class="virtue" data-i18n="v3">Be Humble.</span>
+    </div>
+
+    <!-- Primary CTA — Level 1 entrance (power-up training).
+         Qualified visitors are greeted by their earned title instead
+         (localStorage is shared with the game — same origin); the #enter
+         routing already sends them straight to their track. -->
+    <a class="cta" id="cta-main"
+       href="/editor/index.html#enter"
+       target="_blank" rel="noopener">
+      See if you qualify...
+    </a>
+
+    <!-- Secondary links -->
+    <div class="links">
+      <a href="/editor/index.html" target="_blank" rel="noopener" data-i18n="lnk_editor">Level Editor</a>
+      <a href="https://www.reddit.com/r/AkashicSwapsGame/" target="_blank" rel="noopener" data-i18n="lnk_reddit">r/AkashicSwapsGame — Follow the Build, Join In</a>
+      <a href="https://patreon.com/nullreference" target="_blank" rel="noopener" data-i18n="lnk_patreon">Patreon — Fund the Future</a>
+    </div>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/" data-i18n="lnk_privacy">Privacy</a></footer>
+
+  <script>
+    // ── i18n — EN + 한국어, shared with the game via localStorage (same origin) ──
+    (function(){
+      var I18N={
+        en:{nav_home:'Home',nav_history:'History',nav_bug:'Bug Report',
+            tagline:'The Record of Creator Action',
+            v1:'Be Curious.',v2:'Be Confident.',v3:'Be Humble.',
+            cta:'See if you qualify...',hi_arch:'Hello, Architect',hi_exp:'Hello, Explorer',hi_back:'Welcome back',
+            lnk_editor:'Level Editor',
+            lnk_reddit:'r/AkashicSwapsGame — Follow the Build, Join In',
+            lnk_patreon:'Patreon — Fund the Future',lnk_privacy:'Privacy'},
+        ko:{nav_home:'홈',nav_history:'히스토리',nav_bug:'버그 신고',
+            tagline:'창작자 행동의 기록',
+            v1:'호기심 있게.',v2:'자신 있게.',v3:'겸손하게.',
+            cta:'자격이 있는지 확인해 보세요...',hi_arch:'안녕하세요, 설계자님',hi_exp:'안녕하세요, 탐험가님',hi_back:'다시 오신 것을 환영합니다',
+            lnk_editor:'레벨 에디터',
+            lnk_reddit:'r/AkashicSwapsGame — 개발 과정을 지켜보고 함께하세요',
+            lnk_patreon:'Patreon — 미래에 투자하세요',lnk_privacy:'개인정보처리방침'}
+      };
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')
+        ||((navigator.language||'').indexOf('ko')===0?'ko':'en');}catch(e){LANG='en';}
+      function apply(){
+        var d=I18N[LANG]||I18N.en;
+        document.documentElement.lang=LANG;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
+        });
+        document.getElementById('lang-toggle').textContent=LANG==='en'?'한국어':'English';
+        // CTA: qualified visitors get their earned greeting, in their language
+        var cta=d.cta;
+        try{
+          if(localStorage.getItem('akashicswaps-qualified')==='1'){
+            var path=localStorage.getItem('akashicswaps-path');
+            cta=path==='architect'?d.hi_arch:path==='explorer'?d.hi_exp:d.hi_back;
+          }
+        }catch(e){/* storage blocked — keep the default CTA */}
+        document.getElementById('cta-main').textContent=cta;
+      }
+      document.getElementById('lang-toggle').addEventListener('click',function(ev){
+        ev.preventDefault();
+        LANG=LANG==='en'?'ko':'en';
+        try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}
+        apply();
+      });
+      apply();
+    })();
+  </script>
+
+</body>
+</html>

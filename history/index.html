@@ -3,38 +3,148 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Akashic Times</title>
+  <title>History — Akashic Swaps</title>
 
   <!-- Unmoatable Analytics — cookieless; no-ops on localhost; SPA routing tracked automatically -->
   <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
 
   <style>
-    body { font-family: 'Courier New', monospace; background: #000; color: #0f0; text-align: center; padding: 50px; }
-    h1 { font-size: 3em; margin: 0.5em; }
-    .clink { font-size: 1.5em; color: #0f0; }
-    .virtue { font-size: 2em; margin: 20px; display: inline-block; }
-    a { color: #0f0; text-decoration: underline; }
-    .footer { margin-top: 50px; font-size: 0.9em; }
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Base — matches the landing terminal aesthetic ── */
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* Korean mode: Hangul-friendly type, no uppercase tricks */
+    html[lang="ko"] body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+    html[lang="ko"] nav { text-transform: none; letter-spacing: 0.05em; }
+
+    /* ── Nav ── */
+    nav {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      padding: 18px 24px;
+      border-bottom: 1px solid #0a3a0a;
+      font-size: 0.85em;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    nav a { color: #0f0; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+
+    /* ── Content ── */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 720px;
+      padding: 60px 24px 80px;
+      text-align: center;
+    }
+    h1 { font-size: clamp(1.8em, 6vw, 3em); letter-spacing: 0.08em; margin-bottom: 10px; }
+    .sub { opacity: 0.5; margin-bottom: 52px; letter-spacing: 0.06em; }
+
+    /* ── Phase cards — the site preserved era by era ── */
+    .phase {
+      display: block;
+      border: 1px solid #0a3a0a;
+      padding: 22px 26px;
+      margin-bottom: 22px;
+      text-align: left;
+      color: #0f0;
+      text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .phase:hover { border-color: #0f0; background: #021202; }
+    .phase .pnum { font-size: 0.75em; opacity: 0.5; letter-spacing: 0.15em; text-transform: uppercase; }
+    .phase h2 { font-size: 1.25em; margin: 6px 0 6px; letter-spacing: 0.05em; }
+    .phase p { font-size: 0.9em; opacity: 0.65; line-height: 1.5; }
+
+    footer {
+      padding: 20px 24px;
+      font-size: 0.75em;
+      opacity: 0.35;
+      letter-spacing: 0.1em;
+      border-top: 1px solid #0a3a0a;
+      width: 100%;
+      text-align: center;
+    }
+    footer a { color: #0f0; text-decoration: none; }
   </style>
 </head>
 <body>
-  <h1>AKASHIC TIMES</h1>
-  <p class="clink">[Glass clink sound]</p>
-  
-  <div class="virtue">Be Curious.</div>
-  <div class="virtue">Be Confident.</div>
-  <div class="virtue">Be Humble.</div>
-  
-  <p><strong>The Record of Creator Action</strong></p>
-  
-  <p>
-    <a href="https://abundantmind.github.io/akashictimes.com" target="_blank">Akashic Times Editor (Beta)</a><br>
-    <a href="https://www.wattpad.com/story/403725376-null-reference" target="_blank">Null Reference (Wattpad)</a><br>
-    <a href="https://patreon.com/nullreference" target="_blank">Patreon — Fund the Future</a>
-  </p>
-  
-  <div class="footer">
-    #BeCCH | #TimeToBeCCH | #GridCCH
-  </div>
+
+  <nav>
+    <a href="/" data-i18n="nav_home">Home</a>
+    <a href="/history/" class="active" data-i18n="nav_history">History</a>
+    <a href="#" id="lang-toggle">한국어</a>
+  </nav>
+
+  <main>
+    <h1 data-i18n="title">HISTORY</h1>
+    <p class="sub" data-i18n="sub">Every era of this site, preserved as it shipped.</p>
+
+    <!-- Newest phase first -->
+    <a class="phase" href="/history/phase2/">
+      <div class="pnum" data-i18n="p2num">Phase 2 · 2026-07-08 → 2026-07-16</div>
+      <h2 data-i18n="p2title">The Akashic Times Era</h2>
+      <p data-i18n="p2desc">The Qualifying entrance goes live: Level 1 as the front door, the Architect/Explorer split, bundles to Level 15, stars, and the first 한국어 release.</p>
+    </a>
+
+    <a class="phase" href="/history/phase1/">
+      <div class="pnum" data-i18n="p1num">Phase 1 · The Beginning</div>
+      <h2 data-i18n="p1title">The First Landing</h2>
+      <p data-i18n="p1desc">The original page — a glass clink, the three virtues, and links to where it all started.</p>
+    </a>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/" data-i18n="lnk_privacy">Privacy</a></footer>
+
+  <script>
+    // ── i18n — EN + 한국어; same persisted key as the rest of the site ──
+    (function(){
+      var I18N={
+        en:{nav_home:'Home',nav_history:'History',lnk_privacy:'Privacy',
+            title:'HISTORY',sub:'Every era of this site, preserved as it shipped.',
+            p2num:'Phase 2 · 2026-07-08 → 2026-07-16',p2title:'The Akashic Times Era',
+            p2desc:'The Qualifying entrance goes live: Level 1 as the front door, the Architect/Explorer split, bundles to Level 15, stars, and the first 한국어 release.',
+            p1num:'Phase 1 · The Beginning',p1title:'The First Landing',
+            p1desc:'The original page — a glass clink, the three virtues, and links to where it all started.'},
+        ko:{nav_home:'홈',nav_history:'히스토리',lnk_privacy:'개인정보처리방침',
+            title:'히스토리',sub:'이 사이트의 모든 시대를 출시 당시 모습 그대로 보존합니다.',
+            p2num:'2단계 · 2026-07-08 → 2026-07-16',p2title:'아카식 타임스 시대',
+            p2desc:'자격 레벨이 정문이 된 시대 — 설계자/탐험가 분기, 레벨 15까지의 번들, 별 시스템, 그리고 첫 한국어 릴리스.',
+            p1num:'1단계 · 시작',p1title:'첫 번째 랜딩',
+            p1desc:'최초의 페이지 — 잔 부딪히는 소리, 세 가지 덕목, 그리고 모든 것이 시작된 곳으로의 링크.'}
+      };
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')
+        ||((navigator.language||'').indexOf('ko')===0?'ko':'en');}catch(e){LANG='en';}
+      function apply(){
+        var d=I18N[LANG]||I18N.en;
+        document.documentElement.lang=LANG;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
+        });
+        document.getElementById('lang-toggle').textContent=LANG==='en'?'한국어':'English';
+      }
+      document.getElementById('lang-toggle').addEventListener('click',function(ev){
+        ev.preventDefault();
+        LANG=LANG==='en'?'ko':'en';
+        try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}
+        apply();
+      });
+      apply();
+    })();
+  </script>
 </body>
 </html>
