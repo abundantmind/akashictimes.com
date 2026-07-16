@@ -87,12 +87,13 @@
 </head>
 <body>
   <nav>
-    <a href="/">Home</a>
-    <a href="/history/">History</a>
-    <a href="/privacy/" class="active">Privacy</a>
+    <a href="/" data-i18n="nav_home">Home</a>
+    <a href="/history/" data-i18n="nav_history">History</a>
+    <a href="/privacy/" class="active" data-i18n="nav_privacy">Privacy</a>
+    <a href="#" id="lang-toggle">한국어</a>
   </nav>
 
-  <main>
+  <main id="main-en">
     <h1>PRIVACY POLICY</h1>
     <div class="effective">Effective July 8, 2026 · akashictimes.com</div>
 
@@ -169,6 +170,111 @@
     </p>
   </main>
 
+  <!-- 한국어 — full translation of the policy above; the toggle swaps which <main> shows -->
+  <main id="main-ko" style="display:none;">
+    <h1>개인정보처리방침</h1>
+    <div class="effective">2026년 7월 8일 시행 · akashictimes.com</div>
+
+    <div class="tldr">
+      <strong>요약:</strong> 계정 없음, 광고 없음, 자체 쿠키 없음,
+      데이터 판매는 절대 하지 않습니다. 게임 진행 상황은 사용자의 브라우저에만 저장됩니다.
+      분석은 익명으로 이루어집니다. 저희가 받는 유일한 개인정보는
+      피드백 양식에 직접 입력하기로 선택한 내용뿐입니다.
+    </div>
+
+    <h2>운영자 소개</h2>
+    <p>
+      Akashic Times는 독립 게임 프로젝트로, 매치-3 게임과 레벨 에디터입니다.
+      이 사이트는 개발자가 직접 운영합니다. 본 방침에 대한 문의:
+      <a href="mailto:akt.agent01@gmail.com">akt.agent01@gmail.com</a>.
+    </p>
+
+    <h2>사용자 기기에만 남는 정보</h2>
+    <p>
+      게임은 진행 상황과 환경 설정(완료한 레벨, 별, 자격 상태, 글자 크기,
+      재생 속도)을 브라우저의 로컬 저장소에 저장합니다. 이 데이터는 기기를
+      떠나지 않고 저희에게 전송되지 않으며, akashictimes.com의 사이트 데이터를
+      브라우저에서 지우면 언제든 삭제할 수 있습니다.
+    </p>
+
+    <h2>분석</h2>
+    <p>
+      방문 수와 페이지 사용 현황을 파악하기 위해 프라이버시 우선 분석 서비스인
+      <a href="https://plausible.io" target="_blank" rel="noopener">Plausible</a>과
+      <a href="https://unmoatable.com" target="_blank" rel="noopener">Unmoatable Analytics</a>를
+      사용합니다. 둘 다 쿠키를 사용하지 않고 개인정보를 저장하지 않으며,
+      사이트 간 추적도 하지 않습니다. 저희가 보는 것은 집계 수치(방문, 페이지,
+      국가)뿐이며 사용자가 누구인지는 절대 알 수 없습니다.
+    </p>
+
+    <h2>직접 제출하는 양식</h2>
+    <p>
+      버그 신고와 플레이어 설문은 Google Forms로 수집됩니다. 양식을 제출하면
+      입력한 정보(그리고 로그인 상태에서 양식이 기록하는 경우 Google 계정)는
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google 개인정보처리방침</a>에
+      따라 Google이 처리합니다. 제출된 내용은 버그 수정과 게임 개선에만
+      사용하며, 공유하거나 판매하지 않습니다.
+    </p>
+
+    <h2>호스팅</h2>
+    <p>
+      이 사이트는 GitHub Pages로 제공됩니다. 대부분의 웹 호스트와 마찬가지로
+      GitHub은 보안 및 운영 목적으로 기본적인 기술 데이터(예: IP 주소)를
+      기록할 수 있으며, 이는
+      <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub 개인정보 보호정책</a>에
+      설명되어 있습니다. 저희는 해당 로그를 받거나 저장하지 않습니다.
+    </p>
+
+    <h2>외부 링크</h2>
+    <p>
+      이곳의 페이지는 외부 서비스(예: Patreon)로 연결될 수 있습니다. 해당
+      사이트들은 자체 개인정보처리방침을 따르며, 본 방침의 효력은 저희
+      사이트까지입니다.
+    </p>
+
+    <h2>어린이</h2>
+    <p>
+      이 게임은 전체 이용가입니다. 저희는 어린이를 포함한 그 누구의
+      개인정보도 고의로 수집하지 않습니다 — 위의 선택적 양식 외에는 이
+      사이트에 개인정보를 요구하는 장치 자체가 없습니다.
+    </p>
+
+    <h2>변경</h2>
+    <p>
+      처리하는 데이터가 달라지는 기능(계정, 레벨 마켓플레이스, 결제)이
+      게임에 추가되면, 해당 기능 출시 전에 본 방침을 갱신하고 상단에 새
+      시행일을 표시합니다.
+    </p>
+  </main>
+
   <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH</footer>
+
+  <script>
+    // ── i18n — EN + 한국어; same persisted key as the game and landing page ──
+    (function(){
+      var NAV={en:{nav_home:'Home',nav_history:'History',nav_privacy:'Privacy'},
+               ko:{nav_home:'홈',nav_history:'히스토리',nav_privacy:'개인정보'}};
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')
+        ||((navigator.language||'').indexOf('ko')===0?'ko':'en');}catch(e){LANG='en';}
+      function apply(){
+        document.documentElement.lang=LANG;
+        document.getElementById('main-en').style.display=LANG==='ko'?'none':'';
+        document.getElementById('main-ko').style.display=LANG==='ko'?'':'none';
+        var d=NAV[LANG]||NAV.en;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
+        });
+        document.getElementById('lang-toggle').textContent=LANG==='en'?'한국어':'English';
+      }
+      document.getElementById('lang-toggle').addEventListener('click',function(ev){
+        ev.preventDefault();
+        LANG=LANG==='en'?'ko':'en';
+        try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}
+        apply();
+      });
+      apply();
+    })();
+  </script>
 </body>
 </html>
