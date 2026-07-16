@@ -139,20 +139,21 @@
 
   <!-- Navigation -->
   <nav>
-    <a href="/" class="active">Home</a>
-    <a href="/history/">History</a>
-    <a href="https://docs.google.com/forms/d/e/1FAIpQLScgCSDp9VM766fnAswlI9hEUJ4YanJ_jBKLkcLrHCyUydqf5Q/viewform" target="_blank" rel="noopener">Bug Report</a>
+    <a href="/" class="active" data-i18n="nav_home">Home</a>
+    <a href="/history/" data-i18n="nav_history">History</a>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLScgCSDp9VM766fnAswlI9hEUJ4YanJ_jBKLkcLrHCyUydqf5Q/viewform" target="_blank" rel="noopener" data-i18n="nav_bug">Bug Report</a>
+    <a href="#" id="lang-toggle">한국어</a>
   </nav>
 
   <main>
     <h1>AKASHIC TIMES</h1>
-    <p class="tagline">The Record of Creator Action</p>
+    <p class="tagline" data-i18n="tagline">The Record of Creator Action</p>
 
     <!-- BeCCH virtues — core identity, preserved -->
     <div class="virtues">
-      <span class="virtue">Be Curious.</span>
-      <span class="virtue">Be Confident.</span>
-      <span class="virtue">Be Humble.</span>
+      <span class="virtue" data-i18n="v1">Be Curious.</span>
+      <span class="virtue" data-i18n="v2">Be Confident.</span>
+      <span class="virtue" data-i18n="v3">Be Humble.</span>
     </div>
 
     <!-- Primary CTA — Level 1 entrance (power-up training).
@@ -164,27 +165,65 @@
        target="_blank" rel="noopener">
       See if you qualify...
     </a>
-    <script>
-      (function(){
-        try{
-          if(localStorage.getItem('akashicswaps-qualified')!=='1')return;
-          var path=localStorage.getItem('akashicswaps-path');
-          document.getElementById('cta-main').textContent=
-            path==='architect'?'Hello, Architect':
-            path==='explorer' ?'Hello, Explorer' :'Welcome back';
-        }catch(e){/* storage blocked — keep the default CTA */}
-      })();
-    </script>
 
     <!-- Secondary links -->
     <div class="links">
-      <a href="./editor/index.html" target="_blank" rel="noopener">Level Editor</a>
-      <a href="https://www.reddit.com/r/AkashicSwapsGame/" target="_blank" rel="noopener">r/AkashicSwapsGame — Follow the Build, Join In</a>
-      <a href="https://patreon.com/nullreference" target="_blank" rel="noopener">Patreon — Fund the Future</a>
+      <a href="./editor/index.html" target="_blank" rel="noopener" data-i18n="lnk_editor">Level Editor</a>
+      <a href="https://www.reddit.com/r/AkashicSwapsGame/" target="_blank" rel="noopener" data-i18n="lnk_reddit">r/AkashicSwapsGame — Follow the Build, Join In</a>
+      <a href="https://patreon.com/nullreference" target="_blank" rel="noopener" data-i18n="lnk_patreon">Patreon — Fund the Future</a>
     </div>
   </main>
 
-  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/">Privacy</a></footer>
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/" data-i18n="lnk_privacy">Privacy</a></footer>
+
+  <script>
+    // ── i18n — EN + 한국어, shared with the game via localStorage (same origin) ──
+    (function(){
+      var I18N={
+        en:{nav_home:'Home',nav_history:'History',nav_bug:'Bug Report',
+            tagline:'The Record of Creator Action',
+            v1:'Be Curious.',v2:'Be Confident.',v3:'Be Humble.',
+            cta:'See if you qualify...',hi_arch:'Hello, Architect',hi_exp:'Hello, Explorer',hi_back:'Welcome back',
+            lnk_editor:'Level Editor',
+            lnk_reddit:'r/AkashicSwapsGame — Follow the Build, Join In',
+            lnk_patreon:'Patreon — Fund the Future',lnk_privacy:'Privacy'},
+        ko:{nav_home:'홈',nav_history:'히스토리',nav_bug:'버그 신고',
+            tagline:'창작자 행동의 기록',
+            v1:'호기심 있게.',v2:'자신 있게.',v3:'겸손하게.',
+            cta:'자격이 있는지 확인해 보세요...',hi_arch:'안녕하세요, 설계자님',hi_exp:'안녕하세요, 탐험가님',hi_back:'다시 오신 것을 환영합니다',
+            lnk_editor:'레벨 에디터',
+            lnk_reddit:'r/AkashicSwapsGame — 개발 과정을 지켜보고 함께하세요',
+            lnk_patreon:'Patreon — 미래에 투자하세요',lnk_privacy:'개인정보처리방침'}
+      };
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')
+        ||((navigator.language||'').indexOf('ko')===0?'ko':'en');}catch(e){LANG='en';}
+      function apply(){
+        var d=I18N[LANG]||I18N.en;
+        document.documentElement.lang=LANG;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
+        });
+        document.getElementById('lang-toggle').textContent=LANG==='en'?'한국어':'English';
+        // CTA: qualified visitors get their earned greeting, in their language
+        var cta=d.cta;
+        try{
+          if(localStorage.getItem('akashicswaps-qualified')==='1'){
+            var path=localStorage.getItem('akashicswaps-path');
+            cta=path==='architect'?d.hi_arch:path==='explorer'?d.hi_exp:d.hi_back;
+          }
+        }catch(e){/* storage blocked — keep the default CTA */}
+        document.getElementById('cta-main').textContent=cta;
+      }
+      document.getElementById('lang-toggle').addEventListener('click',function(ev){
+        ev.preventDefault();
+        LANG=LANG==='en'?'ko':'en';
+        try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}
+        apply();
+      });
+      apply();
+    })();
+  </script>
 
 </body>
 </html>
