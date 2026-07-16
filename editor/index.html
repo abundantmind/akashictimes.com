@@ -908,7 +908,8 @@ function openEditor(){
 async function openTemplate(n){
   let json;
   try{
-    const resp=await fetch('levels/level-'+String(n).padStart(3,'0')+'.json');
+    // no-cache: revalidate via ETag so template edits go live immediately
+    const resp=await fetch('levels/level-'+String(n).padStart(3,'0')+'.json',{cache:'no-cache'});
     if(!resp.ok)throw new Error('http '+resp.status);
     json=await resp.json();
   }catch(e){alert('Template '+n+' is not available.');return;}
@@ -3065,7 +3066,10 @@ function loadLevelData(json,num){
 async function startPlayerLevel(num){
   let json;
   try{
-    const resp=await fetch('levels/level-'+String(num).padStart(3,'0')+'.json');
+    // no-cache = revalidate against the server's ETag every load — level data
+    // edits go live without the stale-cache tax (same disease the version
+    // watchdog treats; L11 field.empty fix was invisible behind a cached copy)
+    const resp=await fetch('levels/level-'+String(num).padStart(3,'0')+'.json',{cache:'no-cache'});
     if(!resp.ok) throw new Error('http '+resp.status);
     json=await resp.json();
   }catch(e){ alert(TXT('alert_na')(num)); return; }
