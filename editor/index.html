@@ -327,33 +327,34 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
       <span class="edition">Level Editor</span>
     </div>
     <div class="nav">
-      <button class="navbtn active">Home</button>
-      <button class="navbtn" onclick="renderBundles()">Play</button>
-      <button class="navbtn" onclick="window.open('https://www.reddit.com/r/AkashicSwapsGame/','_blank','noopener')">Community</button>
+      <button class="navbtn active" data-i18n="nav_home">Home</button>
+      <button class="navbtn" data-i18n="nav_play" onclick="renderBundles()">Play</button>
+      <button class="navbtn" data-i18n="nav_community" onclick="window.open('https://www.reddit.com/r/AkashicSwapsGame/','_blank','noopener')">Community</button>
+      <button class="navbtn langbtn" onclick="toggleLang()">한국어</button>
     </div>
   </div>
   <div id="hero">
     <div>
-      <h1>Good morning, Architect.</h1>
-      <p>Built in public · r/AkashicSwapsGame is live</p>
+      <h1 data-i18n="hero_greet">Good morning, Architect.</h1>
+      <p data-i18n="hero_sub">Built in public · r/AkashicSwapsGame is live</p>
     </div>
   </div>
   <div id="grid">
     <div class="quad">
       <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-interact">▦</div><span class="quad-name">Interact</span></div>
+        <div class="quad-title"><div class="quad-icon qi-interact">▦</div><span class="quad-name" data-i18n="quad_interact">Interact</span></div>
       </div>
       <!-- honest empty state: community rows return when real published levels exist (Supabase) -->
-      <div class="draft-meta" style="padding:14px 0;">Community levels will appear here once publishing opens.</div>
+      <div class="draft-meta" style="padding:14px 0;" data-i18n="empty_interact">Community levels will appear here once publishing opens.</div>
     </div>
     <div class="quad">
       <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-create">✏</div><span class="quad-name">Create</span></div>
-        <button class="quad-action primary" id="btn-new-level">+ New level</button>
+        <div class="quad-title"><div class="quad-icon qi-create">✏</div><span class="quad-name" data-i18n="quad_create">Create</span></div>
+        <button class="quad-action primary" id="btn-new-level" data-i18n="btn_new_level">+ New level</button>
       </div>
-      <button class="new-btn" id="btn-new-level2">+ Start a new level</button>
+      <button class="new-btn" id="btn-new-level2" data-i18n="btn_new_level2">+ Start a new level</button>
       <!-- Township templates: the 5 free levels, gifted as editable starting points -->
-      <div class="tmpl-row">Start from a classic:
+      <div class="tmpl-row"><span data-i18n="tmpl_label">Start from a classic:</span>
         <button class="tmpl-btn" onclick="openTemplate(1)">L1</button>
         <button class="tmpl-btn" onclick="openTemplate(2)">L2</button>
         <button class="tmpl-btn" onclick="openTemplate(3)">L3</button>
@@ -363,17 +364,17 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
     </div>
     <div class="quad">
       <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-publish">↗</div><span class="quad-name">Publish</span></div>
+        <div class="quad-title"><div class="quad-icon qi-publish">↗</div><span class="quad-name" data-i18n="quad_publish">Publish</span></div>
       </div>
       <!-- honest empty state: publish stats return when levels + accounts are real (Supabase) -->
-      <div class="draft-meta" style="padding:14px 0;">Your published levels and their stats will live here.</div>
+      <div class="draft-meta" style="padding:14px 0;" data-i18n="empty_publish">Your published levels and their stats will live here.</div>
     </div>
     <div class="quad">
       <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-board">★</div><span class="quad-name">Leaderboards</span></div>
+        <div class="quad-title"><div class="quad-icon qi-board">★</div><span class="quad-name" data-i18n="quad_boards">Leaderboards</span></div>
       </div>
       <!-- honest empty state: leaderboards need accounts (Supabase) -->
-      <div class="draft-meta" style="padding:14px 0;">Leaderboards open when player accounts arrive.</div>
+      <div class="draft-meta" style="padding:14px 0;" data-i18n="empty_boards">Leaderboards open when player accounts arrive.</div>
     </div>
   </div>
 </div>
@@ -550,17 +551,20 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 <div id="player">
   <div id="ptopbar">
     <div><span class="wordmark">AkashicSwaps</span><span class="edition">Play</span></div>
-    <button class="pback" id="pback-top" onclick="playerBack()" style="display:none;">← Bundles</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="pback langbtn" onclick="toggleLang()">한국어</button>
+      <button class="pback" id="pback-top" data-i18n="pback_bundles" onclick="playerBack()" style="display:none;">← Bundles</button>
+    </div>
   </div>
   <div id="pbody"><!-- bundle or grid rendered here --></div>
 </div>
 
 <!-- Player HUD (shown over the reused editor board during play) -->
 <div id="phud">
-  <button class="pback" onclick="exitToGrid()">← Levels</button>
+  <button class="pback" data-i18n="pback_levels" onclick="exitToGrid()">← Levels</button>
   <div class="phud-level" id="phud-level">Level 1</div>
   <div id="phud-goal"></div>
-  <div class="phud-moves"><div class="phud-num" id="phud-moves">0</div><div class="phud-cap">Moves</div></div>
+  <div class="phud-moves"><div class="phud-num" id="phud-moves">0</div><div class="phud-cap" data-i18n="moves_cap">Moves</div></div>
 </div>
 
 <!-- Goal help popup — "?" next to entrance goals -->
@@ -569,23 +573,23 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
     <h2 id="ghelp-title"></h2>
     <div id="ghelp-diagram"></div>
     <p class="wmsg" id="ghelp-text"></p>
-    <button onclick="closeGoalHelp()">Got it</button>
+    <button data-i18n="got_it" onclick="closeGoalHelp()">Got it</button>
   </div>
 </div>
 
 <!-- Entrance complete — two-path choice -->
 <div id="pchoice">
   <div class="choice-wrap">
-    <h2>You Qualify</h2>
-    <p class="choice-sub">You've mastered the power-ups. Choose your path:</p>
+    <h2 data-i18n="qualify_title">You Qualify</h2>
+    <p class="choice-sub" data-i18n="qualify_sub">You've mastered the power-ups. Choose your path:</p>
     <div class="choice-cards">
       <div class="choice-card" onclick="chooseEditorPath()">
-        <h3>Architect</h3>
-        <p>Create levels, publish them, and play everything.</p>
+        <h3 data-i18n="path_architect">Architect</h3>
+        <p data-i18n="path_arch_desc">Create levels, publish them, and play everything.</p>
       </div>
       <div class="choice-card" onclick="choosePlayerPath()">
-        <h3>Explorer</h3>
-        <p>Play the levels and follow the build as it happens.</p>
+        <h3 data-i18n="path_explorer">Explorer</h3>
+        <p data-i18n="path_exp_desc">Play the levels and follow the build as it happens.</p>
       </div>
     </div>
   </div>
@@ -594,11 +598,11 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 <!-- Qualification survey opt-in — shown at "You Qualify", before the path split -->
 <div id="qsurvey">
   <div class="wbox">
-    <h2>You just did something most players won't.</h2>
-    <p class="wmsg">Got 5 minutes? A short survey helps shape what comes next.</p>
+    <h2 data-i18n="qsurvey_title">You just did something most players won't.</h2>
+    <p class="wmsg" data-i18n="qsurvey_msg">Got 5 minutes? A short survey helps shape what comes next.</p>
     <div class="qsurvey-btns">
-      <button class="qs-yes" onclick="surveyIn()">I'm in</button>
-      <button class="qs-no" onclick="surveyNot()">Not now</button>
+      <button class="qs-yes" data-i18n="qs_yes" onclick="surveyIn()">I'm in</button>
+      <button class="qs-no" data-i18n="qs_no" onclick="surveyNot()">Not now</button>
     </div>
   </div>
 </div>
@@ -606,8 +610,8 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 <!-- Qualifying Level intro — brief timed popup at entrance start -->
 <div id="qintro" onclick="dismissQIntro()">
   <div class="wbox">
-    <h2>Qualifying Level</h2>
-    <p class="wmsg">Match 12 Yellow Gems.<br>Create and Fire all Power-Ups.</p>
+    <h2 data-i18n="qintro_title">Qualifying Level</h2>
+    <p class="wmsg" data-i18n="qintro_msg">Match 12 Yellow Gems.<br>Create and Fire all Power-Ups.</p>
   </div>
 </div>
 
@@ -617,11 +621,134 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
     <h2 id="pwin-title">Well done!</h2>
     <div class="wstars" id="pwin-stars"></div>
     <p class="wmsg" id="pwin-msg"></p>
-    <button id="pwin-btn" onclick="pwinContinue()">Continue</button>
+    <button id="pwin-btn" data-i18n="cont" onclick="pwinContinue()">Continue</button>
   </div>
 </div>
 
 <script>
+// ── i18n — English + 한국어 ────────────────────────────────────────────────────
+// Player-facing strings only; the editor tooling (palette, toolbar, status bar)
+// stays English — it's Architect tooling. Static HTML is tagged data-i18n=key;
+// JS-generated strings call TXT(key). Language persists site-wide via
+// localStorage 'akashicswaps-lang' (same origin as the landing page).
+const I18N={
+en:{
+  nav_home:'Home',nav_play:'Play',nav_community:'Community',
+  hero_greet:'Good morning, Architect.',hero_sub:'Built in public · r/AkashicSwapsGame is live',
+  quad_interact:'Interact',quad_create:'Create',quad_publish:'Publish',quad_boards:'Leaderboards',
+  empty_interact:'Community levels will appear here once publishing opens.',
+  empty_publish:'Your published levels and their stats will live here.',
+  empty_boards:'Leaderboards open when player accounts arrive.',
+  btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
+  pback_bundles:'← Bundles',pback_levels:'← Levels',
+  moves_cap:'Moves',goals_cap:'Goals',
+  bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
+  bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
+  lvl_qualifying:'Qualifying',lvl_prefix:'Level ',
+  alert_na:n=>'Level '+n+' is not available yet.',
+  toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
+  win_title:'Well done!',lose_title:'Out of moves',
+  win_msg:(n,m)=>'Level '+n+' complete — '+m+' moves',try_again:'Try again?',cont:'Continue',retry:'Retry',got_it:'Got it',
+  verb_get:'Get',verb_make:'Make',verb_fire:'Fire',verb_plant:'Plant',verb_free:'Free',
+  cap_collect:'Collect',cap_plant:'Plant',cap_free:'Free',
+  qintro_title:'Qualifying Level',qintro_msg:'Match 12 Yellow Gems.<br>Create and Fire all Power-Ups.',
+  qualify_title:'You Qualify',qualify_sub:'You’ve mastered the power-ups. Choose your path:',
+  path_architect:'Architect',path_arch_desc:'Create levels, publish them, and play everything.',
+  path_explorer:'Explorer',path_exp_desc:'Play the levels and follow the build as it happens.',
+  qsurvey_title:'You just did something most players won’t.',
+  qsurvey_msg:'Got 5 minutes? A short survey helps shape what comes next.',
+  qs_yes:'I’m in',qs_no:'Not now',
+  gh:{
+    helicopter:{title:'Make a Grasshopper',text:'Form a 2×2 square of the same color. The Grasshopper hops to a target of your choosing and clears it.'},
+    rocket:{title:'Make a Dragonfly',text:'Line up exactly 4 of the same color in a row or column. The Dragonfly rockets across the board, clearing a full line.'},
+    bomb:{title:'Make a Scarab',text:'Form an L or T shape — two lines of 3+ sharing a corner, 5 gems total. The Scarab explodes, clearing everything around it.'},
+    rainbow:{title:'Make an Akasha Ball',text:'Line up 5 of the same color in a single row or column. The Akasha Ball clears every gem of one color from the board.'}
+  },
+  det:{
+    helicopter:{title:'Fire the Grasshopper',text:'Tap your Grasshopper twice (or swap it with a neighbor). It clears the gems around it, then you pick any cell on the board — it flies there and clears it.'},
+    rocket:{title:'Fire the Dragonfly',text:'Tap your Dragonfly twice (or swap it with a neighbor). It rockets across the board, clearing the entire row or column.'},
+    bomb:{title:'Fire the Scarab',text:'Tap your Scarab twice (or swap it with a neighbor). It explodes, clearing everything in a 3×3 blast around it.'},
+    rainbow:{title:'Fire the Akasha Ball',text:'Tap your Akasha Ball twice, then pick any gem — every gem of that color is cleared from the board. Swapping it into a gem picks that color directly.'}
+  },
+  collectHelp:g=>({title:'Collect '+g.need+' '+(g.name.charAt(0).toUpperCase()+g.name.slice(1))+' Gems',
+    text:'Swap two neighboring gems to line up 3 or more '+g.name+' gems in a row or column. Each '+g.name+' gem cleared counts toward the goal.'}),
+  plantHelp:n=>({title:'Plant '+n+' Clover',
+    text:'Make a match with a gem standing on clover to plant clover under every gem in the match. Power-up blasts that touch clover plant their whole area — and a Grasshopper plants wherever it lands. Cover the board!'}),
+  acornHelp:n=>({title:'Free '+n+' Acorns',
+    text:'Acorns are trapped under leaves. Match right next to a leaf (or hit it with a power-up blast) to tear it away — the last hit frees the acorn and collects it. Leaves without acorns hold gems hostage the same way.'})
+},
+ko:{
+  nav_home:'홈',nav_play:'플레이',nav_community:'커뮤니티',
+  hero_greet:'좋은 아침입니다, 설계자님.',hero_sub:'공개 개발 중 · r/AkashicSwapsGame 운영 중',
+  quad_interact:'교류',quad_create:'제작',quad_publish:'공개',quad_boards:'리더보드',
+  empty_interact:'레벨 공개 기능이 열리면 커뮤니티 레벨이 여기에 표시됩니다.',
+  empty_publish:'공개한 레벨과 그 통계가 여기에 표시됩니다.',
+  empty_boards:'리더보드는 플레이어 계정 도입과 함께 열립니다.',
+  btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
+  pback_bundles:'← 번들',pback_levels:'← 레벨 목록',
+  moves_cap:'이동',goals_cap:'목표',
+  bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
+  bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
+  lvl_qualifying:'자격 레벨',lvl_prefix:'레벨 ',
+  alert_na:n=>'레벨 '+n+' — 아직 준비되지 않았습니다.',
+  toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
+  win_title:'잘했어요!',lose_title:'이동 횟수 소진',
+  win_msg:(n,m)=>'레벨 '+n+' 완료 — 이동 '+m+'회',try_again:'다시 도전할까요?',cont:'계속',retry:'다시 시도',got_it:'알겠어요',
+  verb_get:'모으기',verb_make:'만들기',verb_fire:'발동',verb_plant:'심기',verb_free:'구출',
+  cap_collect:'수집',cap_plant:'심기',cap_free:'구출',
+  qintro_title:'자격 레벨',qintro_msg:'노란 보석 12개를 맞추세요.<br>모든 파워업을 만들고 발동하세요.',
+  qualify_title:'자격 획득!',qualify_sub:'파워업을 모두 마스터했습니다. 길을 선택하세요:',
+  path_architect:'설계자',path_arch_desc:'레벨을 만들고, 공개하고, 모든 것을 플레이하세요.',
+  path_explorer:'탐험가',path_exp_desc:'레벨을 플레이하며 개발 과정을 실시간으로 따라오세요.',
+  qsurvey_title:'방금, 대부분의 플레이어는 못 해내는 일을 해냈습니다.',
+  qsurvey_msg:'5분 있으세요? 짧은 설문이 다음 단계를 만드는 데 힘이 됩니다.',
+  qs_yes:'참여할게요',qs_no:'다음에요',
+  gh:{
+    helicopter:{title:'메뚜기 만들기',text:'같은 색 보석으로 2×2 정사각형을 만드세요. 메뚜기는 직접 고른 목표 지점으로 날아가 그 자리를 없앱니다.'},
+    rocket:{title:'잠자리 만들기',text:'같은 색 4개를 가로나 세로로 정확히 일렬로 맞추세요. 잠자리가 보드를 가로질러 한 줄 전체를 없앱니다.'},
+    bomb:{title:'스카라브 만들기',text:'L자나 T자 모양을 만드세요 — 3개 이상 두 줄이 한 모서리를 공유하는 총 5개 조합. 스카라브가 폭발하며 주변을 모두 없앱니다.'},
+    rainbow:{title:'아카샤 볼 만들기',text:'같은 색 5개를 한 줄로 맞추세요. 아카샤 볼은 한 가지 색의 모든 보석을 보드에서 없앱니다.'}
+  },
+  det:{
+    helicopter:{title:'메뚜기 발동',text:'메뚜기를 두 번 탭하세요(또는 이웃 보석과 바꾸세요). 주변 보석을 없앤 뒤 보드의 아무 칸이나 고르면 그곳으로 날아가 없앱니다.'},
+    rocket:{title:'잠자리 발동',text:'잠자리를 두 번 탭하세요(또는 이웃 보석과 바꾸세요). 보드를 가로질러 날며 행이나 열 전체를 없앱니다.'},
+    bomb:{title:'스카라브 발동',text:'스카라브를 두 번 탭하세요(또는 이웃 보석과 바꾸세요). 폭발하며 주변 3×3 범위를 모두 없앱니다.'},
+    rainbow:{title:'아카샤 볼 발동',text:'아카샤 볼을 두 번 탭한 뒤 아무 보석이나 고르세요 — 그 색의 모든 보석이 보드에서 사라집니다. 보석 쪽으로 바꾸면 그 색이 바로 선택됩니다.'}
+  },
+  gemAdj:{yellow:'노란',red:'빨간',green:'초록',blue:'파란',white:'하얀',purple:'보라'},
+  collectHelp:g=>{const a=(I18N.ko.gemAdj[g.name]||g.name);return{title:a+' 보석 '+g.need+'개 모으기',
+    text:'이웃한 두 보석을 바꿔 '+a+' 보석 3개 이상을 가로나 세로로 일렬로 맞추세요. 없앤 '+a+' 보석 하나하나가 목표에 더해집니다.'};},
+  plantHelp:n=>({title:'클로버 '+n+'개 심기',
+    text:'클로버 위에 있는 보석으로 매치를 만들면 매치된 모든 보석 아래에 클로버가 심어집니다. 클로버에 닿는 파워업 폭발은 그 범위 전체에 심고, 메뚜기는 착지하는 곳마다 심습니다. 보드를 뒤덮으세요!'}),
+  acornHelp:n=>({title:'도토리 '+n+'개 구출',
+    text:'도토리는 나뭇잎 아래에 갇혀 있습니다. 나뭇잎 바로 옆에서 매치하거나 파워업 폭발로 맞추면 잎이 벗겨지고, 마지막 타격이 도토리를 구출해 수집합니다. 도토리가 없는 잎도 같은 방식으로 보석을 붙잡고 있습니다.'})
+}
+};
+let LANG=localStorage.getItem('akashicswaps-lang')
+  ||((navigator.language||'').startsWith('ko')?'ko':'en'); // first visit: follow the browser
+function TXT(k){const v=I18N[LANG]&&I18N[LANG][k];return v!==undefined?v:I18N.en[k];}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const v=TXT(el.dataset.i18n);
+    if(v===undefined)return;
+    if(String(v).indexOf('<')>=0)el.innerHTML=v;else el.textContent=v;
+  });
+  // toggle buttons advertise the OTHER language
+  document.querySelectorAll('.langbtn').forEach(b=>{b.textContent=LANG==='en'?'한국어':'English';});
+}
+let lastPView=null; // 'bundles' | 'grid' — re-render the player screen on switch
+function setLang(l){
+  LANG=l;localStorage.setItem('akashicswaps-lang',l);
+  applyLang();
+  if(document.getElementById('player').classList.contains('active')){
+    if(lastPView==='grid')renderGrid();else if(lastPView==='bundles')renderBundles();
+  }
+  if(typeof playerMode!=='undefined'&&playerMode)updatePlayerHUD(); // live HUD refresh mid-level
+}
+function toggleLang(){setLang(LANG==='en'?'ko':'en');}
+document.addEventListener('DOMContentLoaded',applyLang);
+
 // ── Version watchdog — "New version — tap to reload" ─────────────────────────
 // Stale cached builds cost two debugging cycles on 2026-07-08. Zero-maintenance:
 // compare this page's ETag/Last-Modified against the server on tab focus (and
@@ -641,7 +768,7 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
     if(toastShown)return;
     toastShown=true;
     const t=document.createElement('div');
-    t.textContent='New version — tap to reload';
+    t.textContent=TXT('toast_new_version');
     t.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:9999;'
       +'background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;border-radius:8px;'
       +'padding:12px 22px;font-family:var(--font-sans);font-size:14px;cursor:pointer;'
@@ -2774,13 +2901,14 @@ function showPlayerShell(){
 
 function renderBundles(){
   showPlayerShell();
+  lastPView='bundles'; // language switch re-renders this screen
   document.getElementById('pback-top').style.display='none';
   document.getElementById('pbody').innerHTML=
     '<div class="bundle-card" onclick="renderGrid()">'+
-      '<h2>Go with the Flow</h2>'+
-      '<div class="bsub">25 handcrafted levels</div>'+
-      '<div class="bcount">Bundle 1</div>'+
-      '<div class="bplay">Play</div>'+
+      '<h2>'+TXT('bundle_title')+'</h2>'+
+      '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
+      '<div class="bcount">'+TXT('bundle_n')+'</div>'+
+      '<div class="bplay">'+TXT('bundle_play')+'</div>'+
     '</div>';
 }
 
@@ -2788,13 +2916,14 @@ const MAX_BUILT_LEVEL=15; // levels with shipped JSONs — bump as the bundle gr
 
 function renderGrid(){
   showPlayerShell();
+  lastPView='grid'; // language switch re-renders this screen
   document.getElementById('pback-top').style.display='';
-  let html='<div id="pgrid-title">Go with the Flow</div>'+
-           '<div id="pgrid-sub">Bundle 1 · 25 levels</div><div class="pgrid">';
+  let html='<div id="pgrid-title">'+TXT('bundle_title')+'</div>'+
+           '<div id="pgrid-sub">'+TXT('grid_sub')+'</div><div class="pgrid">';
   for(let i=1;i<=25;i++){
     const open=PlayerProgress.unlocked(i)&&i<=MAX_BUILT_LEVEL, st=PlayerProgress.stars(i);
     if(open) html+='<div class="pcell open" onclick="startPlayerLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span></div>';
-    else if(i>MAX_BUILT_LEVEL) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">Soon</span><span>'+i+'</span></div>';
+    else if(i>MAX_BUILT_LEVEL) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">'+TXT('soon')+'</span><span>'+i+'</span></div>';
     else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
   }
   html+='</div>';
@@ -2903,7 +3032,7 @@ async function startPlayerLevel(num){
     const resp=await fetch('levels/level-'+String(num).padStart(3,'0')+'.json');
     if(!resp.ok) throw new Error('http '+resp.status);
     json=await resp.json();
-  }catch(e){ alert('Level '+num+' is not available yet.'); return; }
+  }catch(e){ alert(TXT('alert_na')(num)); return; }
 
   loadLevelData(json,num);
   entranceMode=false; // a bundle level is never the Qualifying level — combos live here
@@ -2982,7 +3111,7 @@ function playerTally(gemIdx){ playerGoals.forEach(g=>{ if(g.gemIdx===gemIdx) g.h
 
 function updatePlayerHUD(){
   // Entrance is NOT Level 1 — Level 1 is reachable via Bundles. Distinct name.
-  document.getElementById('phud-level').textContent=entranceMode?'Qualifying':'Level '+curLevelNum;
+  document.getElementById('phud-level').textContent=entranceMode?TXT('lvl_qualifying'):TXT('lvl_prefix')+curLevelNum;
   // Moves count UP from 0 — no-fail model, no limit shown.
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
@@ -2992,18 +3121,18 @@ function updatePlayerHUD(){
     const g=playerGoals[0];
     const remaining=Math.max(0,g.need-g.have);
     const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='acorn'?acornIconSVG(48):gemSVG(g.gemIdx,48);
-    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'?'Collect':g.kind==='acorn'?'Free':'Plant')+'</div>'+
+    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'?TXT('cap_collect'):g.kind==='acorn'?TXT('cap_free'):TXT('cap_plant'))+'</div>'+
       '<div class="phud-icon">'+icon+'</div>'+
       '<div class="phud-gcount">'+remaining+'</div>';
     return;
   }
   // Multi-goal (entrance) — one row per goal: verb, icon, remaining/✓, and a "?" help button.
   // Two-stage 'pu' goals show "Make" until the power-up exists, then flip to "Fire".
-  const VERBS={collect:'Get',create:'Make',detonate:'Fire',plant:'Plant',acorn:'Free'};
-  let html='<div class="phud-cap">Goals</div>';
+  const VERBS={collect:TXT('verb_get'),create:TXT('verb_make'),detonate:TXT('verb_fire'),plant:TXT('verb_plant'),acorn:TXT('verb_free')};
+  let html='<div class="phud-cap">'+TXT('goals_cap')+'</div>';
   playerGoals.forEach((g,i)=>{
     const done=goalDone(g);
-    const verb=g.kind==='pu'?(g.made?'Fire':'Make'):(VERBS[g.kind]||'');
+    const verb=g.kind==='pu'?(g.made?TXT('verb_fire'):TXT('verb_make')):(VERBS[g.kind]||'');
     const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):g.kind==='acorn'?acornIconSVG(30):puSVG(goalPuIcon(g.pu),30);
     const status=done?'<span class="goal-done">✓</span>'
       :g.kind==='pu'?'<span class="goal-count"></span>'
@@ -3042,46 +3171,34 @@ function shapeDiagramSVG(rows,cols,hi){
   return out+'</svg>';
 }
 
-// Help copy + diagrams, keyed by goal. Diagrams show the match SHAPE that forms each power-up.
-const GOAL_HELP={
-  // collect help is built per-goal (color + count vary across levels)
-  collect:(g)=>({title:'Collect '+g.need+' '+(g.name.charAt(0).toUpperCase()+g.name.slice(1))+' Gems',
-    diagram:()=>shapeDiagramSVG(1,3,[[0,0],[0,1],[0,2]]),
-    text:'Swap two neighboring gems to line up 3 or more '+g.name+' gems in a row or column. Each '+g.name+' gem cleared counts toward the goal.'}),
-  helicopter:{title:'Make a Grasshopper',diagram:()=>shapeDiagramSVG(2,2,[[0,0],[0,1],[1,0],[1,1]]),
-    text:'Form a 2×2 square of the same color. The Grasshopper hops to a target of your choosing and clears it.'},
-  rocket:{title:'Make a Dragonfly',diagram:()=>shapeDiagramSVG(1,4,[[0,0],[0,1],[0,2],[0,3]]),
-    text:'Line up exactly 4 of the same color in a row or column. The Dragonfly rockets across the board, clearing a full line.'},
-  bomb:{title:'Make a Scarab',
-    // both qualifying shapes, side by side: L on the left, T on the right
-    diagram:()=>'<span style="display:inline-flex;gap:16px;align-items:center;">'
-      +shapeDiagramSVG(3,3,[[0,0],[1,0],[2,0],[2,1],[2,2]])
-      +shapeDiagramSVG(3,3,[[0,0],[0,1],[0,2],[1,1],[2,1]])
-      +'</span>',
-    text:'Form an L or T shape — two lines of 3+ sharing a corner, 5 gems total. The Scarab explodes, clearing everything around it.'},
-  rainbow:{title:'Make an Akasha Ball',diagram:()=>shapeDiagramSVG(1,5,[[0,0],[0,1],[0,2],[0,3],[0,4]]),
-    text:'Line up 5 of the same color in a single row or column. The Akasha Ball clears every gem of one color from the board.'},
-};
-
-// Detonation help — same for all: tap it twice, or swap it into a neighbor.
-const DET_HELP={
-  helicopter:{title:'Fire the Grasshopper',text:'Tap your Grasshopper twice (or swap it with a neighbor). It clears the gems around it, then you pick any cell on the board — it flies there and clears it.'},
-  rocket:{title:'Fire the Dragonfly',text:'Tap your Dragonfly twice (or swap it with a neighbor). It rockets across the board, clearing the entire row or column.'},
-  bomb:{title:'Fire the Scarab',text:'Tap your Scarab twice (or swap it with a neighbor). It explodes, clearing everything in a 3×3 blast around it.'},
-  rainbow:{title:'Fire the Akasha Ball',text:'Tap your Akasha Ball twice, then pick any gem — every gem of that color is cleared from the board. Swapping it into a gem picks that color directly.'},
+// Help DIAGRAMS, keyed by goal — language-neutral match SHAPES; copy lives in I18N
+// (TXT('gh') make-help, TXT('det') detonation help, TXT('collectHelp'/'plantHelp'/'acornHelp') templates).
+const HELP_DIAGRAMS={
+  collect:()=>shapeDiagramSVG(1,3,[[0,0],[0,1],[0,2]]),
+  helicopter:()=>shapeDiagramSVG(2,2,[[0,0],[0,1],[1,0],[1,1]]),
+  rocket:()=>shapeDiagramSVG(1,4,[[0,0],[0,1],[0,2],[0,3]]),
+  // both qualifying Scarab shapes, side by side: L on the left, T on the right
+  bomb:()=>'<span style="display:inline-flex;gap:16px;align-items:center;">'
+    +shapeDiagramSVG(3,3,[[0,0],[1,0],[2,0],[2,1],[2,2]])
+    +shapeDiagramSVG(3,3,[[0,0],[0,1],[0,2],[1,1],[2,1]])
+    +'</span>',
+  rainbow:()=>shapeDiagramSVG(1,5,[[0,0],[0,1],[0,2],[0,3],[0,4]]),
 };
 
 function showGoalHelp(i){
   const g=playerGoals[i]; if(!g)return;
-  const h=g.kind==='collect'?GOAL_HELP.collect(g)
-        :g.kind==='plant'?{title:'Plant '+g.need+' Clover',
-            text:'Make a match with a gem standing on clover to plant clover under every gem in the match. Power-up blasts that touch clover plant their whole area — and a Grasshopper plants wherever it lands. Cover the board!'}
-        :g.kind==='acorn'?{title:'Free '+g.need+' Acorns',
-            text:'Acorns are trapped under leaves. Match right next to a leaf (or hit it with a power-up blast) to tear it away — the last hit frees the acorn and collects it. Leaves without acorns hold gems hostage the same way.'}
-        :g.kind==='detonate'?DET_HELP[g.pu]
-        :g.kind==='pu'?(g.made?DET_HELP[g.pu]:GOAL_HELP[g.pu]) // help matches the current stage
-        :GOAL_HELP[g.pu];
+  // pick localized copy + the matching language-neutral diagram
+  let h=null,diagram=null;
+  if(g.kind==='collect'){h=TXT('collectHelp')(g);diagram=HELP_DIAGRAMS.collect;}
+  else if(g.kind==='plant'){h=TXT('plantHelp')(g.need);}
+  else if(g.kind==='acorn'){h=TXT('acornHelp')(g.need);}
+  else if(g.kind==='detonate'){h=TXT('det')[g.pu];}
+  else if(g.kind==='pu'){ // help matches the current stage: make → fire
+    h=g.made?TXT('det')[g.pu]:TXT('gh')[g.pu];
+    if(!g.made)diagram=HELP_DIAGRAMS[g.pu];
+  }else{h=TXT('gh')[g.pu];diagram=HELP_DIAGRAMS[g.pu];}
   if(!h)return;
+  h={title:h.title,text:h.text,diagram};
   document.getElementById('ghelp-title').textContent=h.title;
   document.getElementById('ghelp-diagram').innerHTML=h.diagram?h.diagram():''; // detonation help has no shape diagram
   document.getElementById('ghelp-text').textContent=h.text;
@@ -3169,12 +3286,12 @@ function playerFinish(win){
     stars=Math.max(prior,runStars,1);
     PlayerProgress.set(curLevelNum,stars,isNewRecord?moves:rec);
   }
-  document.getElementById('pwin-title').textContent=win?'Well done!':'Out of moves';
+  document.getElementById('pwin-title').textContent=win?TXT('win_title'):TXT('lose_title');
   document.getElementById('pwin-stars').textContent=pStarStr(stars);
   document.getElementById('pwin-msg').textContent=win
-    ? ('Level '+curLevelNum+' complete — '+moves+' moves')
-    : 'Try again?';
-  document.getElementById('pwin-btn').textContent=win?'Continue':'Retry';
+    ? TXT('win_msg')(curLevelNum,moves)
+    : TXT('try_again');
+  document.getElementById('pwin-btn').textContent=win?TXT('cont'):TXT('retry');
   document.getElementById('pwin').classList.add('open');
   pwinWon=win;
 }
@@ -3247,7 +3364,8 @@ function _openBugReport() {
 (function() {
   const btn = document.createElement("button");
   btn.id          = "bug-report-btn";
-  btn.innerText   = "🐛 Report a Bug";
+  btn.innerText   = TXT('bug_btn');
+  btn.dataset.i18n= "bug_btn"; // language switch relabels it via applyLang
   btn.onclick     = _openBugReport;
   btn.style.cssText = [
     "position:fixed","bottom:16px","right:16px","z-index:9999",
