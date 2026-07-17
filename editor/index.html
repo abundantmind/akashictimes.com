@@ -244,6 +244,16 @@ body.player-playing #shell{flex:0 1 auto;min-width:0;min-height:0;}
 body.player-playing #board-wrap{align-items:center;justify-content:center;padding:0;}
 #phud{display:none;}
 body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200px;flex-shrink:0;gap:24px;padding:24px 18px;background:#0a0810;border-right:0.5px solid #1e1830;align-items:center;}
+/* ── BOOSTER PALETTE (Township's right column) — always visible in play mode:
+   goals | board | boosters is the canonical 3-column landscape layout.
+   Scrollable: the catalog grows toward "every power-up" (Jed 2026-07-17). */
+#bpanel{display:none;}
+body.player-playing #bpanel{display:flex;flex-direction:column;width:92px;flex-shrink:0;gap:14px;padding:24px 12px;background:#0a0810;border-left:0.5px solid #1e1830;align-items:center;overflow-y:auto;max-height:100vh;}
+.bslot{width:56px;height:56px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#141020;border:2px solid #2a2040;transition:border-color .15s,box-shadow .15s;}
+.bslot.locked{cursor:default;opacity:.75;}
+.bslot.armed{border-color:#ffcb6b;box-shadow:0 0 12px rgba(255,203,107,.4);}
+.bslot svg{pointer-events:none;}
+.bcap{font-size:var(--fz-xs);color:#665580;text-align:center;margin-top:-8px;}
 #phud .pback{align-self:flex-start;}
 .phud-level{font-size:var(--fz-2xl);color:#c792ea;font-weight:500;}
 #phud-goal{display:flex;flex-direction:column;align-items:center;gap:6px;}
@@ -256,6 +266,8 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
 @media(max-width:640px){
   body.player-playing{flex-direction:column;justify-content:flex-start;}
   body.player-playing #phud{flex-direction:row;flex-wrap:wrap;width:100%;gap:10px 18px;padding:10px 12px;justify-content:space-around;align-items:center;border-right:none;border-bottom:0.5px solid #1e1830;}
+  /* narrow (portrait phones): booster palette becomes a bottom strip */
+  body.player-playing #bpanel{flex-direction:row;width:100%;order:99;padding:8px 12px;gap:12px;border-left:none;border-top:0.5px solid #1e1830;overflow-y:visible;overflow-x:auto;justify-content:center;max-height:none;}
   #phud .pback{align-self:center;}
   .phud-level{font-size:var(--fz-lg);}
   .phud-num{font-size:28px;}
@@ -567,6 +579,9 @@ body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200p
   <div class="phud-moves"><div class="phud-num" id="phud-moves">0</div><div class="phud-cap" data-i18n="moves_cap">Moves</div></div>
 </div>
 
+<!-- Booster palette — Township's right column (play mode only; renderBoosterPanel fills it) -->
+<div id="bpanel"></div>
+
 <!-- Goal help popup — "?" next to entrance goals -->
 <div id="ghelp" onclick="closeGoalHelp()">
   <div class="wbox" onclick="event.stopPropagation()">
@@ -651,6 +666,8 @@ en:{
   win_msg:(n,m)=>'Level '+n+' complete — '+m+' moves',try_again:'Try again?',cont:'Continue',retry:'Retry',got_it:'Got it',
   reset_btn:'Reset all stars',
   reset_confirm:'This wipes ALL stars and move records on this device.\nIt cannot be undone.\n\nReset everything?',
+  boosters_cap:'Boosters',booster_locked:'Locked',
+  booster_jackhammer:'JackHammer',booster_hdrill:'H-Drill',booster_vweight:'Anchor',
   verb_get:'Get',verb_make:'Make',verb_fire:'Fire',verb_plant:'Plant',verb_free:'Free',
   cap_collect:'Collect',cap_plant:'Plant',cap_free:'Free',
   qintro_title:'Qualifying Level',qintro_msg:'Match 12 Yellow Gems.<br>Create and Fire all Power-Ups.',
@@ -698,6 +715,8 @@ ko:{
   win_msg:(n,m)=>'레벨 '+n+' 완료 — 이동 '+m+'회',try_again:'다시 도전할까요?',cont:'계속',retry:'다시 시도',got_it:'알겠어요',
   reset_btn:'별 기록 초기화',
   reset_confirm:'이 기기의 모든 별과 이동 기록이 삭제됩니다.\n되돌릴 수 없습니다.\n\n전부 초기화할까요?',
+  boosters_cap:'부스터',booster_locked:'잠김',
+  booster_jackhammer:'잭해머',booster_hdrill:'수평 드릴',booster_vweight:'앵커',
   verb_get:'모으기',verb_make:'만들기',verb_fire:'발동',verb_plant:'심기',verb_free:'구출',
   cap_collect:'수집',cap_plant:'심기',cap_free:'구출',
   qintro_title:'자격 레벨',qintro_msg:'노란 보석 12개를 맞추세요.<br>모든 파워업을 만들고 발동하세요.',
@@ -748,7 +767,7 @@ function setLang(l){
   if(document.getElementById('player').classList.contains('active')){
     if(lastPView==='grid')renderGrid();else if(lastPView==='bundles')renderBundles();
   }
-  if(typeof playerMode!=='undefined'&&playerMode)updatePlayerHUD(); // live HUD refresh mid-level
+  if(typeof playerMode!=='undefined'&&playerMode){updatePlayerHUD();renderBoosterPanel();} // live HUD + palette refresh mid-level
 }
 function toggleLang(){setLang(LANG==='en'?'ko':'en');}
 document.addEventListener('DOMContentLoaded',applyLang);
@@ -1183,7 +1202,8 @@ function render(dropping){
     // crossed — no second tap needed.
     el.addEventListener('pointerdown',e=>{
       mdown=true;
-      if(playing&&!animating&&!choosingRainbow&&!choosingGrasshopper)
+      // no drag tracking while a booster is armed — that tap is the TARGET tap
+      if(playing&&!animating&&!choosingRainbow&&!choosingGrasshopper&&!armedBooster)
         dragSwap={r,c,x:e.clientX,y:e.clientY,id:e.pointerId,fired:false};
       onCell(r,c,e);
     });
@@ -2128,6 +2148,8 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue){
 
 function playTap(r,c){
   if(animating)return;
+  // an ARMED booster claims the next board tap (never during a choosing state)
+  if(armedBooster&&!choosingRainbow&&!choosingGrasshopper){applyBooster(r,c);return;}
   // Akasha Ball choosing state — waiting for color pick
   if(choosingRainbow){
     const cd2=board[r][c];
@@ -2947,6 +2969,95 @@ PlayerProgress.load();
 
 function pStarStr(n){return '★'.repeat(n)+'☆'.repeat(3-n);}
 
+// ═══ BOOSTER PALETTE — Township's right column (Jed spec 2026-07-17) ═════════
+// Always visible in play mode; early levels show only padlocks. Gating is by
+// LEVEL INDEX (intro = the level that introduces the booster — Township canon
+// L17/L19/L24 per captureMeta), matching the star-canon recommendation that a
+// level's meaning never depends on account state. Boosters cost NO move;
+// runBoosterCount is the era-2 ★2 sensor (record + exactly one booster).
+const BOOSTERS=[
+  {id:'jackhammer',intro:17}, // one hit to one cell — standard hit rules
+  {id:'hdrill',    intro:19}, // behaves as an H-Dragonfly at the tapped cell
+  {id:'vweight',   intro:24}, // "Anchor" — V-Dragonfly at the tapped cell
+];
+let armedBooster=null;      // booster id awaiting a target tap, or null
+let curBoosterSlots=3;      // per-level slot count (JSON boosterSlots)
+window.runBoosterCount=0;   // boosters used THIS run (era-2 star sensor, dormant)
+
+function padlockSVG(s){
+  return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">'
+    +'<path d="M13 18 v-5 a7 7 0 0 1 14 0 v5" fill="none" stroke="#4a3f60" stroke-width="3.4" stroke-linecap="round"/>'
+    +'<rect x="10" y="17" width="20" height="15" rx="3.5" fill="#3a3050" stroke="#4a3f60" stroke-width="1.5"/>'
+    +'<circle cx="20" cy="24" r="2.4" fill="#141020"/><rect x="19" y="24" width="2" height="4.5" rx="1" fill="#141020"/></svg>';
+}
+function boosterSVG(id,s){
+  const open='<svg width="'+s+'" height="'+s+'" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">';
+  if(id==='jackhammer')return open
+    +'<rect x="14" y="4" width="12" height="5" rx="2" fill="#c8a050"/>'          // T-handle
+    +'<rect x="17" y="8" width="6" height="14" rx="2" fill="#8a97a8"/>'          // body
+    +'<rect x="15" y="21" width="10" height="6" rx="2" fill="#5a6678"/>'         // chuck
+    +'<path d="M18 27 h4 l-2 9 z" fill="#d8e0ea"/></svg>';                       // bit
+  if(id==='hdrill')return open
+    +'<rect x="9" y="17" width="22" height="6" rx="3" fill="#8a97a8"/>'          // shaft
+    +'<path d="M9 20 L2 20 L9 15 Z M9 20 L2 20 L9 25 Z" fill="#d8e0ea"/>'       // left tip
+    +'<path d="M31 20 L38 20 L31 15 Z M31 20 L38 20 L31 25 Z" fill="#d8e0ea"/>' // right tip
+    +'<rect x="16" y="14" width="8" height="12" rx="2" fill="#5a6678"/></svg>';  // collar
+  if(id==='vweight')return open
+    +'<circle cx="20" cy="8" r="3.4" fill="none" stroke="#8a97a8" stroke-width="2.6"/>' // ring
+    +'<rect x="18.4" y="11" width="3.2" height="18" rx="1.4" fill="#8a97a8"/>'   // shank
+    +'<rect x="13" y="15" width="14" height="3" rx="1.4" fill="#5a6678"/>'       // stock
+    +'<path d="M20 29 C 12 29 8 23 7 19 L 12 21 C 13 24 16 26 20 26 C 24 26 27 24 28 21 L 33 19 C 32 23 28 29 20 29 Z" fill="#d8e0ea"/></svg>'; // flukes
+  return padlockSVG(s);
+}
+
+function renderBoosterPanel(){
+  const p=document.getElementById('bpanel');if(!p)return;
+  let html='<div class="bcap" style="margin-top:0;">'+TXT('boosters_cap')+'</div>';
+  for(let i=0;i<curBoosterSlots;i++){
+    const b=BOOSTERS[i];
+    // entrance never unlocks (qualifying = pure PU training); slots beyond the
+    // catalog are padlocks too — the visual promise of boosters yet to come
+    const unlocked=b&&!entranceMode&&curLevelNum>=b.intro;
+    if(unlocked){
+      const armed=armedBooster===b.id?' armed':'';
+      html+='<div class="bslot'+armed+'" onclick="armBooster(\''+b.id+'\')" title="'+TXT('booster_'+b.id)+'">'+boosterSVG(b.id,40)+'</div>'
+           +'<div class="bcap">'+TXT('booster_'+b.id)+'</div>';
+    }else{
+      html+='<div class="bslot locked" title="'+TXT('booster_locked')+'">'+padlockSVG(40)+'</div>';
+    }
+  }
+  p.innerHTML=html;
+}
+
+function armBooster(id){
+  if(animating)return;
+  armedBooster=armedBooster===id?null:id; // tap again to disarm
+  renderBoosterPanel();
+}
+
+// A booster fires at the tapped cell through the SAME machinery as gameplay:
+// jackhammer = one direct hit (chains/leaves absorb it, gems clear, a PU there
+// enqueues); drills = Dragonfly detonations at the cell. No move is consumed.
+function applyBooster(r,c){
+  const b=armedBooster;
+  armedBooster=null;renderBoosterPanel();
+  if(r<0||r>=R||c<0||c>=C||!board[r][c].active)return; // dead tap: booster disarms, is NOT spent
+  window.runBoosterCount++;
+  window._swapPU=0;window._comboSwap=false; // star sensor: booster = its own initiator
+  if(b==='jackhammer'){
+    animating=true;
+    const phase=new Set(),queue=[];
+    plantClover([[r,c]]); // a hit is a clear event — plants through clover contact
+    clearCellD(r,c,phase,queue);
+    if(playerMode)updatePlayerHUD();
+    render(null);
+    phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
+    processDetonations(queue,phase,()=>settleAndCascade(phase,r,c));
+  }else{
+    applyEffects([],r,c,[{pu:b==='hdrill'?'rocket_h':'rocket_v',r,c}]);
+  }
+}
+
 function showPlayerShell(){
   document.body.classList.remove('player-playing');
   document.getElementById('shell').style.display='none';
@@ -3071,6 +3182,7 @@ function loadLevelData(json,num){
   applyObstacles(json);
   curLevelNum=num;
   moveLimit=json.moveLimit||20;
+  curBoosterSlots=json.boosterSlots||3; // right-palette slot count (Township HUD)
   // Honor the level's gem palette: only its declared colors spawn (Township
   // L1–5 use 5 colors, no Amethyst). Fallback: full set.
   const pool=(json.gemTypes||[]).map(g=>GEMMAP[g]).filter(i=>i!=null);
@@ -3118,7 +3230,7 @@ function beginPlaySession(){
   const vh=window.innerHeight, vw=window.innerWidth;
   const narrow=vw<=640; // phones: HUD sits above the board, not beside it
   const byH=Math.floor((vh*(narrow?0.55:0.65)-(R-1)*CELL_GAP)/R);
-  const byW=Math.floor(((vw-(narrow?0:200))*0.94-(C-1)*CELL_GAP)/C); // side HUD reserves 200px on wide screens only
+  const byW=Math.floor(((vw-(narrow?0:292))*0.94-(C-1)*CELL_GAP)/C); // wide screens: left HUD 200px + booster palette 92px
   CELL_SIZE=Math.max(24,Math.min(96,Math.min(byH,byW)));
 
   // switch from player screens to the reused editor board, in Play mode
@@ -3132,6 +3244,8 @@ function beginPlaySession(){
   buildGPal();buildPUPal();buildObsPal();
   playerMode=true; playing=false;
   window.runMaxSeq=0; // star canon: best PU-sequence of THIS run (era-1 ★2/★3)
+  armedBooster=null; window.runBoosterCount=0; // fresh run: nothing armed, era-2 sensor zeroed
+  renderBoosterPanel();
   render();
   togglePlay();      // fills empty active cells, removes initial matches, starts Play
   updatePlayerHUD();
@@ -3153,6 +3267,7 @@ function startEntrance(){
   }
   curLevelNum=1;
   moveLimit=999; // irrelevant in entrance — moves count UP, nothing counts down
+  curBoosterSlots=3; // entrance shows the palette as three padlocks — a promise, not a tool
   // Each power-up goal is two-stage in ONE row: "Make" flips to "Fire" once made,
   // and checks off only after detonation. 5 visible goals, not 9.
   playerGoals=[
