@@ -10,8 +10,8 @@
       "###########",
       "###########",
       ".#########.",
-      "..########.",
-      "...##..##..",
+      "..#######..",
+      "...........",
       "..##...##.."
     ]
   },
@@ -94,14 +94,9 @@
         "R5C3",
         "R5C4",
         "R5C7",
-        "R5C8",
-        "R5C9",
-        "R6C3",
-        "R6C4",
-        "R6C7",
-        "R6C8"
+        "R5C8"
       ],
-      "note": "22 cells start gem-free between/below the chain bands."
+      "note": "17 cells start gem-free between/below the chain bands. (Was 22: R5C9 + the four R6 cells fell off the board with Jed's 2026-07-16 layout edit — row 6 is now fully inactive, so the pods are true islands.)"
     },
     {
       "functionalId": "powerup.seeker",
@@ -132,6 +127,6 @@
     "verified": false,
     "puRuling": "RULING (Jed 2026-07-12): pod PUs ARE design \u2014 the level introduces PU combos as adjacent pairs.",
     "pods": "Two 2-cell island pods at R7 (C2-C3, C7-C8), detached from the main grid. Footage: pods REFILL with gems after the combos are spent.",
-    "notes": "Rows 0-3 traced high-confidence; bottom legs (R5-R6) and pod row offsets approximate. No goal arithmetic available (collect level) \u2014 verify on Jed's next play."
+    "notes": "Rows 0-3 traced high-confidence. Bottom legs corrected by Jed's manual layout edit 2026-07-16 (post Fire-tablet play): R5 = C2-C8, R6 fully inactive \u2014 pods are true disconnected islands. No goal arithmetic available (collect level)."
   }
 }
