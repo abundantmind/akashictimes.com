@@ -161,7 +161,7 @@ body.font-lg{--base-font:20px;}
    cells) < substrate (clover) < gem/PU < overlay (chains, future). */
 #board-wrap{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;position:relative;}
 #board{display:grid;gap:3px;background:transparent;position:relative;}
-.cell{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;background:#d4b483;box-shadow:0 0 0 1.5px #b8935a;transition:box-shadow .15s;}
+.cell{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;background:#d4b483;box-shadow:0 0 0 1.5px #b8935a;transition:box-shadow .15s;touch-action:none;/* input, not layout: without this, touch drags scroll the page and the browser cancels the pointer stream */}
 .cell:hover{box-shadow:0 0 0 1.5px #e8c99a;}
 /* editor: faint ghost tile so the Base layer stays paintable/visible */
 .cell.inactive{background:#241b30;opacity:.5;box-shadow:0 0 0 1px #33264a;}
@@ -836,6 +836,7 @@ let board=[],flow=[],layer='tile',tool='paint',selGem=0,selPU=null;
 let GEM_POOL=[0,1,2,3,4,5];
 const randGem=()=>GEM_POOL[~~(Math.random()*GEM_POOL.length)];
 let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null,choosingGrasshopper=null;
+let dragSwap=null; // active drag-swap gesture: {r,c,x,y,id,fired} from pointerdown on a cell in play mode
 let undoQ=[],redoQ=[],moves=0,cleared=0,flowMode='down';
 window.moveHistory=[];
 
@@ -1174,16 +1175,24 @@ function render(dropping){
     if(selCell&&selCell[0]===r&&selCell[1]===c)el.classList.add('throb');
     if(choosingRainbow&&cd.gem!==null&&!cd.pu)el.classList.add('rainbow-pick');
     if(choosingGrasshopper&&!choosingGrasshopper.excluded.has(r+','+c)&&(cd.gem!==null||cd.pu||cd.obs))el.classList.add('hopper-pick');
-    el.addEventListener('mousedown',e=>{mdown=true;onCell(r,c,e);});
+    // Pointer Events unify mouse + touch (touch never fires the old
+    // mouseenter path — touch pointers implicitly capture to the origin cell,
+    // so cell-to-cell "enter" tracking is mouse-only by design). One gesture:
+    // pointerdown selects the cell AND arms the drag tracker; the document
+    // pointermove handler fires the swap once a directional threshold is
+    // crossed — no second tap needed.
+    el.addEventListener('pointerdown',e=>{
+      mdown=true;
+      if(playing&&!animating&&!choosingRainbow&&!choosingGrasshopper)
+        dragSwap={r,c,x:e.clientX,y:e.clientY,id:e.pointerId,fired:false};
+      onCell(r,c,e);
+    });
     el.addEventListener('mouseenter',()=>{
       document.getElementById('sb3').textContent=`(${c},${r})`;
       document.getElementById('cinfo').textContent=`Col ${c} · Row ${r} · ${cd.active?'Active':'Hole'} · ${cd.pu||(cd.gem!==null?GDEFS[cd.gem].name:'empty')}`;
       if(mdown&&!playing)paintCell(r,c);
-      // Drag-to-swap (play mode): drag from the selected gem onto an adjacent cell to swap.
-      else if(mdown&&playing&&!animating&&selCell){
-        const sr=selCell[0],sc=selCell[1];
-        if(Math.abs(sr-r)+Math.abs(sc-c)===1){mdown=false;playTap(r,c);}
-      }
+      // play-mode drag-to-swap moved to the pointermove vector tracker —
+      // keeping a second trigger here would double-fire mouse drags
     });
     bd.appendChild(el);
   }
@@ -2855,7 +2864,29 @@ function findPatterns(dr,dc,sr,sc){
   return pats;
 }
 
-document.addEventListener('mouseup',()=>mdown=false);
+// ── Drag-to-swap vector tracker (Pointer Events: one path for mouse + touch) ──
+// Direction comes from the pointer's movement VECTOR, not from which cell the
+// pointer is over — touch pointers implicitly capture to the origin cell, so
+// enter/leave tracking can't work there. Once the drag crosses a directional
+// threshold, exactly ONE swap fires toward the dominant axis.
+document.addEventListener('pointermove',e=>{
+  if(!dragSwap||dragSwap.fired||e.pointerId!==dragSwap.id)return;
+  if(!playing||animating)return;
+  const dx=e.clientX-dragSwap.x, dy=e.clientY-dragSwap.y;
+  const TH=Math.max(10,CELL_SIZE*0.3); // ~⅓ cell (min 10px): deliberate flick, not a jitter
+  if(Math.max(Math.abs(dx),Math.abs(dy))<TH)return;
+  dragSwap.fired=true;mdown=false; // one gesture = one swap attempt
+  const horiz=Math.abs(dx)>=Math.abs(dy);
+  const tr=dragSwap.r+(horiz?0:(dy>0?1:-1));
+  const tc=dragSwap.c+(horiz?(dx>0?1:-1):0);
+  if(tr<0||tr>=R||tc<0||tc>=C)return;
+  // fire only while the origin cell is still the live selection — if a
+  // tap-tap swap or PU activation already consumed it, this gesture is spent
+  if(!(selCell&&selCell[0]===dragSwap.r&&selCell[1]===dragSwap.c))return;
+  playTap(tr,tc);
+});
+document.addEventListener('pointerup',()=>{mdown=false;dragSwap=null;});
+document.addEventListener('pointercancel',()=>{mdown=false;dragSwap=null;});
 validateSetup();
 
 /* ════════════════════════════════════════════════════════════════════════
