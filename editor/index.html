@@ -257,12 +257,14 @@ body.player-playing{flex-direction:row;align-items:center;justify-content:center
 body.player-playing #shell{flex:0 1 auto;min-width:0;min-height:0;}
 body.player-playing #board-wrap{align-items:center;justify-content:center;padding:0;}
 #phud{display:none;}
-body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:200px;flex-shrink:0;gap:24px;padding:24px 18px;background:#0a0810;border-right:0.5px solid #1e1830;align-items:center;}
+/* Left goals + right boosters are EQUAL columns (Jed 2026-07-17) — width must
+   match the JS constant PLAY_PANEL_W so board scaling reserves the true space */
+body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:148px;flex-shrink:0;gap:24px;padding:24px 18px;background:#0a0810;border-right:0.5px solid #1e1830;align-items:center;}
 /* ── BOOSTER PALETTE (Township's right column) — always visible in play mode:
    goals | board | boosters is the canonical 3-column landscape layout.
    Scrollable: the catalog grows toward "every power-up" (Jed 2026-07-17). */
 #bpanel{display:none;}
-body.player-playing #bpanel{display:flex;flex-direction:column;width:92px;flex-shrink:0;gap:14px;padding:24px 12px;background:#0a0810;border-left:0.5px solid #1e1830;align-items:center;overflow-y:auto;max-height:100vh;}
+body.player-playing #bpanel{display:flex;flex-direction:column;width:148px;flex-shrink:0;gap:14px;padding:24px 12px;background:#0a0810;border-left:0.5px solid #1e1830;align-items:center;overflow-y:auto;max-height:100vh;max-height:100dvh;}
 .bslot{width:56px;height:56px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#141020;border:2px solid #2a2040;transition:border-color .15s,box-shadow .15s;}
 .bslot.locked{cursor:default;opacity:.75;}
 .bslot.armed{border-color:#ffcb6b;box-shadow:0 0 12px rgba(255,203,107,.4);}
@@ -3236,16 +3238,36 @@ async function startPlayerLevel(num){
   beginPlaySession();
 }
 
+// ── PLAY LAYOUT CONSTANTS (Jed's native-feel spec, 2026-07-17) ────────────────
+const PLAY_PANEL_W=148;             // goals (left) + boosters (right) — EQUAL columns; must match the CSS widths
+const PLAY_MAX_R=9, PLAY_MAX_C=11;  // the max board: cell size is computed against THIS grid, not per-level,
+                                    // so the middle area is stable across levels (small boards just center)
+
+// Board scaling: size cells so the reserved 9×11 grid fits the viewport —
+// height-capped (65% desktop, 92% on short landscape screens where the side
+// panels ARE the chrome) and width-capped (minus both side panels).
+function fitPlayBoard(){
+  const vh=window.innerHeight, vw=window.innerWidth;
+  const narrow=vw<=640;      // portrait phones: HUD bar above, booster strip below
+  const shortLand=vh<=480;   // landscape phones: board owns nearly the full height
+  const fitR=Math.max(R,PLAY_MAX_R), fitC=Math.max(C,PLAY_MAX_C); // oversize boards (future flyovers) still fit themselves
+  const byH=Math.floor((vh*(shortLand?0.92:(narrow?0.55:0.65))-(fitR-1)*CELL_GAP)/fitR);
+  const byW=Math.floor(((vw-(narrow?0:PLAY_PANEL_W*2))*0.94-(fitC-1)*CELL_GAP)/fitC);
+  CELL_SIZE=Math.max(24,Math.min(96,Math.min(byH,byW)));
+}
+
+// Refit on viewport changes (fullscreen entry, device rotation, window resize) —
+// debounced past the ~300ms animation window so a mid-fall redraw is unlikely.
+let refitTimer=null;
+window.addEventListener('resize',()=>{
+  if(!document.body.classList.contains('player-playing'))return;
+  clearTimeout(refitTimer);
+  refitTimer=setTimeout(()=>{fitPlayBoard();render();},350);
+});
+
 // Shared board-scaling + mode-switch used by both normal levels and the entrance level.
 function beginPlaySession(){
-  // Board scaling: size cells so the grid fills ~65% of viewport height,
-  // also constrained by available width (minus the left HUD panel). Adapts
-  // to board dimensions instead of a fixed 44px.
-  const vh=window.innerHeight, vw=window.innerWidth;
-  const narrow=vw<=640; // phones: HUD sits above the board, not beside it
-  const byH=Math.floor((vh*(narrow?0.55:0.65)-(R-1)*CELL_GAP)/R);
-  const byW=Math.floor(((vw-(narrow?0:292))*0.94-(C-1)*CELL_GAP)/C); // wide screens: left HUD 200px + booster palette 92px
-  CELL_SIZE=Math.max(24,Math.min(96,Math.min(byH,byW)));
+  fitPlayBoard();
 
   // switch from player screens to the reused editor board, in Play mode
   document.getElementById('player').classList.remove('active');
