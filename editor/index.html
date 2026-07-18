@@ -261,18 +261,20 @@ body.player-playing #etopbar,body.player-playing #lpanel,body.player-playing #rp
 /* Player HUD as a vertical panel to the LEFT of the board (Township-style) */
 /* HUD + board read as one unit: shell hugs the board, the [HUD|board] pair is
    centered together in the viewport, HUD flush against the grid's left edge. */
-body.player-playing{flex-direction:row;align-items:center;justify-content:center;}
-body.player-playing #shell{flex:0 1 auto;min-width:0;min-height:0;}
+/* Full-bleed app frame (Jed 2026-07-18): the three columns FILL the screen —
+   panels flex out to the edges (equal, min 148px), board column snug between */
+body.player-playing{flex-direction:row;align-items:stretch;justify-content:center;height:100vh;height:100dvh;overflow:hidden;}
+body.player-playing #shell{flex:0 1 auto;min-width:0;min-height:0;border:none;border-radius:0;}
 body.player-playing #board-wrap{align-items:center;justify-content:center;padding:0;}
 #phud{display:none;}
 /* Left goals + right boosters are EQUAL columns (Jed 2026-07-17) — width must
    match the JS constant PLAY_PANEL_W so board scaling reserves the true space */
-body.player-playing #phud{display:flex;flex-direction:column;order:-1;width:148px;flex-shrink:0;gap:24px;padding:24px 18px;background:#0a0810;border-right:0.5px solid #1e1830;align-items:center;}
+body.player-playing #phud{display:flex;flex-direction:column;order:-1;flex:1 1 0;min-width:148px;gap:24px;padding:24px 18px;background:#0a0810;border-right:0.5px solid #1e1830;align-items:center;justify-content:center;}
 /* ── BOOSTER PALETTE (Township's right column) — always visible in play mode:
    goals | board | boosters is the canonical 3-column landscape layout.
    Scrollable: the catalog grows toward "every power-up" (Jed 2026-07-17). */
 #bpanel{display:none;}
-body.player-playing #bpanel{display:flex;flex-direction:column;width:148px;flex-shrink:0;gap:14px;padding:24px 12px;background:#0a0810;border-left:0.5px solid #1e1830;align-items:center;overflow-y:auto;max-height:100vh;max-height:100dvh;}
+body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-width:148px;gap:14px;padding:24px 12px;background:#0a0810;border-left:0.5px solid #1e1830;align-items:center;justify-content:center;overflow-y:auto;max-height:100vh;max-height:100dvh;}
 .bslot{width:56px;height:56px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#141020;border:2px solid #2a2040;transition:border-color .15s,box-shadow .15s;}
 .bslot.locked{cursor:default;opacity:.75;}
 .bslot.armed{border-color:#ffcb6b;box-shadow:0 0 12px rgba(255,203,107,.4);}
@@ -289,9 +291,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;width:148px;flex-
 /* Narrow screens (phones): HUD becomes a compact bar ABOVE the board instead of a side panel */
 @media(max-width:640px){
   body.player-playing{flex-direction:column;justify-content:flex-start;}
-  body.player-playing #phud{flex-direction:row;flex-wrap:wrap;width:100%;gap:10px 18px;padding:10px 12px;justify-content:space-around;align-items:center;border-right:none;border-bottom:0.5px solid #1e1830;}
+  body.player-playing #phud{flex:0 0 auto;min-width:0;flex-direction:row;flex-wrap:wrap;width:100%;gap:10px 18px;padding:10px 12px;justify-content:space-around;align-items:center;border-right:none;border-bottom:0.5px solid #1e1830;}
   /* narrow (portrait phones): booster palette becomes a bottom strip */
-  body.player-playing #bpanel{flex-direction:row;width:100%;order:99;padding:8px 12px;gap:12px;border-left:none;border-top:0.5px solid #1e1830;overflow-y:visible;overflow-x:auto;justify-content:center;max-height:none;}
+  body.player-playing #bpanel{flex:0 0 auto;min-width:0;flex-direction:row;width:100%;order:99;padding:8px 12px;gap:12px;border-left:none;border-top:0.5px solid #1e1830;overflow-y:visible;overflow-x:auto;justify-content:center;max-height:none;}
   #phud .pback{align-self:center;}
   .phud-level{font-size:var(--fz-lg);}
   .phud-num{font-size:28px;}
