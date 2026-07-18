@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><title>AkashicSwaps Level Editor v6</title><!-- build 2026-07-08a -->
+<!-- NATIVE FEEL (Jed 2026-07-17): app-style viewport — no pinch zoom, edge-to-edge behind notches -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d0a14">
 <!-- Unmoatable Analytics — cookieless; no-ops on localhost; SPA routing tracked automatically -->
 <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
 </head>
@@ -8,7 +11,18 @@
 <h2 class="sr-only">AkashicSwaps Level Editor v6 — home screen with grid setup and blank-start editor</h2>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{display:flex;flex-direction:column;min-height:100vh;}
+/* ── NATIVE-FEEL SURFACE (kill the web-isms, Jed 2026-07-17) ──
+   touch-action pan-x/pan-y = scrolling allowed, pinch-zoom + double-tap zoom are NOT
+   (this is the standards path; the gesturestart guard below covers iOS Safari tabs).
+   overscroll-behavior:none kills rubber-band/pull-to-refresh. dvh tracks the REAL
+   visible height as mobile browser chrome collapses (vh line stays as fallback). */
+html{touch-action:pan-x pan-y;overscroll-behavior:none;}
+body{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;overscroll-behavior:none;
+  -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;
+  -webkit-user-select:none;user-select:none; /* game surface: no text selection, like any app */
+  /* notch/home-bar clearance — viewport-fit=cover extends under them, insets pad back */
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;} /* editor tooling fields stay editable */
 body.player-playing #phud{order:-1;}
 /* visually-hidden accessibility heading — was rendering as a visible block and
    eating layout width in the player's row layout because it had no CSS */
@@ -3497,6 +3511,15 @@ function exitToGrid(){
   document.getElementById('pwin').classList.remove('open');
   renderGrid();
 }
+
+// ── UNPINCHABLE (iOS Safari tab) ──────────────────────────────────────────────
+// Safari in a browser tab ignores user-scalable=no and touch-action for PINCH;
+// its proprietary gesture events are the only hook. Standalone/PWA + Android
+// are already covered by the viewport meta + touch-action CSS. NOTE: no
+// touchend-based double-tap suppression here — it would eat the synthesized
+// clicks that PU double-tap activation rides on; touch-action handles that case.
+['gesturestart','gesturechange','gestureend'].forEach(ev=>
+  document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
 
 // ── Entry routing ─────────────────────────────────────────────────────────────
 // The editor is gated: only visitors who completed the Qualifying entrance

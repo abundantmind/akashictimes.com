@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- NATIVE FEEL (Jed 2026-07-17): no pinch zoom, edge-to-edge behind notches -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#000000"/>
   <title>Privacy Policy — Akashic Swaps</title>
 
   <!-- Plausible analytics — privacy-first, no cookie banner -->
@@ -11,9 +13,15 @@
   <!-- Unmoatable Analytics — cookieless; no-ops on localhost; SPA routing tracked automatically -->
   <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
 
+  <!-- Unpinchable on iOS Safari tabs: gesture events are Safari's only pinch hook -->
+  <script>['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();},{passive:false});});</script>
+
   <style>
     /* ── Reset ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Native-feel surface (kill the web-isms, Jed 2026-07-17) — selection stays ON, it's a document */
+    html { touch-action: pan-x pan-y; overscroll-behavior: none; }
 
     /* ── Base — matches the landing page terminal aesthetic ── */
     body {
@@ -21,6 +29,10 @@
       background: #000;
       color: #0f0;
       min-height: 100vh;
+      min-height: 100dvh; /* real visible height on mobile (vh line = fallback) */
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       display: flex;
       flex-direction: column;
       align-items: center;
