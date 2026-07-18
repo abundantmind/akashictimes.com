@@ -291,6 +291,12 @@ body.player-playing #bpanel{display:flex;flex-direction:column;width:148px;flex-
   .goal-icon{width:24px;height:24px;}
   .goal-icon svg{width:24px;height:24px;}
 }
+/* Rotate prompt — full-screen curtain over play mode when a small screen is portrait */
+#rotate-note{display:none;}
+@media (orientation:portrait) and (max-width:840px){
+  body.player-playing #rotate-note{display:flex;position:fixed;inset:0;z-index:400;background:#0d0a14;
+    align-items:center;justify-content:center;text-align:center;color:#c792ea;font-size:var(--fz-2xl);}
+}
 #pwin{position:fixed;inset:0;background:rgba(13,10,20,.88);display:none;align-items:center;justify-content:center;z-index:200;}
 #pwin.open{display:flex;}
 #pwin .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:36px 44px;text-align:center;}
@@ -598,6 +604,13 @@ body.player-playing #bpanel{display:flex;flex-direction:column;width:148px;flex-
 <!-- Booster palette — Township's right column (play mode only; renderBoosterPanel fills it) -->
 <div id="bpanel"></div>
 
+<!-- Rotate prompt — shown only when playing in portrait on a phone/small tablet
+     (orientation.lock can't force landscape in a plain browser tab; this covers that gap) -->
+<div id="rotate-note"><div style="line-height:1.6;">
+  <div style="font-size:44px;">📱⟳</div>
+  <span data-i18n="rotate_msg">Rotate your device</span>
+</div></div>
+
 <!-- Goal help popup — "?" next to entrance goals -->
 <div id="ghelp" onclick="closeGoalHelp()">
   <div class="wbox" onclick="event.stopPropagation()">
@@ -672,6 +685,7 @@ en:{
   empty_boards:'Leaderboards open when player accounts arrive.',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
   pback_bundles:'← Bundles',pback_levels:'← Levels',
+  rotate_msg:'Rotate your device',
   moves_cap:'Moves',goals_cap:'Goals',
   bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
   bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
@@ -721,6 +735,7 @@ ko:{
   empty_boards:'리더보드는 플레이어 계정 도입과 함께 열립니다.',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
   pback_bundles:'← 번들',pback_levels:'← 레벨 목록',
+  rotate_msg:'기기를 가로로 돌려주세요',
   moves_cap:'이동',goals_cap:'목표',
   bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
   bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
@@ -3265,8 +3280,24 @@ window.addEventListener('resize',()=>{
   refitTimer=setTimeout(()=>{fitPlayBoard();render();},350);
 });
 
+// ── FULLSCREEN + LANDSCAPE LOCK (touch devices) ───────────────────────────────
+// Entering play = entering the app: fullscreen, locked landscape. Best-effort —
+// orientation.lock only works in fullscreen or an installed PWA, and iOS Safari
+// has neither API in-tab (the rotate curtain + PWA manifest cover iOS). Desktop
+// (fine pointer) stays windowed: dev/editor flow shouldn't seize the screen.
+function enterNativePlay(){
+  if(!window.matchMedia('(pointer:coarse)').matches) return;
+  const el=document.documentElement;
+  const fs=el.requestFullscreen?el.requestFullscreen({navigationUI:'hide'}):Promise.reject();
+  Promise.resolve(fs).catch(()=>{}).then(()=>{
+    if(screen.orientation&&screen.orientation.lock)
+      screen.orientation.lock('landscape').catch(()=>{}); // browsers that refuse: rotate curtain handles it
+  }); // the resize listener refits the board once fullscreen dimensions land
+}
+
 // Shared board-scaling + mode-switch used by both normal levels and the entrance level.
 function beginPlaySession(){
+  enterNativePlay(); // must run inside the tap's user-gesture window
   fitPlayBoard();
 
   // switch from player screens to the reused editor board, in Play mode
