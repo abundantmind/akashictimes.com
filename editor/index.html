@@ -877,6 +877,57 @@ function setPlaybackSpeed(spd) {
   setPlaybackSpeed(saved);
 })();
 
+// ── SFX ENGINE (Jed 2026-07-20) ───────────────────────────────────────────────
+// Web Audio synthesis — zero asset files, works offline, CSP-safe. One sound per
+// event FOR NOW, but the design is a data-driven BANK keyed by event name, so
+// "eventually a sound for every particular situation" = just add bank entries
+// (e.g. per-PU: 'scarab','dragonfly','ball','hopper') and call SFX.play(name).
+// Autoplay policy: the AudioContext can't start until a user gesture, so we
+// create/resume it lazily on the first play() (which always rides a tap/swap).
+const SFX = {
+  ctx: null,
+  muted: localStorage.getItem('akashic-muted') === '1',
+  // Each entry is a synth spec consumed by play(). Add situations here later.
+  bank: {
+    match:    { type:'triangle', freq:660, freqTo:880, dur:0.12, gain:0.18 }, // bright quick pluck
+    detonate: { type:'square',   freq:320, freqTo:90,  dur:0.28, gain:0.22 }, // punchy downward thunk
+  },
+  _ensure() {
+    if (this.ctx) return this.ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;              // no Web Audio: play() becomes a silent no-op
+    this.ctx = new AC();
+    return this.ctx;
+  },
+  play(name) {
+    if (this.muted) return;
+    const spec = this.bank[name];
+    if (!spec) return;                 // unknown event: silent, never throws
+    const ctx = this._ensure();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{}); // unlock after gesture
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = spec.type;
+    osc.frequency.setValueAtTime(spec.freq, t);
+    if (spec.freqTo) osc.frequency.exponentialRampToValueAtTime(spec.freqTo, t + spec.dur);
+    // fast attack, exponential decay to near-silence — a clean game blip
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(spec.gain, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + spec.dur);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + spec.dur + 0.02);
+  },
+  toggleMute() {
+    this.muted = !this.muted;
+    localStorage.setItem('akashic-muted', this.muted ? '1' : '0');
+    return this.muted;
+  },
+};
+window.SFX = SFX; // reachable from console + future per-situation sound wiring
+
 let C=0,R=0;
 const GDEFS=[
   {name:'Ruby',    color:'#A31B1B',hi:'#E85555',dark:'#5A0A0A',rune:'&#9765;', shape:'heart'},
@@ -1794,6 +1845,7 @@ function processDetonations(queue,phase,onDone){
     const selfEl=document.querySelector(`[data-r="${det.r}"][data-c="${det.c}"]`);
     if(selfEl)selfEl.classList.add('popping');
   }
+  SFX.play('detonate'); // one sound per REAL detonation (past the consume-on-play no-op); player-fired or chain-caught, every type
   if(det.pu==='helicopter'&&det.combo){detHopperCombo(det.r,det.c,phase,queue,next);return;}
   if(det.pu==='bomb')            detScarab(det.r,det.c,phase,queue,next,det.rad);
   else if(det.pu==='rocket_h')   detDragonfly(det.r,det.c,'h',phase,queue,next,det.wide);
@@ -2367,6 +2419,7 @@ function playTap(r,c){
 
 function resolve(pats,dr,dc,snap,sr,sc){
   const p=pats[0];const toClear=[];
+  SFX.play('match'); // one sound per matched pattern (initial swap + every cascade)
   // SPREAD CLOVER: the match is one clear event — if any matched cell sits on
   // clover, the whole matched set plants (anchor cell included: a PU created
   // on clover keeps the clover under it).
