@@ -1,0 +1,44 @@
+{
+  "level": 18,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 8,
+    "cols": 7,
+    "layout": [
+      "###.###",
+      "###.###",
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      ".#####."
+    ]
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "objectives": [
+    {
+      "type": "collect",
+      "item": "key",
+      "count": 3
+    }
+  ],
+  "moveLimit": 14,
+  "boosterSlots": 4,
+  "obstacles": [
+    {
+      "functionalId": "item.key",
+      "note": "3 keys. Fall to bottom when column clears below them. Positions 0-indexed.",
+      "positions": [
+        "R0C1",
+        "R0C5",
+        "R3C3"
+      ]
+    }
+  ]
+}
