@@ -1,0 +1,79 @@
+{
+  "level": 19,
+  "source": "Township (com.playrix.township) Fire Tablet",
+  "board": {
+    "rows": 8,
+    "cols": 7,
+    "layout": [
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######"
+    ]
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "objectives": [
+    {
+      "type": "collect",
+      "item": "acorn",
+      "count": 10
+    }
+  ],
+  "moveLimit": 35,
+  "boosterSlots": 4,
+  "obstacles": [
+    {
+      "functionalId": "overlay.leaf",
+      "hp": 1,
+      "note": "AUTHORED (Jed to eyeball): HP1 drill-target row.",
+      "positions": [
+        "R2C0",
+        "R2C1",
+        "R2C2",
+        "R2C3",
+        "R2C4",
+        "R2C5",
+        "R2C6"
+      ]
+    },
+    {
+      "functionalId": "overlay.leaf",
+      "hp": 2,
+      "note": "AUTHORED: HP2 leaf field over the lower acorns.",
+      "positions": [
+        "R4C1",
+        "R4C3",
+        "R4C5",
+        "R5C0",
+        "R5C2",
+        "R5C4",
+        "R5C6"
+      ]
+    },
+    {
+      "functionalId": "item.acorn",
+      "note": "AUTHORED: 10 acorns, all under leaves (3 drill-row HP1 + 7 HP2).",
+      "positions": [
+        "R2C1",
+        "R2C3",
+        "R2C5",
+        "R4C1",
+        "R4C3",
+        "R4C5",
+        "R5C0",
+        "R5C2",
+        "R5C4",
+        "R5C6"
+      ]
+    }
+  ]
+}
