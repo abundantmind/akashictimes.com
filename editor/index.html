@@ -212,7 +212,7 @@ body.player-playing #board-wrap{overflow:hidden;}
 .cell.throb{animation:throb 500ms ease-in-out infinite;}
 .cell.rainbow-pick .gem-inner,.cell.hopper-pick .gem-inner{animation:rainbow-pulse 600ms ease-in-out infinite;}
 /* Targeting reticle — appears over the hovered cell while choosing a destination */
-.cell.rainbow-pick:hover::after,.cell.hopper-pick:hover::after{
+.cell.rainbow-pick:hover::after,.cell.hopper-pick:hover::after,.cell.booster-pick:hover::after{
   content:'';position:absolute;inset:0;z-index:4;pointer-events:none;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='13' fill='none' stroke='%23ff3b30' stroke-width='2.4'/%3E%3Ccircle cx='20' cy='20' r='4.5' fill='none' stroke='%23ff3b30' stroke-width='2'/%3E%3Cpath d='M20 2v7M20 31v7M2 20h7M31 20h7' stroke='%23ff3b30' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E") center/86% no-repeat;
   filter:drop-shadow(0 0 3px rgba(255,59,48,.7));
@@ -720,7 +720,7 @@ en:{
   reset_btn:'Reset all stars',
   reset_confirm:'This wipes ALL stars and move records on this device.\nIt cannot be undone.\n\nReset everything?',
   boosters_cap:'Boosters',booster_locked:'Locked',
-  booster_jackhammer:'JackHammer',booster_hdrill:'H-Drill',booster_vweight:'Anchor',
+  booster_jackhammer:'JackHammer',booster_hdrill:'Akashic Horizon',booster_vweight:'Akashic Ascension',
   verb_get:'Get',verb_make:'Make',verb_fire:'Fire',verb_plant:'Plant',verb_free:'Free',
   cap_collect:'Collect',cap_plant:'Plant',cap_free:'Free',
   qintro_title:'Qualifying Level',qintro_msg:'Match 12 Yellow Gems.<br>Create and Fire all Power-Ups.',
@@ -772,7 +772,7 @@ ko:{
   reset_btn:'별 기록 초기화',
   reset_confirm:'이 기기의 모든 별과 이동 기록이 삭제됩니다.\n되돌릴 수 없습니다.\n\n전부 초기화할까요?',
   boosters_cap:'부스터',booster_locked:'잠김',
-  booster_jackhammer:'잭해머',booster_hdrill:'수평 드릴',booster_vweight:'앵커',
+  booster_jackhammer:'잭해머',booster_hdrill:'아카식 호라이즌',booster_vweight:'아카식 어센션',
   verb_get:'모으기',verb_make:'만들기',verb_fire:'발동',verb_plant:'심기',verb_free:'구출',
   cap_collect:'수집',cap_plant:'심기',cap_free:'구출',
   qintro_title:'자격 레벨',qintro_msg:'노란 보석 12개를 맞추세요.<br>모든 파워업을 만들고 발동하세요.',
@@ -1303,6 +1303,9 @@ function render(dropping){
     if(selCell&&selCell[0]===r&&selCell[1]===c)el.classList.add('throb');
     if(choosingRainbow&&cd.gem!==null&&!cd.pu)el.classList.add('rainbow-pick');
     if(choosingGrasshopper&&!choosingGrasshopper.excluded.has(r+','+c)&&(cd.gem!==null||cd.pu||cd.obs))el.classList.add('hopper-pick');
+    // Armed booster: same crosshair reticle as Grasshopper/Akasha Ball targeting
+    // (Jed 2026-07-21). Applies to all boosters — each is arm-then-tap-a-target.
+    if(armedBooster&&playerMode&&cd.active)el.classList.add('booster-pick');
     // Pointer Events unify mouse + touch (touch never fires the old
     // mouseenter path — touch pointers implicitly capture to the origin cell,
     // so cell-to-cell "enter" tracking is mouse-only by design). One gesture:
@@ -3123,9 +3126,9 @@ function pStarStr(n){return '★'.repeat(n)+'☆'.repeat(3-n);}
 // level's meaning never depends on account state. Boosters cost NO move;
 // runBoosterCount is the era-2 ★2 sensor (record + exactly one booster).
 const BOOSTERS=[
-  {id:'jackhammer',intro:17}, // one hit to one cell — standard hit rules
-  {id:'hdrill',    intro:19}, // behaves as an H-Dragonfly at the tapped cell
-  {id:'vweight',   intro:24}, // "Anchor" — V-Dragonfly at the tapped cell
+  {id:'jackhammer',intro:17}, // one hit to one cell — crosshair-target reticle
+  {id:'hdrill',    intro:19}, // "Akashic Horizon" — H-Dragonfly at the tapped cell
+  {id:'vweight',   intro:24}, // "Akashic Ascension" — V-Dragonfly at the tapped cell
 ];
 let armedBooster=null;      // booster id awaiting a target tap, or null
 let curBoosterSlots=3;      // per-level slot count (JSON boosterSlots)
@@ -3180,6 +3183,7 @@ function armBooster(id){
   if(animating)return;
   armedBooster=armedBooster===id?null:id; // tap again to disarm
   renderBoosterPanel();
+  if(playerMode)render(null); // paint/clear the crosshair-target reticle on the board
 }
 
 // A booster fires at the tapped cell through the SAME machinery as gameplay:
