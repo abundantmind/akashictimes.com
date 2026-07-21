@@ -1,0 +1,82 @@
+{
+  "level": 16,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 9,
+    "cols": 10,
+    "layout": [
+      "####..####",
+      "####..####",
+      "####..####",
+      "###....###",
+      "###.##.###",
+      "###....###",
+      "####..####",
+      "##########",
+      "##########"
+    ]
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "objectives": [
+    {
+      "type": "collect",
+      "gem": "blue",
+      "count": 25
+    },
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 70,
+      "note": "Confirmed: 72 total active cells − 2 starting grass = 70. Goal covers every non-grassed cell."
+    }
+  ],
+  "moveLimit": 15,
+  "boosterSlots": 4,
+  "obstacles": [
+    {
+      "functionalId": "substrate.clover",
+      "note": "Pre-placed grass on the center island cells of row 5 (1-indexed). Also the base under both pre-placed power-ups. 2 cells. Positions 0-indexed.",
+      "positions": [
+        "R4C4",
+        "R4C5"
+      ]
+    },
+    {
+      "functionalId": "powerup.dragonfly",
+      "note": "DESIGNED: half of the central PU combo on clover (with the R4C5 Akasha Ball).",
+      "positions": [
+        "R4C4"
+      ]
+    },
+    {
+      "functionalId": "powerup.rainbow",
+      "township": "Akasha Ball",
+      "note": "DESIGNED: half of the central PU combo on clover (with the R4C4 Dragonfly).",
+      "positions": [
+        "R4C5"
+      ]
+    },
+    {
+      "functionalId": "overlay.bind",
+      "hp": 1,
+      "note": "1-HP chains. Row 5 (1-indexed) left-3 and right-3 (outer flanks of the island row); bottom two rows center-2 columns. 10 cells total. Positions 0-indexed.",
+      "positions": [
+        "R4C0",
+        "R4C1",
+        "R4C2",
+        "R4C7",
+        "R4C8",
+        "R4C9",
+        "R7C4",
+        "R7C5",
+        "R8C4",
+        "R8C5"
+      ]
+    }
+  ]
+}
