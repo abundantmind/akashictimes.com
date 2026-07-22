@@ -104,3 +104,22 @@ create policy "read published or own"        on public.bundles for select
 create policy "insert own bundles"           on public.bundles for insert with check (author = auth.uid());
 create policy "update own bundles"           on public.bundles for update using (author = auth.uid());
 create policy "delete own bundles"           on public.bundles for delete using (author = auth.uid());
+
+-- ═══ TABLE GRANTS — the layer BENEATH RLS ══════════════════════════════════════
+-- RLS filters which ROWS a role sees; a role still needs a base table GRANT to
+-- reach the table at all, or PostgREST returns 42501 (permission denied for
+-- table) BEFORE any policy runs. Supabase's default privileges did NOT cover
+-- these here (verified 2026-07-22: anon hit 42501 on the `select using(true)`
+-- profiles table), so grant explicitly. Grants are idempotent — safe to re-run.
+grant usage on schema public to anon, authenticated;
+-- anon (logged-out visitors): read public profiles + the published storefront
+grant select on public.profiles, public.bundles to anon;
+-- authenticated (signed-in players): own progress/credits/profile + own bundles.
+-- Column set matches the policies above; no DELETE on progress/profiles/credits
+-- (credits are an append-only ledger — never revoked).
+grant select, insert, update         on public.profiles to authenticated;
+grant select, insert, update         on public.progress to authenticated;
+grant select, insert                 on public.credits  to authenticated;
+grant select, insert, update, delete on public.bundles  to authenticated;
+-- identity-column sequences need usage for inserts (credits, bundles)
+grant usage, select on all sequences in schema public to authenticated;
