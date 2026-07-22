@@ -1044,6 +1044,7 @@ async function openTemplate(n){
   }catch(e){alert('Template '+n+' is not available.');return;}
   loadLevelData(json,n); // board/flow/gem palette/objectives from the JSON
   playerMode=false;playing=false;entranceMode=false;animating=false;CELL_SIZE=44;
+  flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
   document.body.classList.remove('player-playing'); // editor styling (inactive ghost tiles)
   // fill gems for a ready-to-play board; pre-placed PUs stay as painted
   for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu)board[r][c].gem=randGem();
@@ -1313,6 +1314,7 @@ function render(dropping){
     // pointermove handler fires the swap once a directional threshold is
     // crossed — no second tap needed.
     el.addEventListener('pointerdown',e=>{
+      if(flyLock)return; // flyover cutscene: board is camera-only until the pan rests
       mdown=true;
       // no drag tracking while a booster is armed — that tap is the TARGET tap
       if(playing&&!animating&&!choosingRainbow&&!choosingGrasshopper&&!armedBooster)
@@ -1841,6 +1843,7 @@ function settleAndCascade(phase,sr,sc){
     const fallMoves=gravityWithMap();
     animateFall(fallMoves,()=>{
       const gotKey=collectExitedKeys(); // keys that reached the bottom exit this settle
+      flyScrollCheck(); // flyover: key at the current view's bottom row scrolls the camera down
       if(gotKey&&playerMode)updatePlayerHUD();
       const np=findPatterns(sr,sc,sr,sc);
       if(np.length){resolve(np,sr,sc,JSON.parse(JSON.stringify(board)),sr,sc);}
@@ -3228,7 +3231,7 @@ function renderBundles(){
     '</div>';
 }
 
-const MAX_BUILT_LEVEL=19; // levels with shipped JSONs — bump as the bundle grows
+const MAX_BUILT_LEVEL=20; // levels with shipped JSONs — bump as the bundle grows
 
 function renderGrid(){
   showPlayerShell();
@@ -3320,6 +3323,11 @@ function applyObstacles(json){
 
 function loadLevelData(json,num){
   R=json.board.rows; C=json.board.cols;
+  // Flyover camera spec (L20+): camera-only presentation of tall boards.
+  // Reset per level — normal levels clear any previous flyover state.
+  flyover=(json.flyover&&Array.isArray(json.flyover.stops)&&json.flyover.stops.length)
+    ?{viewRows:json.flyover.viewRows||9,stops:json.flyover.stops}:null;
+  flyStop=0;flyLock=false;
   const layout=json.board.layout||[];
   board=[]; flow=[];
   for(let r=0;r<R;r++){
@@ -3382,6 +3390,83 @@ const PLAY_PANEL_W=148;             // goals (left) + boosters (right) — EQUAL
 const PLAY_MAX_R=9, PLAY_MAX_C=11;  // the max board: cell size is computed against THIS grid, not per-level,
                                     // so the middle area is stable across levels (small boards just center)
 
+// ── FLYOVER CAMERA (Jed's spec, L20+) ─────────────────────────────────────────
+// Tall boards are ONE continuous board (no-multi-zone canon) — the flyover is
+// camera-only. Cells stay full region size; #board-wrap becomes a fixed window
+// viewRows tall and the camera is a translateY on #board. JSON declares it:
+//   "flyover": { "viewRows": 9, "stops": [0, 4, 9] }   // stops = view TOP rows
+// Opening cutscene pans bottom→top (slowing into the wall view), rests at the
+// top; in play, a key reaching the current view's bottom row scrolls the camera
+// one stop down. Keys collect ONLY out of the true board bottom (collectExitedKeys).
+let flyover=null;   // active spec {viewRows,stops} — null on normal levels
+let flyStop=0;      // index into flyover.stops — the camera's current view
+let flyLock=false;  // input lock while the opening cutscene pans
+
+// translateY (px) that puts stops[i] at the top of the window
+const flyY=i=>-flyover.stops[i]*(CELL_SIZE+CELL_GAP);
+
+// Size (or clear) the fixed camera window. Call after fitPlayBoard and on refit;
+// clears all inline styles when flyover is off so normal levels are untouched.
+function flyWindow(){
+  const wrap=document.getElementById('board-wrap'),bd=document.getElementById('board');
+  if(!flyover||!playerMode){
+    wrap.style.height='';wrap.style.flex='';wrap.style.margin='';wrap.style.alignItems='';
+    bd.style.transform='';bd.style.transition='';
+    return;
+  }
+  wrap.style.height=(flyover.viewRows*CELL_SIZE+(flyover.viewRows-1)*CELL_GAP)+'px';
+  wrap.style.flex='0 0 auto';        // fixed window, not a stretching flex column
+  wrap.style.margin='auto';          // centers the window in the shell both ways
+  wrap.style.alignItems='flex-start';// board's row 0 anchors to the window top
+}
+
+// Move the camera to a stop. dur=0 snaps (also re-anchors after a refit).
+function flyGo(stop,dur,ease){
+  if(!flyover)return;
+  flyStop=stop;
+  const bd=document.getElementById('board');
+  bd.style.transition=dur?('transform '+dur+'ms '+(ease||'ease-in-out')):'none';
+  bd.style.transform='translateY('+flyY(stop)+'px)';
+}
+
+// Opening cutscene: snap to the bottom view, hold, then pan upward stop by stop —
+// ease-out decelerates INTO each intermediate view (the row-13 wall beat), a dwell
+// lets it read, and the last leg glides to the top where play begins. Input is
+// locked until the camera rests.
+function flyCutscene(){
+  flyLock=true;
+  flyGo(flyover.stops.length-1,0);       // open on the bottom view
+  let t=900;                             // hold on the reveal
+  for(let i=flyover.stops.length-2;i>=0;i--){
+    const stop=i,lastLeg=(i===0);
+    setTimeout(()=>{flyGo(stop,lastLeg?1500:1400,lastLeg?'ease-in-out':'ease-out');},t);
+    t+=lastLeg?1600:2200;                // pan + dwell beat at intermediate views
+  }
+  setTimeout(()=>{flyLock=false;},t);    // camera at rest — board is live
+}
+
+// After a settle: if a key has reached (or fallen past) the current view's
+// bottom row, scroll down one stop — repeat in case one fall crossed two views.
+// Intermediate view bottoms are CAMERA triggers only; collection stays at the
+// true board bottom.
+function flyScrollCheck(){
+  if(!flyover||!playerMode||flyLock)return;
+  let target=flyStop;
+  while(target<flyover.stops.length-1){
+    const viewBottom=flyover.stops[target]+flyover.viewRows-1;
+    let hit=false;
+    for(let r=viewBottom;r<R&&!hit;r++)for(let c=0;c<C;c++)
+      if(board[r][c].active&&board[r][c].item==='key'){hit=true;break;}
+    if(hit)target++;else break;
+  }
+  if(target!==flyStop)flyGo(target,900,'ease-in-out');
+}
+
+// Full teardown on any path out of play/level-load — normal levels stay untouched.
+function flyTeardown(){
+  flyover=null;flyLock=false;flyStop=0;flyWindow(); // flyWindow clears when flyover is null
+}
+
 // Board scaling: size cells so the reserved 9×11 grid fits the viewport —
 // height-capped (65% desktop, 92% on short landscape screens where the side
 // panels ARE the chrome) and width-capped (minus both side panels).
@@ -3389,7 +3474,8 @@ function fitPlayBoard(){
   const vh=window.innerHeight, vw=window.innerWidth;
   const narrow=vw<=640;      // portrait phones: HUD bar above, booster strip below
   const shortLand=vh<=480;   // landscape phones: board owns nearly the full height
-  const fitR=Math.max(R,PLAY_MAX_R), fitC=Math.max(C,PLAY_MAX_C); // oversize boards (future flyovers) still fit themselves
+  const effR=flyover?flyover.viewRows:R; // flyover boards size cells to the camera WINDOW, not the full board
+  const fitR=Math.max(effR,PLAY_MAX_R), fitC=Math.max(C,PLAY_MAX_C);
   const byH=Math.floor((vh*(shortLand?0.92:(narrow?0.55:0.65))-(fitR-1)*CELL_GAP)/fitR);
   const byW=Math.floor(((vw-(narrow?0:PLAY_PANEL_W*2))*0.94-(fitC-1)*CELL_GAP)/fitC);
   CELL_SIZE=Math.max(24,Math.min(96,Math.min(byH,byW)));
@@ -3401,7 +3487,7 @@ let refitTimer=null;
 window.addEventListener('resize',()=>{
   if(!document.body.classList.contains('player-playing'))return;
   clearTimeout(refitTimer);
-  refitTimer=setTimeout(()=>{fitPlayBoard();render();},350);
+  refitTimer=setTimeout(()=>{fitPlayBoard();flyWindow();flyGo(flyStop,0);render();},350); // flyover: re-size the window + re-anchor the camera at the new cell size
 });
 
 // ── FULLSCREEN + LANDSCAPE LOCK (touch devices) ───────────────────────────────
@@ -3434,12 +3520,14 @@ function beginPlaySession(){
   document.getElementById('info-c').textContent=C;
   buildGPal();buildPUPal();buildObsPal();
   playerMode=true; playing=false;
+  flyWindow(); // flyover levels: fixed camera window (after playerMode is set; clears on normal levels)
   window.runMaxSeq=0; // star canon: best PU-sequence of THIS run (era-1 ★2/★3)
   armedBooster=null; window.runBoosterCount=0; // fresh run: nothing armed, era-2 sensor zeroed
   renderBoosterPanel();
   render();
   togglePlay();      // fills empty active cells, removes initial matches, starts Play
   updatePlayerHUD();
+  if(flyover)flyCutscene(); // opening pan: bottom→top reveal, then the board goes live
 }
 
 // ── ENTRANCE LEVEL — Level 1 as power-up training ────────────────────────────
@@ -3447,6 +3535,7 @@ function beginPlaySession(){
 // 8×8 board with 5 gem colors so every power-up shape is realistically formable.
 function startEntrance(){
   entranceMode=true;
+  flyTeardown(); // entrance builds its own board — never a flyover
   GEM_POOL=[0,1,2,3,4]; // 5 gem colors (drops Pearl) — bigger matches come easier for newcomers
   R=8;C=8;
   board=[];flow=[];
@@ -3624,6 +3713,7 @@ function leaveEntrance(){
   // common teardown for both paths out of the entrance level
   entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; playerMode=false; playing=false; animating=false;
   CELL_SIZE=44;
+  flyTeardown(); // entrance is never a flyover, but the teardown keeps the wrap styles clean
   document.getElementById('pchoice').classList.remove('open');
   document.body.classList.remove('player-playing');
   document.getElementById('editor').style.display='none';
@@ -3682,6 +3772,7 @@ function pwinContinue(){
 
 function exitToGrid(){
   playing=false; animating=false; playerMode=false;
+  flyTeardown(); // clear any flyover camera window/transform
   entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; // leaving mid-entrance also restores full gem set
   CELL_SIZE=44; // restore editor's fixed cell size
   document.body.classList.remove('player-playing');
