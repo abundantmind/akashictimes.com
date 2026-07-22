@@ -4,7 +4,10 @@
 // The stale-cache disease is real on this project (sessions 11 + 13 both got
 // bitten by browser caches hiding fresh level data) — so the network copy
 // always wins when reachable; the cache only answers when the network can't.
-const CACHE = 'akashic-v1';
+// Bump this string on every ship. The activate handler deletes any cache whose
+// name != CACHE, so a version bump force-purges every stale cache on the next
+// load — the self-heal for the stale-cache disease (sessions 11/13/17 got bitten).
+const CACHE = 'akashic-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
