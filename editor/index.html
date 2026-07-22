@@ -356,6 +356,27 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 .qs-yes:hover{background:#4a3580;}
 .qs-no{background:transparent;color:#887a9a;border:0.5px solid #2d2040;padding:10px 22px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);cursor:pointer;}
 .qs-no:hover{color:#c792ea;border-color:#3d2060;}
+/* ── Cloud auth: sign-in strip on the Levels grid + magic-link modal ── */
+.auth-strip{display:flex;align-items:center;justify-content:center;gap:12px;margin:0 auto 14px;max-width:320px;}
+.auth-in{background:transparent;border:0.5px solid #3d2060;border-radius:6px;color:#a78bcf;padding:7px 16px;font-size:var(--fz-sm);cursor:pointer;font-family:var(--font-sans);letter-spacing:.02em;}
+.auth-in:hover{border-color:#c792ea;color:#c8a8ff;}
+.auth-who{font-size:var(--fz-sm);color:#665580;letter-spacing:.02em;}
+.auth-out{background:transparent;border:0.5px solid #2d2040;border-radius:6px;color:#665580;padding:5px 12px;font-size:var(--fz-xs);cursor:pointer;font-family:var(--font-sans);}
+.auth-out:hover{color:#c792ea;border-color:#3d2060;}
+#authbox{position:fixed;inset:0;background:rgba(13,10,20,.94);display:none;align-items:center;justify-content:center;z-index:222;}
+#authbox.open{display:flex;}
+#authbox .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:32px 40px;text-align:center;max-width:400px;width:calc(100% - 48px);}
+#authbox h2{font-size:var(--fz-xl);color:#c792ea;margin-bottom:10px;font-weight:500;}
+#authbox .wmsg{color:#d8cce8;font-size:var(--fz-base);line-height:1.5;margin-bottom:18px;}
+#auth-email{width:100%;background:#0d0a14;border:0.5px solid #3d2060;border-radius:6px;color:#e0d0f0;padding:11px 14px;font-size:var(--fz-base);font-family:var(--font-sans);text-align:center;letter-spacing:.02em;}
+#auth-email:focus{outline:none;border-color:#c792ea;}
+#auth-email::placeholder{color:#554470;}
+.auth-status{min-height:18px;margin:12px 0 4px;font-size:var(--fz-sm);color:#a78bcf;line-height:1.4;}
+.auth-btns{display:flex;gap:14px;justify-content:center;margin-top:12px;}
+.auth-send{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:10px 28px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);font-weight:500;cursor:pointer;}
+.auth-send:hover{background:#4a3580;}
+.auth-no{background:transparent;color:#887a9a;border:0.5px solid #2d2040;padding:10px 22px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);cursor:pointer;}
+.auth-no:hover{color:#c792ea;border-color:#3d2060;}
 /* Qualifying Level intro — auto-dismisses; tap to skip */
 #qintro{position:fixed;inset:0;background:rgba(13,10,20,.82);display:none;align-items:center;justify-content:center;z-index:215;cursor:pointer;}
 #qintro.open{display:flex;}
@@ -807,6 +828,9 @@ ko:{
 };
 let LANG=localStorage.getItem('akashicswaps-lang')
   ||((navigator.language||'').startsWith('ko')?'ko':'en'); // first visit: follow the browser
+// Bridge for the deferred auth.js module: top-level const in a classic script is
+// NOT a window property, so expose I18N explicitly (auth.js splices its strings in).
+window.I18N=I18N;
 function TXT(k){const v=I18N[LANG]&&I18N[LANG][k];return v!==undefined?v:I18N.en[k];}
 function applyLang(){
   document.documentElement.lang=LANG;
@@ -3119,6 +3143,9 @@ const PlayerProgress={
   unlocked(n){return n===1||this.stars(n-1)>0;}
 };
 PlayerProgress.load();
+// Bridge for auth.js (deferred module): expose the store so the module can mirror
+// stars to the cloud and fold cloud rows back in. classic-script const ≠ window prop.
+window.PlayerProgress=PlayerProgress;
 
 function pStarStr(n){return '★'.repeat(n)+'☆'.repeat(3-n);}
 
@@ -3237,7 +3264,10 @@ function renderGrid(){
   showPlayerShell();
   lastPView='grid'; // language switch re-renders this screen
   document.getElementById('pback-top').style.display='';
-  let html='<div id="pgrid-title">'+TXT('bundle_title')+'</div>'+
+  // Cloud sign-in strip (magic-link) — save stars across devices. Absent until
+  // the auth module (deferred) has loaded; logged-out play is unaffected.
+  const authStrip=window.AkashicAuth?AkashicAuth.stripHTML():'';
+  let html=authStrip+'<div id="pgrid-title">'+TXT('bundle_title')+'</div>'+
            '<div id="pgrid-sub">'+TXT('grid_sub')+'</div><div class="pgrid">';
   for(let i=1;i<=25;i++){
     const open=PlayerProgress.unlocked(i)&&i<=MAX_BUILT_LEVEL, st=PlayerProgress.stars(i);
@@ -3859,3 +3889,7 @@ function _openBugReport() {
   document.body.appendChild(btn);
 })();
 </script>
+
+<!-- Cloud auth + progress sync (magic-link, no build step). Deferred ES module:
+     runs after the classic script above, so all game globals already exist. -->
+<script type="module" src="./auth.js"></script>
