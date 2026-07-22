@@ -1,0 +1,80 @@
+{
+  "level": 22,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 9,
+    "cols": 10,
+    "layout": [
+      "...####...",
+      "..######..",
+      ".########.",
+      "##########",
+      "##########",
+      "..######..",
+      "#..####..#",
+      "##..##..##",
+      ".##....##."
+    ]
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "blue",
+    "yellow"
+  ],
+  "objectives": [
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 52,
+      "note": "GROW/PLANT goal \u2014 spread grass to cover 52 tiles (corrected from 'clear' per L6 grass tutorial)."
+    }
+  ],
+  "moveLimit": 26,
+  "boosterSlots": 3,
+  "obstacles": [
+    {
+      "functionalId": "block.crate",
+      "township": "Box / Crate (wooden crate)",
+      "positions": [
+        "R4C1",
+        "R4C10",
+        "R5C1",
+        "R5C2",
+        "R5C3",
+        "R5C4",
+        "R5C7",
+        "R5C8",
+        "R5C9",
+        "R5C10",
+        "R6C3",
+        "R6C4",
+        "R6C7",
+        "R6C8",
+        "R7C1",
+        "R7C4",
+        "R7C5",
+        "R7C6",
+        "R7C7",
+        "R7C10",
+        "R8C1",
+        "R8C2",
+        "R8C5",
+        "R8C6",
+        "R8C9",
+        "R8C10",
+        "R9C2",
+        "R9C3",
+        "R9C8",
+        "R9C9"
+      ],
+      "note": "L22 INTRODUCES the Box obstacle (tutorial 'You unlocked a new element!'). Cleared by matches/boosters adjacent. Likely multi-HP crate per Jed's slat/padlock hypothesis \u2014 confirm HP staging in-play."
+    },
+    {
+      "functionalId": "substrate.clover",
+      "township": "grass turf",
+      "region": "all gem (non-box, non-absent) cells \u2014 the upper diamond gem area",
+      "note": "Gems sit on grass turf; the level GOAL is to clear 52 grass tiles (objective above). Grass substrate underlies the gem-playable cells."
+    }
+  ]
+}
