@@ -3140,7 +3140,11 @@ const PlayerProgress={
   stars(n){const d=this.data[n];return typeof d==='number'?d:(d&&d.s)||0;},
   record(n){const d=this.data[n];return (d&&d.rec)||0;},
   set(n,s,rec){this.data[n]={s:s,rec:rec||this.record(n)||0};this.save();},
-  unlocked(n){return n===1||this.stars(n-1)>0;}
+  unlocked(n){
+    if(n===1)return true;
+    let p=n-1; while(p>1&&HELD_LEVELS.has(p))p--; // skip held levels (e.g. L23) — gate on the nearest shipped predecessor
+    return this.stars(p)>0;
+  }
 };
 PlayerProgress.load();
 // Bridge for auth.js (deferred module): expose the store so the module can mirror
@@ -3258,7 +3262,16 @@ function renderBundles(){
     '</div>';
 }
 
-const MAX_BUILT_LEVEL=20; // levels with shipped JSONs — bump as the bundle grows
+const MAX_BUILT_LEVEL=25; // levels with shipped JSONs — bump as the bundle grows
+// Built-but-held levels: JSON exists in captures but the level needs engine work
+// before it ships. L23 = two-zone board (block.crate obstacle + horizontal
+// flyover, neither built yet). Held levels render "Soon" and are SKIPPED in the
+// unlock chain so the levels after them stay reachable.
+const HELD_LEVELS=new Set([23]);
+// Cloud auth (magic-link sign-in strip) stays dark until it's verified end-to-end
+// — Supabase redirect-URL allowlist + a real magic-link round-trip. Flip true to
+// light the strip once that's done.
+const AUTH_ENABLED=false;
 
 function renderGrid(){
   showPlayerShell();
@@ -3266,13 +3279,13 @@ function renderGrid(){
   document.getElementById('pback-top').style.display='';
   // Cloud sign-in strip (magic-link) — save stars across devices. Absent until
   // the auth module (deferred) has loaded; logged-out play is unaffected.
-  const authStrip=window.AkashicAuth?AkashicAuth.stripHTML():'';
+  const authStrip=(AUTH_ENABLED&&window.AkashicAuth)?AkashicAuth.stripHTML():'';
   let html=authStrip+'<div id="pgrid-title">'+TXT('bundle_title')+'</div>'+
            '<div id="pgrid-sub">'+TXT('grid_sub')+'</div><div class="pgrid">';
   for(let i=1;i<=25;i++){
-    const open=PlayerProgress.unlocked(i)&&i<=MAX_BUILT_LEVEL, st=PlayerProgress.stars(i);
+    const open=PlayerProgress.unlocked(i)&&i<=MAX_BUILT_LEVEL&&!HELD_LEVELS.has(i), st=PlayerProgress.stars(i);
     if(open) html+='<div class="pcell open" onclick="startPlayerLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span></div>';
-    else if(i>MAX_BUILT_LEVEL) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">'+TXT('soon')+'</span><span>'+i+'</span></div>';
+    else if(i>MAX_BUILT_LEVEL||HELD_LEVELS.has(i)) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">'+TXT('soon')+'</span><span>'+i+'</span></div>';
     else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
   }
   html+='</div>';
