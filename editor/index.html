@@ -3302,13 +3302,6 @@ const HELD_LEVELS=new Set([23]);
 // — Supabase redirect-URL allowlist + a real magic-link round-trip. Flip true to
 // light the strip once that's done.
 const AUTH_ENABLED=false;
-// DEV UNLOCK: open every built (non-held) level in the grid regardless of stars,
-// for testing levels out of sequence. Persists in localStorage; toggle from the
-// console with unlockAll() / lockAll(), or open the game at #dev. Real players
-// never trip this (default off, no UI).
-let DEV_UNLOCK = localStorage.getItem('akashicswaps-devunlock')==='1' || location.hash==='#dev';
-window.unlockAll=()=>{DEV_UNLOCK=true;localStorage.setItem('akashicswaps-devunlock','1');if(document.getElementById('pgrid-title'))renderGrid();console.log('[dev] all built levels unlocked');};
-window.lockAll =()=>{DEV_UNLOCK=false;localStorage.removeItem('akashicswaps-devunlock');if(document.getElementById('pgrid-title'))renderGrid();console.log('[dev] sequential locking restored');};
 
 function renderGrid(){
   showPlayerShell();
@@ -3320,7 +3313,11 @@ function renderGrid(){
   let html=authStrip+'<div id="pgrid-title">'+TXT('bundle_title')+'</div>'+
            '<div id="pgrid-sub">'+TXT('grid_sub')+'</div><div class="pgrid">';
   for(let i=1;i<=25;i++){
-    const open=i<=MAX_BUILT_LEVEL&&!HELD_LEVELS.has(i)&&(DEV_UNLOCK||PlayerProgress.unlocked(i)), st=PlayerProgress.stars(i);
+    // NO sequential gating (Jed 2026-07-23): a bundle is a key, not a ladder —
+    // own it, play all 25 in any order. Every built, non-held level is open.
+    // Stars are achievements, never locks. (Bundle-purchase gating comes later,
+    // and is per-bundle/all-or-nothing — never level-by-level.)
+    const open=i<=MAX_BUILT_LEVEL&&!HELD_LEVELS.has(i), st=PlayerProgress.stars(i);
     if(open) html+='<div class="pcell open" onclick="startPlayerLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span></div>';
     else if(i>MAX_BUILT_LEVEL||HELD_LEVELS.has(i)) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">'+TXT('soon')+'</span><span>'+i+'</span></div>';
     else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
