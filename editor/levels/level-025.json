@@ -17,22 +17,67 @@
     ]
   },
   "flowDirection": {
-    "note": "Per-cell directional gravity. First level with non-standard flow. U-shaped pipe: left arm flows down, base flows right, right arm flows up. Fixed per cell.",
+    "note": "U-pipe staircase (Jed's river model): each inlet column falls to its own lane depth, turns right across the floor, then climbs the mirrored column up the right arm to exit top-right. Every cell one-in/one-out; only R0 C0-C3 are inlets.",
     "regions": [
       {
         "direction": "down",
-        "cells": "R0-R4, C0-C3",
-        "label": "left arm"
+        "cells": "R0-R7, C0",
+        "label": "lane0 descent"
+      },
+      {
+        "direction": "down",
+        "cells": "R0-R6, C1",
+        "label": "lane1 descent"
+      },
+      {
+        "direction": "down",
+        "cells": "R0-R5, C2",
+        "label": "lane2 descent"
+      },
+      {
+        "direction": "down",
+        "cells": "R0-R4, C3",
+        "label": "lane3 descent (left arm)"
       },
       {
         "direction": "right",
-        "cells": "R5-R8, C0-C10",
-        "label": "bottom connector"
+        "cells": "R8, C0-C9",
+        "label": "floor lane R8"
+      },
+      {
+        "direction": "right",
+        "cells": "R7, C1-C8",
+        "label": "floor lane R7"
+      },
+      {
+        "direction": "right",
+        "cells": "R6, C2-C7",
+        "label": "floor lane R6"
+      },
+      {
+        "direction": "right",
+        "cells": "R5, C3-C6",
+        "label": "floor lane R5"
       },
       {
         "direction": "up",
-        "cells": "R0-R4, C7-C10",
-        "label": "right arm"
+        "cells": "R0-R8, C10",
+        "label": "lane R8 ascent (right arm)"
+      },
+      {
+        "direction": "up",
+        "cells": "R0-R7, C9",
+        "label": "lane R7 ascent"
+      },
+      {
+        "direction": "up",
+        "cells": "R0-R6, C8",
+        "label": "lane R6 ascent"
+      },
+      {
+        "direction": "up",
+        "cells": "R0-R5, C7",
+        "label": "lane R5 ascent"
       }
     ]
   },
