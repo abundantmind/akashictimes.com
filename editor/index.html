@@ -1630,9 +1630,15 @@ function togglePlay(){
 // don't — chains need direct hits), and an acorn-bearing leaf COLLECTS its
 // acorn on break (goal tick), leaving the cell empty to refill.
 const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2',
-                  leaf1:null,leaf2:'leaf1',leaf3:'leaf2'};
+                  leaf1:null,leaf2:'leaf1',leaf3:'leaf2',
+                  // Crates: solid boxes (no gem inside). Same hit-absorbing / gravity-
+                  // blocking machinery as chains (proven by L25's dams) — an adjacent
+                  // match walks the HP down; at crate1->null the box is gone and the
+                  // now-empty cell refills via flow.
+                  crate1:null,crate2:'crate1',crate3:'crate2'};
 function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
 function isLeafy(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('leaf'));}
+function isCrate(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('crate'));}
 function damageChain(r,c){
   const wasLeaf=isLeafy(r,c);
   const left=CHAIN_DOWN[board[r][c].obs];
@@ -2537,14 +2543,16 @@ function resolve(pats,dr,dc,snap,sr,sc){
   const phase=new Set();
   const detQueue=[];
   toClear.forEach(([r,c])=>clearCellD(r,c,phase,detQueue));
-  // LEAF SPLASH: leaves (unlike chains) also take one hit from any orthogonally
-  // adjacent match — once per leaf per match event
+  // SPLASH DAMAGE: leaves AND crates (unlike chains, which need their own gem
+  // matched) take one hit from any orthogonally adjacent match — a crate has no
+  // gem to match, so adjacency is the ONLY way to break it. Once per obstacle
+  // per match event.
   const splashed=new Set();
   p.cells.forEach(([r,c])=>{
     for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
       const k=nr+','+nc;
       if(nr<0||nr>=R||nc<0||nc>=C||splashed.has(k))continue;
-      if(board[nr][nc].active&&isLeafy(nr,nc)){splashed.add(k);damageChain(nr,nc);}
+      if(board[nr][nc].active&&(isLeafy(nr,nc)||isCrate(nr,nc))){splashed.add(k);damageChain(nr,nc);}
     }
   });
   if(playerMode) updatePlayerHUD();
@@ -3357,11 +3365,12 @@ function applyObstacles(json){
     const isAcorn=ob.functionalId==='item.acorn';
     const isKey=ob.functionalId==='item.key';
     const isEmpty=ob.functionalId==='field.empty';
+    const isCrate=ob.functionalId==='block.crate';
     const pu=PU[ob.functionalId];
-    if(!pu&&!isClover&&!isChain&&!isLeaf&&!isAcorn&&!isKey&&!isEmpty)return;
+    if(!pu&&!isClover&&!isChain&&!isLeaf&&!isAcorn&&!isKey&&!isEmpty&&!isCrate)return;
     // overlay HP: entry-level 'hp' field, else 1 (footage: L8-L21 chains are HP1)
     const hpN=Math.min(3,Math.max(1,ob.hp||1));
-    const chainId='bind'+hpN, leafId='leaf'+hpN;
+    const chainId='bind'+hpN, leafId='leaf'+hpN, crateId='crate'+hpN;
     (ob.positions||[]).forEach(pos=>{
       const m=pos.match(/R(\d+)C(\d+)/); if(!m)return;
       const r=+m[1],c=+m[2];
@@ -3372,6 +3381,7 @@ function applyObstacles(json){
       else if(isAcorn){board[r][c].item='acorn';board[r][c].gem=null;} // acorn occupies the gem slot
       else if(isKey){board[r][c].item='key';board[r][c].gem=null;} // key occupies the gem slot, falls to exit
       else if(isEmpty){board[r][c].startEmpty=true;}
+      else if(isCrate){board[r][c].obs=crateId;board[r][c].gem=null;board[r][c].pu=null;} // solid box: no gem/PU inside
       else{board[r][c].pu=pu;board[r][c].gem=null;}
     });
   });
