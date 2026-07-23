@@ -2615,13 +2615,26 @@ function gravityWithMap(){
     }
   }
 
-  // Entry cells: walking UPSTREAM hits only inactive cells to the board edge.
-  // (Topology is static during gravity, so compute once.)
+  // Entry cells (FEED-AWARE, 2026-07-22 — Jed's river model: each cell receives
+  // from ONE direction, releases in ONE). A cell is a spawn source only if NO
+  // active neighbor flows INTO it AND its own upstream is open sky. The old rule
+  // only checked the cell's own upstream direction, so at a flow TURN (L25's
+  // staircase corners: fed from above/side but flowing a different way) a fed
+  // cell was falsely marked an inlet and spawned spurious gems. Down-only levels
+  // are unaffected — for uniform 'down' flow this yields the identical entry set.
+  const fedByNeighbor=(r,c)=>{
+    for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+      if(!inGrid(nr,nc)||!board[nr][nc].active)continue;
+      const [ndr,ndc]=vecAt(nr,nc);
+      if(nr+ndr===r&&nc+ndc===c)return true; // that neighbor releases its gem INTO (r,c)
+    }
+    return false;
+  };
   const entry=board.map((row,r)=>row.map((cd,c)=>{
     if(!cd.active)return false;
+    if(fedByNeighbor(r,c))return false;                    // something feeds it → not a source
     const [dr,dc]=vecAt(r,c);
-    for(let rr=r-dr,cc=c-dc;inGrid(rr,cc);rr-=dr,cc-=dc)if(board[rr][cc].active)return false;
-    return true;
+    return !inGrid(r-dr,c-dc)||!board[r-dr][c-dc].active;   // its own upstream is open sky
   }));
 
   // STARVED POCKETS BECOME SOURCES (Jed's rule, 2026-07-09): a cell that can
