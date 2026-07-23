@@ -2111,6 +2111,14 @@ function startPUCombo(dr,dc,sr,sc){
 function comboConvertAndDetonate(src,gemIdx){
   animating=true;
   const cells=rainbowCells(gemIdx);
+  // CLOVER INHERITANCE (Jed 2026-07-23): a combo that TOUCHES clover (e.g. L16's
+  // Ball+Dragonfly, both born on clover) spreads it through the whole conversion.
+  // Each converted tile inherits clover, so its Phase-B detonation sweep then
+  // plants along its full line — "a PU blast touching clover plants its whole
+  // area". Was silently missing: the combo path never propagated clover the way
+  // a solo Ball/Dragonfly does.
+  const comboTouchesClover=cells.concat([[src.r,src.c]])
+    .some(([r,c])=>board[r]&&board[r][c]&&board[r][c].sub==='clover');
   cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); // reading order: row 1 L→R, row 2…
   const HIT_MS=110; // same pace as the solo Ball's laser sweep
   let i=0;
@@ -2122,6 +2130,7 @@ function comboConvertAndDetonate(src,gemIdx){
       if(playerMode){playerTally(gemIdx);updatePlayerHUD();} // conversion consumes the gem
       board[r][c].gem=null;
       board[r][c].pu=src.convertTo==='rocket'?(Math.random()<0.5?'rocket_h':'rocket_v'):src.convertTo;
+      if(comboTouchesClover)plantClover([[r,c]],true); // inherit clover from the on-clover combo
       render(null);
       convertNext();
     },HIT_MS);
