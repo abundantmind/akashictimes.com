@@ -3294,10 +3294,10 @@ function renderBundles(){
 
 const MAX_BUILT_LEVEL=25; // levels with shipped JSONs — bump as the bundle grows
 // Built-but-held levels: JSON exists in captures but the level needs engine work
-// before it ships. L23 = two-zone board (block.crate obstacle + horizontal
-// flyover, neither built yet). Held levels render "Soon" and are SKIPPED in the
-// unlock chain so the levels after them stay reachable.
-const HELD_LEVELS=new Set([23]);
+// before it ships. L23 shipped 2026-07-24 (two-zone 8x27, crate mechanic already
+// wired; renders fit-to-width — horizontal flyover camera is a later polish, not a
+// blocker). Held levels render "Soon" and are SKIPPED in the unlock chain.
+const HELD_LEVELS=new Set([]);
 // Cloud auth (magic-link sign-in strip) stays dark until it's verified end-to-end
 // — Supabase redirect-URL allowlist + a real magic-link round-trip. Flip true to
 // light the strip once that's done.

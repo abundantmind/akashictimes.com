@@ -1,0 +1,117 @@
+{
+  "level": 23,
+  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "board": {
+    "rows": 8,
+    "cols": 27,
+    "note": "Two-zone board (no-multi-zone canon): left zone cols 0-10, right zone cols 16-26, separated by 5 inactive gap columns (11-15). Straight-down gravity; keys fall their own columns to exit at the true board bottom. Horizontal flyover camera (translateX cousin of L20) NOT yet built — renders fit-to-width for now.",
+    "layout": [
+      "..#.....#.........#######..",
+      ".###...###.......#########.",
+      ".###.#.###......###########",
+      "###########.....###########",
+      "####.#.####.....###########",
+      "###########.....###########",
+      ".#########.......#########.",
+      ".#########........#######.."
+    ]
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "objectives": [
+    {
+      "type": "collect",
+      "item": "key",
+      "count": 6,
+      "note": "6 keys, 3 per zone. Fall via gravity, collected out the bottom (collectExitedKeys)."
+    }
+  ],
+  "moveLimit": 13,
+  "boosterSlots": 4,
+  "obstacles": [
+    {
+      "functionalId": "item.key",
+      "township": "Key",
+      "note": "6 keys. 3 left zone (R0C2, R0C8, R2C5), 3 right zone (R0C21, R1C17, R1C25). 0-indexed.",
+      "positions": [
+        "R0C2",
+        "R0C8",
+        "R0C21",
+        "R1C17",
+        "R1C25",
+        "R2C5"
+      ]
+    },
+    {
+      "functionalId": "block.crate",
+      "township": "Box / Crate (wooden crate)",
+      "hp": 1,
+      "note": "50 HP1 crates. Solid box, no gem inside; splash-breaks on adjacent match, cell then fills via gravity. 0-indexed.",
+      "positions": [
+        "R0C20",
+        "R0C22",
+        "R1C20",
+        "R1C22",
+        "R2C2",
+        "R2C8",
+        "R2C17",
+        "R2C21",
+        "R2C25",
+        "R3C2",
+        "R3C5",
+        "R3C8",
+        "R3C16",
+        "R3C18",
+        "R3C21",
+        "R3C24",
+        "R3C26",
+        "R4C2",
+        "R4C5",
+        "R4C8",
+        "R4C16",
+        "R4C18",
+        "R4C21",
+        "R4C24",
+        "R4C26",
+        "R5C2",
+        "R5C4",
+        "R5C5",
+        "R5C6",
+        "R5C8",
+        "R5C16",
+        "R5C18",
+        "R5C21",
+        "R5C24",
+        "R5C26",
+        "R6C2",
+        "R6C4",
+        "R6C5",
+        "R6C6",
+        "R6C8",
+        "R6C17",
+        "R6C21",
+        "R6C25",
+        "R7C2",
+        "R7C4",
+        "R7C5",
+        "R7C6",
+        "R7C8",
+        "R7C20",
+        "R7C22"
+      ]
+    }
+  ],
+  "rewards": {
+    "energy": null
+  },
+  "captureMeta": {
+    "source": "Verified library JSON (Township-Level-0023.json, column-count-verified from Jed's HTML editor). Fire + Hermes captures.",
+    "verified": true,
+    "notes": "8x27 two-zone board. 140 active cells = 6 keys + 50 HP1 crates + 84 plain gems. Crate mechanic deepened (block.crate, no contents). puRuling (Jed 2026-07-12): PUs/gem colors visible in the mid-play BoardStates are win-streak carryovers, NOT design — not transcribed.",
+    "cameraNote": "Township shows the right zone first (flyover) then pans left; gameplay starts left, camera pans right after the left 3 keys exit. Horizontal flyover camera not yet built on site."
+  }
+}
