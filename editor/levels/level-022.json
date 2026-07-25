@@ -32,74 +32,41 @@
   ],
   "moveLimit": 26,
   "boosterSlots": 3,
-  "obstacles": [
-    {
-      "functionalId": "block.crate",
-      "township": "Box / Crate (wooden crate)",
-      "positions": [
-        "R3C0",
-        "R3C9",
-        "R4C0",
-        "R4C1",
-        "R4C2",
-        "R4C3",
-        "R4C6",
-        "R4C7",
-        "R4C8",
-        "R4C9",
-        "R5C2",
-        "R5C3",
-        "R5C6",
-        "R5C7",
-        "R6C0",
-        "R6C3",
-        "R6C4",
-        "R6C5",
-        "R6C6",
-        "R6C9",
-        "R7C0",
-        "R7C1",
-        "R7C4",
-        "R7C5",
-        "R7C8",
-        "R7C9",
-        "R8C1",
-        "R8C2",
-        "R8C7",
-        "R8C8"
-      ],
-      "note": "30 boxes (Township L22 debut). Converted 1-based capture -> 0-based engine coords 2026-07-23."
-    },
-    {
-      "functionalId": "substrate.clover",
-      "township": "grass turf",
-      "note": "Symmetric starting clover (Jed 2026-07-25): all gem cells except the central bare channel R3/R4/R5 C4-C5. Clover is NOT under crates; it spreads onto broken-crate cells during play. Non-clover pattern (rows 3-6, 2/4/2/2) = the bare gems + crate cells in the central channel.",
-      "positions": [
-        "R0C3",
-        "R0C4",
-        "R0C5",
-        "R0C6",
-        "R1C2",
-        "R1C3",
-        "R1C4",
-        "R1C5",
-        "R1C6",
-        "R1C7",
-        "R2C1",
-        "R2C2",
-        "R2C3",
-        "R2C4",
-        "R2C5",
-        "R2C6",
-        "R2C7",
-        "R2C8",
-        "R3C1",
-        "R3C2",
-        "R3C3",
-        "R3C6",
-        "R3C7",
-        "R3C8"
-      ]
-    }
-  ]
+  "obstacles": [],
+  "patterns": {
+    "legend": "active: #=active .=inactive (same as board.layout). clover: c=clover .=none. crate: K=crate .=none. Edit these grids to move clover/crate; the engine paints them onto active cells.",
+    "active": [
+      "...####...",
+      "..######..",
+      ".########.",
+      "##########",
+      "##########",
+      "..######..",
+      "#..####..#",
+      "##..##..##",
+      ".##....##."
+    ],
+    "clover": [
+      "...cccc...",
+      "..cccccc..",
+      ".ccc..ccc.",
+      ".cc....cc.",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      ".........."
+    ],
+    "crate": [
+      "..........",
+      "..........",
+      "..........",
+      "K........K",
+      "KKKK..KKKK",
+      "..KK..KK..",
+      "K..KKKK..K",
+      "KK..KK..KK",
+      ".KK....KK."
+    ]
+  }
 }

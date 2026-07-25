@@ -1109,17 +1109,20 @@ function clean(){
   // 2026-07-24). Touching only offending cells converges in a handful of passes.
   // Skip crates (solid boxes hold no gem — they must never be rerolled/matched)
   // and never touch inactive/startEmpty/item cells (those stay gem-free).
-  let t=0;
-  while(t++<400){
-    const bad=new Set();
-    for(const [r,c] of find3())bad.add(r+','+c);
-    for(const grp of find2x2())for(const [r,c] of grp)bad.add(r+','+c);
-    if(!bad.size)break;
-    for(const k of bad){
-      const [r,c]=k.split(',').map(Number);
-      if(board[r][c].active&&!board[r][c].pu&&board[r][c].gem!==null&&!isCrate(r,c))board[r][c].gem=randGem();
+  scanFullBoard=true; // scan the whole board, ignoring any flyover camera window
+  try{
+    let t=0;
+    while(t++<400){
+      const bad=new Set();
+      for(const [r,c] of find3())bad.add(r+','+c);
+      for(const grp of find2x2())for(const [r,c] of grp)bad.add(r+','+c);
+      if(!bad.size)break;
+      for(const k of bad){
+        const [r,c]=k.split(',').map(Number);
+        if(board[r][c].active&&!board[r][c].pu&&board[r][c].gem!==null&&!isCrate(r,c))board[r][c].gem=randGem();
+      }
     }
-  }
+  } finally { scanFullBoard=false; }
 }
 
 function save(){undoQ.push(JSON.stringify(board));if(undoQ.length>60)undoQ.shift();redoQ=[];updUB();}
@@ -3427,6 +3430,24 @@ function applyFlow(json){
   });
 }
 
+// PATTERN LAYERS: paint clover (substrate) and crate (block) from human-editable
+// ASCII grids. A layer's fill char = present on that cell; '.' and '#' = absent
+// (so the grid can mirror the board shape for readability). Only active cells are
+// painted. Runs AFTER applyObstacles, so a level may use obstacles, patterns, or
+// both. Jed's tool (2026-07-25) for eyeball-editing clover/crate placement.
+function applyPatterns(P){
+  if(!P)return;
+  const paint=(grid,fn)=>{
+    if(!Array.isArray(grid))return;
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      const ch=(grid[r]||'')[c];
+      if(board[r]&&board[r][c]&&board[r][c].active&&ch&&ch!=='.'&&ch!=='#')fn(r,c);
+    }
+  };
+  paint(P.clover,(r,c)=>{board[r][c].sub='clover';});
+  paint(P.crate,(r,c)=>{board[r][c].obs='crate1';board[r][c].gem=null;board[r][c].pu=null;}); // solid box
+}
+
 // Pre-placed power-ups map onto engine power-ups; substrate.clover positions
 // become live seed cells (spread mechanics: plantClover). Chains, leaves,
 // acorns and keys are simulated; crates are not yet — those cells stay gems.
@@ -3472,7 +3493,12 @@ function loadLevelData(json,num){
     ?{axis:(json.flyover.axis==='x'?'x':'y'),viewRows:json.flyover.viewRows||9,
       viewCols:json.flyover.viewCols||11,stops:json.flyover.stops}:null;
   flyStop=0;flyLock=false;
-  const layout=json.board.layout||[];
+  // PATTERN LAYERS (Jed 2026-07-25): optional `patterns` section holds parallel
+  // ASCII grids so a level's clover/crate placement reads and edits like the
+  // board. patterns.active (if present) is the active/inactive grid — same
+  // convention as board.layout ('#'=active, '.'=inactive); otherwise board.layout.
+  const P=json.patterns||{};
+  const layout=(Array.isArray(P.active)&&P.active.length)?P.active:(json.board.layout||[]);
   board=[]; flow=[];
   for(let r=0;r<R;r++){
     board.push([]); flow.push([]);
@@ -3485,6 +3511,7 @@ function loadLevelData(json,num){
   }
   applyFlow(json);
   applyObstacles(json);
+  applyPatterns(P); // paint clover/crate layers on top of any obstacles
   curLevelNum=num;
   moveLimit=json.moveLimit||20;
   curBoosterSlots=json.boosterSlots||3; // right-palette slot count (Township HUD)
@@ -3557,8 +3584,12 @@ const flyTransform=i=>flyover.axis==='x'?'translateX('+flyPx(i)+'px)':'translate
 // key must fall THROUGH the below-view region to the true bottom, and on axis 'x'
 // (L23) the inactive gap already isolates each zone into its own gravity region.
 // Always true on normal levels (flyover null) → zero change off the flyover path.
+let scanFullBoard=false; // clean() sets this: initial-match removal scans the
+                         // WHOLE board, not just the camera window (both flyover
+                         // zones must start match-free, or a frozen zone's initial
+                         // matches auto-pop when the camera later reaches it)
 function inPlayWindow(r,c){
-  if(!flyover)return true;
+  if(!flyover||scanFullBoard)return true;
   const s=flyover.stops[flyStop];
   return flyover.axis==='x' ? (c>=s&&c<s+flyover.viewCols) : (r>=s&&r<s+flyover.viewRows);
 }
