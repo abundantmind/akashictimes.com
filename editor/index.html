@@ -2834,7 +2834,12 @@ function gravityWithMap(){
     // 3) SPAWN — entry cells pull new gems in from stacked off-grid cells;
     //    promoted (starved-pocket) entries fade in instead of flying in
     for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-      if(!entry[r][c]||occ(r,c)||isCrate(r,c))continue; // never spawn into a solid crate
+      // startEmpty cells are AUTHORED empty — they fill ONLY by gems flowing in
+      // from the true inlet (a chain/crate dam breaking upstream), NEVER by a
+      // spawn. Without this, a sealed region with no open-sky feed got PROMOTED
+      // to a starved-pocket source and fadeIn-spawned gems from below — L25's
+      // canal filled its bottom sections from the bottom edge up (Jed, 2026-07-25).
+      if(!entry[r][c]||occ(r,c)||isCrate(r,c)||board[r][c].startEmpty)continue; // never spawn into a solid crate or an authored-empty cell
       const [dr,dc]=vecAt(r,c);
       const n=++spawnN[r][c];
       board[r][c].gem=randGem();board[r][c].pu=null;
