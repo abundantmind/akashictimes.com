@@ -15,51 +15,119 @@
       "#######"
     ]
   },
-  "gemTypes": ["red", "green", "yellow", "blue"],
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
   "objectives": [
-    { "type": "collect", "item": "acorn", "count": 13 },
-    { "type": "plant", "obstacle": "clover", "count": 42 }
+    {
+      "type": "collect",
+      "item": "acorn",
+      "count": 13
+    },
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 42
+    }
   ],
   "moveLimit": 25,
   "boosterSlots": 4,
   "obstacles": [
     {
       "functionalId": "substrate.clover",
-      "note": "Clover substrate on rows 5–6 (1-indexed) ONLY — 14 cells. GOAL-ARITHMETIC CORRECTION 2026-07-17: 56 active − 42 plant goal = 14 pre-planted exactly; the old trace also claimed clover under the HP2 leaf rows 7–8 (28 total), which made the goal unreachable (max 28 plants vs need 42 — Jed's HUD froze at 42−28=14 remaining). Leaves visually cover substrate, so that claim was inference, not observation. Positions 0-indexed.",
+      "note": "Clover substrate on rows 5\u20136 (1-indexed) ONLY \u2014 14 cells. GOAL-ARITHMETIC CORRECTION 2026-07-17: 56 active \u2212 42 plant goal = 14 pre-planted exactly; the old trace also claimed clover under the HP2 leaf rows 7\u20138 (28 total), which made the goal unreachable (max 28 plants vs need 42 \u2014 Jed's HUD froze at 42\u221228=14 remaining). Leaves visually cover substrate, so that claim was inference, not observation. Positions 0-indexed.",
       "positions": [
-        "R4C0","R4C1","R4C2","R4C3","R4C4","R4C5","R4C6",
-        "R5C0","R5C1","R5C2","R5C3","R5C4","R5C5","R5C6"
+        "R4C0",
+        "R4C1",
+        "R4C2",
+        "R4C3",
+        "R4C4",
+        "R4C5",
+        "R4C6",
+        "R5C0",
+        "R5C1",
+        "R5C2",
+        "R5C3",
+        "R5C4",
+        "R5C5",
+        "R5C6"
       ]
     },
     {
       "functionalId": "overlay.leaf",
       "hp": 1,
       "note": "1-HP leaf overlay. Row 4 (1-indexed), 6 cells; col 4 (1-indexed) is plain gem. No clover substrate under this row. Positions 0-indexed.",
-      "positions": ["R3C0","R3C1","R3C2","R3C4","R3C5","R3C6"]
+      "positions": [
+        "R3C0",
+        "R3C1",
+        "R3C2",
+        "R3C4",
+        "R3C5",
+        "R3C6"
+      ]
     },
     {
       "functionalId": "overlay.leaf",
       "hp": 2,
-      "note": "2-HP leaf overlay. Rows 7–8 (1-indexed) all cells confirmed HP2. NO clover beneath (corrected 2026-07-17 — goal arithmetic; these cells are plantable targets). Positions 0-indexed.",
+      "note": "2-HP leaf overlay. Rows 7\u20138 (1-indexed) all cells confirmed HP2. NO clover beneath (corrected 2026-07-17 \u2014 goal arithmetic; these cells are plantable targets). Positions 0-indexed.",
       "positions": [
-        "R6C0","R6C1","R6C2","R6C3","R6C4","R6C5","R6C6",
-        "R7C0","R7C1","R7C2","R7C3","R7C4","R7C5","R7C6"
+        "R6C0",
+        "R6C1",
+        "R6C2",
+        "R6C3",
+        "R6C4",
+        "R6C5",
+        "R6C6",
+        "R7C0",
+        "R7C1",
+        "R7C2",
+        "R7C3",
+        "R7C4",
+        "R7C5",
+        "R7C6"
       ]
     },
     {
       "functionalId": "item.acorn",
       "note": "Acorn collectibles under leaf overlays. Row 4 (1-indexed) = 6 acorns HP1 (cols 1,2,3,5,6,7); row 7 = 4 acorns HP2 (cols 1,3,4,5); row 8 = 3 acorns HP2 (cols 3,5,7). 13 total = objective. Positions 0-indexed.",
       "positions": [
-        "R3C0","R3C1","R3C2","R3C4","R3C5","R3C6",
-        "R6C0","R6C2","R6C3","R6C4",
-        "R7C2","R7C4","R7C6"
+        "R3C0",
+        "R3C1",
+        "R3C2",
+        "R3C4",
+        "R3C5",
+        "R3C6",
+        "R6C0",
+        "R6C2",
+        "R6C3",
+        "R6C4",
+        "R7C2",
+        "R7C4",
+        "R7C6"
+      ]
+    },
+    {
+      "functionalId": "field.empty",
+      "note": "Clover-patch cells that start GEM-FREE (BoardState): sealed under the row-3 acorn-in-leaf ceiling. Jed 2026-07-25. FLAG: row5 {5,6} read off a mid-hint frame - verify.",
+      "positions": [
+        "R4C0",
+        "R4C1",
+        "R4C5",
+        "R4C6",
+        "R5C5",
+        "R5C6"
       ]
     }
   ],
-  "rewards": { "energy": null },
+  "rewards": {
+    "energy": null
+  },
   "captureMeta": {
     "source": "BoardState PNG captured by Jed pre-move. Video: Township-Level-0014.mov.",
     "verified": true,
-    "notes": "8×7 full rectangle, 56 active cells = 42 plant goal + 14 pre-planted (arithmetic exact after 2026-07-17 correction). Rows 1–3 (1-indexed): plain gems, no overlay, no substrate. Row 4: acorn-leaf HP1 at 6 cells, plain gem at col 4 (1-indexed). Rows 5–6: plain gems on clover substrate, no leaf overlay. Rows 7–8: all 7 cells HP2 leafed (confirmed by Jed), BARE ground beneath — plantable. Row 7 acorns at cols 1–3 confirmed; row 8 acorn positions (cols 1,2,3,5 1-indexed) approximate from BoardState image — request pattern file to lock."
+    "notes": "8\u00d77 full rectangle, 56 active cells = 42 plant goal + 14 pre-planted (arithmetic exact after 2026-07-17 correction). Rows 1\u20133 (1-indexed): plain gems, no overlay, no substrate. Row 4: acorn-leaf HP1 at 6 cells, plain gem at col 4 (1-indexed). Rows 5\u20136: plain gems on clover substrate, no leaf overlay. Rows 7\u20138: all 7 cells HP2 leafed (confirmed by Jed), BARE ground beneath \u2014 plantable. Row 7 acorns at cols 1\u20133 confirmed; row 8 acorn positions (cols 1,2,3,5 1-indexed) approximate from BoardState image \u2014 request pattern file to lock."
   }
 }
