@@ -2694,7 +2694,15 @@ function gravityWithMap(){
     if(isCrate(r,c))return false;                          // a solid crate is never a spawn source
     if(fedByNeighbor(r,c))return false;                    // something feeds it → not a source
     const [dr,dc]=vecAt(r,c);
-    return !inGrid(r-dr,c-dc)||!board[r-dr][c-dc].active;   // its own upstream is open sky
+    // Only TRUE open sky — the upstream is OFF THE BOARD (top edge) — is a base
+    // spawn source. A HOLE directly above is NOT open sky: the old rule treated
+    // it as one, so a cell below an interior hole spawned a gem that flew FROM
+    // the hole cell down into it — gems visibly appeared IN the inactive hole
+    // (Jed's L2 recording, 2026-07-25). Such cells instead fill by DIAGONAL SLIP
+    // around the hole (feed fixpoint below handles it), or — if genuinely starved
+    // (hole above + both diagonals dead, L4 wing pockets) — get promoted to a
+    // fadeIn spawn that materializes in place, never through the hole.
+    return !inGrid(r-dr,c-dc);
   }));
 
   // STARVED POCKETS BECOME SOURCES (Jed's rule, 2026-07-09): a cell that can
