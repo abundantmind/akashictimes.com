@@ -1101,11 +1101,25 @@ function initBlankBoard(){
 }
 
 function clean(){
+  // Remove initial board matches. TARGETED reroll: reroll ONLY the cells that
+  // are currently IN a match, then re-check. The old version rerolled the WHOLE
+  // board every pass and hoped all N cells came up match-free by luck — that
+  // converges on tiny boards but is astronomically unlikely on 80+-cell boards,
+  // so it hit the cap and SHIPPED with visible matches at Move #0 (L23 bug,
+  // 2026-07-24). Touching only offending cells converges in a handful of passes.
+  // Skip crates (solid boxes hold no gem — they must never be rerolled/matched)
+  // and never touch inactive/startEmpty/item cells (those stay gem-free).
   let t=0;
-  // reroll only ACTIVE cells that HOLD a gem — inactive holes and startEmpty
-  // cells (L8 sealed bottom / clover donut) must stay gem-free
-  while((find3().length||find2x2().length)&&t++<400)
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&board[r][c].gem!==null)board[r][c].gem=randGem();
+  while(t++<400){
+    const bad=new Set();
+    for(const [r,c] of find3())bad.add(r+','+c);
+    for(const grp of find2x2())for(const [r,c] of grp)bad.add(r+','+c);
+    if(!bad.size)break;
+    for(const k of bad){
+      const [r,c]=k.split(',').map(Number);
+      if(board[r][c].active&&!board[r][c].pu&&board[r][c].gem!==null&&!isCrate(r,c))board[r][c].gem=randGem();
+    }
+  }
 }
 
 function save(){undoQ.push(JSON.stringify(board));if(undoQ.length>60)undoQ.shift();redoQ=[];updUB();}
@@ -1610,7 +1624,11 @@ function togglePlay(){
     // startEmpty cells (field.empty in level JSONs — L8's sealed bottom and
     // clover donut) begin GEM-FREE; gravity fills them during play as the
     // level's design allows (chain breaks, the donut's drip-feed gap).
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item)board[r][c].gem=randGem();
+    // Fill empty active cells with gems — but NOT crate cells: a crate is a
+    // solid box with no gem inside, so filling it planted an invisible gem that
+    // find3 matched THROUGH (crates weren't excluded from the match scan). Skip
+    // crates (isCrate); they refill normally once broken.
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
   }
   render();
