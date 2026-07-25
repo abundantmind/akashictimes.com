@@ -1677,6 +1677,8 @@ function damageChain(r,c){
 function clearCell(r,c,phaseSet){
   const k=r+','+c;
   if(phaseSet.has(k)) return; // already cleared this phase
+  if(!inPlayWindow(r,c)) return; // flyover HARD RULE: no clear outside the camera
+                                 // window — a blast/beam stops dead at the boundary
   // CHAIN ABSORB: one hit per phase; the gem is untouched and NOT counted cleared
   if(isChained(r,c)){
     phaseSet.chainHits=phaseSet.chainHits||new Set();
@@ -1871,7 +1873,7 @@ function collectExitedKeys(){
   let got=0;
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     const cd=board[r][c];
-    if(!cd.active||cd.item!=='key')continue;
+    if(!cd.active||cd.item!=='key'||!inPlayWindow(r,c))continue; // frozen zone's keys wait their turn
     const [dr,dc]=FLOW_VEC[(flow[r]&&flow[r][c])||'down'];
     const nr=r+dr,nc=c+dc;
     const downstreamActive=nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active;
@@ -1913,6 +1915,8 @@ function settleAndCascade(phase,sr,sc){
 function clearCellD(r,c,phase,queue){
   const k=r+','+c;
   if(phase.has(k))return;
+  if(!inPlayWindow(r,c))return; // flyover HARD RULE: off-window cells never
+                                // detonate or clear — beams stop at the boundary
   // chain absorbs the hit — nothing underneath detonates or clears
   if(isChained(r,c)){clearCell(r,c,phase);return;}
   const pu=board[r][c].pu;
@@ -3036,7 +3040,10 @@ function find2x2(){
   const res=[];
   for(let r=0;r<R-1;r++)for(let c=0;c<C-1;c++){
     const g=board[r][c].gem;if(g===null)continue;
-    if([board[r][c],board[r][c+1],board[r+1][c],board[r+1][c+1]].every(x=>x.active&&x.gem===g&&!x.pu)){
+    // all four seed cells must sit in the camera window (flyover freeze)
+    const w=(rr,cc)=>inPlayWindow(rr,cc);
+    if(w(r,c)&&w(r,c+1)&&w(r+1,c)&&w(r+1,c+1)&&
+       [board[r][c],board[r][c+1],board[r+1][c],board[r+1][c+1]].every(x=>x.active&&x.gem===g&&!x.pu)){
       // Start with the 2×2 block, then expand to any adjacent same-color cells
       const inSet=new Set([r+','+c,r+','+(c+1),(r+1)+','+c,(r+1)+','+(c+1)]);
       const queue=[[r,c],[r,c+1],[r+1,c],[r+1,c+1]];
@@ -3044,7 +3051,7 @@ function find2x2(){
         const [qr,qc]=queue.shift();
         for(const [nr,nc] of [[qr-1,qc],[qr+1,qc],[qr,qc-1],[qr,qc+1]]){
           const k=nr+','+nc;
-          if(nr>=0&&nr<R&&nc>=0&&nc<C&&!inSet.has(k)&&board[nr][nc].active&&board[nr][nc].gem===g&&!board[nr][nc].pu){
+          if(nr>=0&&nr<R&&nc>=0&&nc<C&&inPlayWindow(nr,nc)&&!inSet.has(k)&&board[nr][nc].active&&board[nr][nc].gem===g&&!board[nr][nc].pu){
             inSet.add(k);
             queue.push([nr,nc]);
           }
@@ -3058,17 +3065,22 @@ function find2x2(){
 
 function find3(){
   const s=new Set();
+  // horizontal runs — inPlayWindow clips each cell so only the in-window portion
+  // of a run matches (flyover freeze: off-window rows/cols never auto-resolve)
   for(let r=0;r<R;r++)for(let c=0;c<C-2;c++){
-    const g=board[r][c].gem;if(g===null||board[r][c].pu)continue;
-    if([board[r][c],board[r][c+1],board[r][c+2]].every(x=>x.active&&x.gem===g&&!x.pu)){
-      let l=3;while(c+l<C&&board[r][c+l].active&&board[r][c+l].gem===g&&!board[r][c+l].pu)l++;
+    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const ok=cc=>cc<C&&inPlayWindow(r,cc)&&board[r][cc].active&&board[r][cc].gem===g&&!board[r][cc].pu;
+    if(ok(c+1)&&ok(c+2)){
+      let l=3;while(ok(c+l))l++;
       for(let i=0;i<l;i++)s.add(r+','+(c+i));
     }
   }
+  // vertical runs
   for(let c=0;c<C;c++)for(let r=0;r<R-2;r++){
-    const g=board[r][c].gem;if(g===null||board[r][c].pu)continue;
-    if([board[r][c],board[r+1][c],board[r+2][c]].every(x=>x.active&&x.gem===g&&!x.pu)){
-      let l=3;while(r+l<R&&board[r+l][c].active&&board[r+l][c].gem===g&&!board[r+l][c].pu)l++;
+    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const ok=rr=>rr<R&&inPlayWindow(rr,c)&&board[rr][c].active&&board[rr][c].gem===g&&!board[rr][c].pu;
+    if(ok(r+1)&&ok(r+2)){
+      let l=3;while(ok(r+l))l++;
       for(let i=0;i<l;i++)s.add((r+i)+','+c);
     }
   }
@@ -3078,15 +3090,17 @@ function find3(){
 function findPatterns(dr,dc,sr,sc){
   const pats=[];
   for(const g of find2x2()){pats.push({type:'helicopter',cells:g,dest:[dr,dc],pri:3});}
-  // L/T-shaped bomb (Scarab): two perpendicular runs of 3+ sharing one cell
+  // L/T-shaped bomb (Scarab): two perpendicular runs of 3+ sharing one cell.
+  // inPlayWindow clips the pivot and both arms so a Scarab can't form across a
+  // frozen boundary (flyover freeze).
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-    const bg=board[r][c].gem;if(bg===null||!board[r][c].active||board[r][c].pu)continue;
+    const bg=board[r][c].gem;if(bg===null||!board[r][c].active||board[r][c].pu||!inPlayWindow(r,c))continue;
     let hl=c,hr=c;
-    while(hl>0&&board[r][hl-1].active&&board[r][hl-1].gem===bg&&!board[r][hl-1].pu)hl--;
-    while(hr<C-1&&board[r][hr+1].active&&board[r][hr+1].gem===bg&&!board[r][hr+1].pu)hr++;
+    while(hl>0&&inPlayWindow(r,hl-1)&&board[r][hl-1].active&&board[r][hl-1].gem===bg&&!board[r][hl-1].pu)hl--;
+    while(hr<C-1&&inPlayWindow(r,hr+1)&&board[r][hr+1].active&&board[r][hr+1].gem===bg&&!board[r][hr+1].pu)hr++;
     let vt=r,vb=r;
-    while(vt>0&&board[vt-1][c].active&&board[vt-1][c].gem===bg&&!board[vt-1][c].pu)vt--;
-    while(vb<R-1&&board[vb+1][c].active&&board[vb+1][c].gem===bg&&!board[vb+1][c].pu)vb++;
+    while(vt>0&&inPlayWindow(vt-1,c)&&board[vt-1][c].active&&board[vt-1][c].gem===bg&&!board[vt-1][c].pu)vt--;
+    while(vb<R-1&&inPlayWindow(vb+1,c)&&board[vb+1][c].active&&board[vb+1][c].gem===bg&&!board[vb+1][c].pu)vb++;
     if(hr-hl+1>=3&&vb-vt+1>=3){
       const cells=[];
       for(let i=hl;i<=hr;i++)cells.push([r,i]);
@@ -3095,13 +3109,13 @@ function findPatterns(dr,dc,sr,sc){
     }
   }
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-    const g=board[r][c].gem;if(g===null||!board[r][c].active||board[r][c].pu)continue;
-    let hl=1;while(c+hl<C&&board[r][c+hl].active&&board[r][c+hl].gem===g&&!board[r][c+hl].pu)hl++;
+    const g=board[r][c].gem;if(g===null||!board[r][c].active||board[r][c].pu||!inPlayWindow(r,c))continue;
+    let hl=1;while(c+hl<C&&inPlayWindow(r,c+hl)&&board[r][c+hl].active&&board[r][c+hl].gem===g&&!board[r][c+hl].pu)hl++;
     if(hl>=5){const cells=[];for(let i=0;i<hl;i++)cells.push([r,c+i]);pats.push({type:'rainbow',cells,dest:[dr,dc],pri:1});}
     // 4-match spawns the PERPENDICULAR Dragonfly (Township canon, Jed 2026-07-16):
     // horizontal match → vertical rocket. Was keyed to swap direction — wrong.
     else if(hl===4){const cells=[];for(let i=0;i<4;i++)cells.push([r,c+i]);pats.push({type:'rocket_v',cells,dest:[dr,dc],pri:2});}
-    let vl=1;while(r+vl<R&&board[r+vl][c].active&&board[r+vl][c].gem===g&&!board[r+vl][c].pu)vl++;
+    let vl=1;while(r+vl<R&&inPlayWindow(r+vl,c)&&board[r+vl][c].active&&board[r+vl][c].gem===g&&!board[r+vl][c].pu)vl++;
     if(vl>=5){const cells=[];for(let i=0;i<vl;i++)cells.push([r+i,c]);pats.push({type:'rainbow',cells,dest:[dr,dc],pri:1});}
     // vertical match → horizontal rocket (perpendicular rule, see above)
     else if(vl===4){const cells=[];for(let i=0;i<4;i++)cells.push([r+i,c]);pats.push({type:'rocket_h',cells,dest:[dr,dc],pri:2});}
@@ -3420,10 +3434,13 @@ function applyObstacles(json){
 
 function loadLevelData(json,num){
   R=json.board.rows; C=json.board.cols;
-  // Flyover camera spec (L20+): camera-only presentation of tall boards.
+  // Flyover camera spec (L20+): camera-only presentation of big boards.
+  // axis 'y' = tall board, camera window viewRows tall, scrolls DOWN (L20).
+  // axis 'x' = wide board, camera window viewCols wide, pans RIGHT (L23 zones).
   // Reset per level — normal levels clear any previous flyover state.
   flyover=(json.flyover&&Array.isArray(json.flyover.stops)&&json.flyover.stops.length)
-    ?{viewRows:json.flyover.viewRows||9,stops:json.flyover.stops}:null;
+    ?{axis:(json.flyover.axis==='x'?'x':'y'),viewRows:json.flyover.viewRows||9,
+      viewCols:json.flyover.viewCols||11,stops:json.flyover.stops}:null;
   flyStop=0;flyLock=false;
   const layout=json.board.layout||[];
   board=[]; flow=[];
@@ -3499,22 +3516,46 @@ let flyover=null;   // active spec {viewRows,stops} — null on normal levels
 let flyStop=0;      // index into flyover.stops — the camera's current view
 let flyLock=false;  // input lock while the opening cutscene pans
 
-// translateY (px) that puts stops[i] at the top of the window
-const flyY=i=>-flyover.stops[i]*(CELL_SIZE+CELL_GAP);
+// translate (px) that puts stops[i] at the leading edge of the camera window
+const flyPx=i=>-flyover.stops[i]*(CELL_SIZE+CELL_GAP);
+const flyTransform=i=>flyover.axis==='x'?'translateX('+flyPx(i)+'px)':'translateY('+flyPx(i)+'px)';
+
+// THE HARD RULE (Jed, 2026-07-24): nothing outside the current camera window can
+// be affected by gameplay. inPlayWindow gates MATCHING and CLEARING — a frozen
+// region never forms/resolves a match and no blast (Dragonfly beam, Scarab, Ball
+// sweep) reaches into it. Gravity is deliberately NOT gated: on axis 'y' (L20) a
+// key must fall THROUGH the below-view region to the true bottom, and on axis 'x'
+// (L23) the inactive gap already isolates each zone into its own gravity region.
+// Always true on normal levels (flyover null) → zero change off the flyover path.
+function inPlayWindow(r,c){
+  if(!flyover)return true;
+  const s=flyover.stops[flyStop];
+  return flyover.axis==='x' ? (c>=s&&c<s+flyover.viewCols) : (r>=s&&r<s+flyover.viewRows);
+}
 
 // Size (or clear) the fixed camera window. Call after fitPlayBoard and on refit;
 // clears all inline styles when flyover is off so normal levels are untouched.
 function flyWindow(){
   const wrap=document.getElementById('board-wrap'),bd=document.getElementById('board');
   if(!flyover||!playerMode){
-    wrap.style.height='';wrap.style.flex='';wrap.style.margin='';wrap.style.alignItems='';
+    wrap.style.height='';wrap.style.width='';wrap.style.flex='';wrap.style.margin='';
+    wrap.style.alignItems='';wrap.style.justifyContent='';wrap.style.overflow='';
     bd.style.transform='';bd.style.transition='';
     return;
   }
-  wrap.style.height=(flyover.viewRows*CELL_SIZE+(flyover.viewRows-1)*CELL_GAP)+'px';
   wrap.style.flex='0 0 auto';        // fixed window, not a stretching flex column
   wrap.style.margin='auto';          // centers the window in the shell both ways
-  wrap.style.alignItems='flex-start';// board's row 0 anchors to the window top
+  wrap.style.overflow='hidden';      // clip the board to the camera window (both axes)
+  if(flyover.axis==='x'){            // wide board: fixed-WIDTH window, pans horizontally
+    wrap.style.width=(flyover.viewCols*CELL_SIZE+(flyover.viewCols-1)*CELL_GAP)+'px';
+    wrap.style.height='';
+    wrap.style.justifyContent='flex-start'; // board's col 0 anchors to the window left
+    wrap.style.alignItems='center';
+  }else{                            // tall board: fixed-HEIGHT window, scrolls vertically
+    wrap.style.height=(flyover.viewRows*CELL_SIZE+(flyover.viewRows-1)*CELL_GAP)+'px';
+    wrap.style.width='';
+    wrap.style.alignItems='flex-start';     // board's row 0 anchors to the window top
+  }
 }
 
 // Move the camera to a stop. dur=0 snaps (also re-anchors after a refit).
@@ -3523,7 +3564,7 @@ function flyGo(stop,dur,ease){
   flyStop=stop;
   const bd=document.getElementById('board');
   bd.style.transition=dur?('transform '+dur+'ms '+(ease||'ease-in-out')):'none';
-  bd.style.transform='translateY('+flyY(stop)+'px)';
+  bd.style.transform=flyTransform(stop);
 }
 
 // Opening cutscene: snap to the bottom view, hold, then pan upward stop by stop —
@@ -3549,12 +3590,27 @@ function flyCutscene(){
 function flyScrollCheck(){
   if(!flyover||!playerMode||flyLock)return;
   let target=flyStop;
-  while(target<flyover.stops.length-1){
-    const viewBottom=flyover.stops[target]+flyover.viewRows-1;
-    let hit=false;
-    for(let r=viewBottom;r<R&&!hit;r++)for(let c=0;c<C;c++)
-      if(board[r][c].active&&board[r][c].item==='key'){hit=true;break;}
-    if(hit)target++;else break;
+  if(flyover.axis==='x'){
+    // WIDE (L23): the live zone stays framed until every key in it has been
+    // collected out the bottom; then pan to the next zone (Jed's unlock rule,
+    // 2026-07-24). "No key left within the current window's columns" = zone done.
+    while(target<flyover.stops.length-1){
+      const lo=flyover.stops[target], hi=lo+flyover.viewCols-1;
+      let keyLeft=false;
+      for(let r=0;r<R&&!keyLeft;r++)for(let c=lo;c<=hi&&c<C;c++)
+        if(board[r][c].active&&board[r][c].item==='key'){keyLeft=true;break;}
+      if(!keyLeft)target++;else break;
+    }
+  }else{
+    // TALL (L20): a key reaching (or falling past) the view's bottom row scrolls
+    // the camera down one stop — repeat in case one fall crossed two views.
+    while(target<flyover.stops.length-1){
+      const viewBottom=flyover.stops[target]+flyover.viewRows-1;
+      let hit=false;
+      for(let r=viewBottom;r<R&&!hit;r++)for(let c=0;c<C;c++)
+        if(board[r][c].active&&board[r][c].item==='key'){hit=true;break;}
+      if(hit)target++;else break;
+    }
   }
   if(target!==flyStop)flyGo(target,900,'ease-in-out');
 }
@@ -3571,8 +3627,12 @@ function fitPlayBoard(){
   const vh=window.innerHeight, vw=window.innerWidth;
   const narrow=vw<=640;      // portrait phones: HUD bar above, booster strip below
   const shortLand=vh<=480;   // landscape phones: board owns nearly the full height
-  const effR=flyover?flyover.viewRows:R; // flyover boards size cells to the camera WINDOW, not the full board
-  const fitR=Math.max(effR,PLAY_MAX_R), fitC=Math.max(C,PLAY_MAX_C);
+  // flyover boards size cells to the camera WINDOW, not the full board — a tall
+  // board sizes to viewRows, a wide board (axis x) to viewCols so one zone fills
+  // the screen at a playable cell size.
+  const effR=(flyover&&flyover.axis!=='x')?flyover.viewRows:R;
+  const effC=(flyover&&flyover.axis==='x')?flyover.viewCols:C;
+  const fitR=Math.max(effR,PLAY_MAX_R), fitC=Math.max(effC,PLAY_MAX_C);
   const byH=Math.floor((vh*(shortLand?0.92:(narrow?0.55:0.65))-(fitR-1)*CELL_GAP)/fitR);
   const byW=Math.floor(((vw-(narrow?0:PLAY_PANEL_W*2))*0.94-(fitC-1)*CELL_GAP)/fitC);
   CELL_SIZE=Math.max(24,Math.min(96,Math.min(byH,byW)));
