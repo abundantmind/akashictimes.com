@@ -1633,6 +1633,7 @@ function togglePlay(){
     // crates (isCrate); they refill normally once broken.
     for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
+    if(!flyover&&!hasValidMove())shuffleBoard(); // opening board must have a move (skip authored flyover boards)
   }
   render();
 }
@@ -1859,6 +1860,77 @@ function cloverIconSVG(s){
 }
 
 // ── Cascade end: shared by applyEffects and resolve ──
+// ── AUTO-SHUFFLE when no moves remain (Township parity, Jed 2026-07-25) ───────
+// A brief centered toast so the reshuffle reads as intentional, not a glitch.
+function flashToast(msg){
+  const t=document.createElement('div');
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:9999;'
+    +'background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;border-radius:8px;'
+    +'padding:12px 22px;font-family:var(--font-sans);font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.5);'
+    +'opacity:0;transition:opacity .2s;pointer-events:none;';
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>{t.style.opacity='1';});
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),250);},1400);
+}
+
+// Is there any playable move? A PU on the board is always playable; otherwise
+// any adjacent swap that forms a match. Clipped to the flyover window (you can
+// only act on the framed zone). Immovable pieces (chains/crates) can't swap.
+function hasValidMove(){
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)
+    if(board[r][c].active&&board[r][c].pu&&inPlayWindow(r,c)&&!isChained(r,c))return true;
+  const trySwap=(r1,c1,r2,c2)=>{
+    if(!board[r1][c1].active||!board[r2][c2].active)return false;
+    if(!inPlayWindow(r1,c1)||!inPlayWindow(r2,c2))return false;
+    if(isChained(r1,c1)||isChained(r2,c2)||isCrate(r1,c1)||isCrate(r2,c2))return false;
+    if(board[r1][c1].gem===null&&board[r2][c2].gem===null)return false; // nothing to move
+    const g1=board[r1][c1].gem,g2=board[r2][c2].gem;
+    board[r1][c1].gem=g2;board[r2][c2].gem=g1;
+    const ok=find3().length>0;
+    board[r1][c1].gem=g1;board[r2][c2].gem=g2;
+    return ok;
+  };
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(c+1<C&&trySwap(r,c,r,c+1))return true;
+    if(r+1<R&&trySwap(r,c,r+1,c))return true;
+  }
+  return false;
+}
+
+// Rearrange the free gems (in the play window) until the board has no matches AND
+// at least one valid move. Only plain gems move — chains/crates/keys/PUs/empties
+// stay put. Returns false if there's nothing meaningful to shuffle.
+function shuffleBoard(){
+  const cells=[],gems=[];
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(board[r][c].active&&board[r][c].gem!==null&&!board[r][c].pu&&!isChained(r,c)
+       &&!isCrate(r,c)&&!board[r][c].item&&inPlayWindow(r,c)){cells.push([r,c]);gems.push(board[r][c].gem);}
+  }
+  if(cells.length<3)return false;
+  for(let t=0;t<60;t++){
+    for(let i=gems.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[gems[i],gems[j]]=[gems[j],gems[i]];}
+    cells.forEach(([r,c],i)=>{board[r][c].gem=gems[i];});
+    if(!find3().length&&!find2x2().length&&hasValidMove())return true;
+  }
+  clean();return true; // fallback: at least deadlock-free of initial matches
+}
+
+// After a settle (or at level start): if the goal isn't done and no move exists,
+// reshuffle so the player is never stuck (Township never dead-ends a board).
+function maybeShuffle(silent){
+  if(!playerMode||animating)return;
+  if(playerGoals.length&&playerGoals.every(goalDone))return; // already won
+  if(hasValidMove())return;
+  if(shuffleBoard()){
+    render();
+    if(!silent){
+      const ko=(localStorage.getItem('akashicswaps-lang')==='ko');
+      flashToast(ko?'움직임 없음 — 보드를 섞었어요':'No moves — reshuffling the board');
+    }
+  }
+}
+
 function cascadeEnd(){
   updStats();
   // If a player-activated Grasshopper is waiting for fly-to target, enter choosing state
@@ -1879,7 +1951,7 @@ function cascadeEnd(){
   window.runMaxSeq=Math.max(window.runMaxSeq||0,window.lastMovePUs);
   if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs in sequence from one move');
   animating=false;render();
-  if(playerMode){updatePlayerHUD();checkPlayerEnd();}
+  if(playerMode){updatePlayerHUD();checkPlayerEnd();maybeShuffle();}
 }
 
 // KEY EXIT: after a settle, any key that has reached the bottom edge of its
