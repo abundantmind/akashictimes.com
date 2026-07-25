@@ -1677,6 +1677,20 @@ function damageChain(r,c){
   }
 }
 
+// Splash the crates/leaves orthogonally bordering a cleared cell — one hit per
+// obstacle per phase (phase.splashed). Matches do this inline in resolve(); this
+// is the same rule for PU DETONATIONS (Jed 2026-07-25: an Akasha Ball/beam/blast
+// clearing a gem next to a crate must crack that crate, like a match would).
+function splashObstacle(r,c,phase){
+  phase.splashed=phase.splashed||new Set();
+  for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+    if(nr<0||nr>=R||nc<0||nc>=C)continue;
+    const k=nr+','+nc;
+    if(phase.splashed.has(k))continue;
+    if(board[nr][nc].active&&(isCrate(nr,nc)||isLeafy(nr,nc))){phase.splashed.add(k);damageChain(nr,nc);}
+  }
+}
+
 function clearCell(r,c,phaseSet){
   const k=r+','+c;
   if(phaseSet.has(k)) return; // already cleared this phase
@@ -1929,6 +1943,7 @@ function clearCellD(r,c,phase,queue){
     queue.push({pu,r,c});     // its cinematic plays at ITS position, in turn
   }
   clearCell(r,c,phase);
+  splashObstacle(r,c,phase);  // a detonation clearing this cell cracks bordering crates/leaves
 }
 
 // Play queued detonations one at a time; each may enqueue more (chains).
