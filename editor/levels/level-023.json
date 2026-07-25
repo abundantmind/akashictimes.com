@@ -4,7 +4,7 @@
   "board": {
     "rows": 8,
     "cols": 27,
-    "note": "Two-zone board (no-multi-zone canon): left zone cols 0-10, right zone cols 16-26, separated by 5 inactive gap columns (11-15). Straight-down gravity; keys fall their own columns to exit at the true board bottom. Horizontal flyover camera (translateX cousin of L20) NOT yet built — renders fit-to-width for now.",
+    "note": "Two-zone board (no-multi-zone canon): left zone cols 0-10, right zone cols 16-26, separated by 5 inactive gap columns (11-15). Straight-down gravity; keys fall their own columns to exit at the true board bottom. Horizontal flyover camera frames ONE zone at a time.",
     "layout": [
       "..#.....#.........#######..",
       ".###...###.......#########.",
@@ -32,6 +32,12 @@
   ],
   "moveLimit": 13,
   "boosterSlots": 4,
+  "flyover": {
+    "axis": "x",
+    "viewCols": 11,
+    "stops": [0, 16],
+    "note": "HORIZONTAL flyover (translateX). Camera frames one 11-col zone at a time; the other zone is FROZEN (no matching/clearing/PU reach — the hard rule). stops = each zone's LEFT column: 0 = left zone (play starts here), 16 = right zone. Opening cutscene previews right zone then pans left to the start. Unlock: collect the live zone's 3 keys out the bottom, then the camera pans to the next zone (flyScrollCheck axis-x rule)."
+  },
   "obstacles": [
     {
       "functionalId": "item.key",
