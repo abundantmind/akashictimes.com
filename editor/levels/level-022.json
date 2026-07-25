@@ -34,7 +34,7 @@
   "boosterSlots": 3,
   "obstacles": [],
   "patterns": {
-    "legend": "active: #=active .=inactive (same as board.layout). clover: c=clover .=none. crate: K=crate .=none. Edit these grids to move clover/crate; the engine paints them onto active cells.",
+    "legend": "active: #=active .=inactive (=board.layout). clover: c. crate: K. empty: e = active but starts gem-free (sealed under crates; fills as they break). '.'=absent.",
     "active": [
       "...####...",
       "..######..",
@@ -67,6 +67,17 @@
       "K..KKKK..K",
       "KK..KK..KK",
       ".KK....KK."
+    ],
+    "empty": [
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "ee......ee",
+      ".ee....ee.",
+      "..ee..ee..",
+      ".........."
     ]
   }
 }

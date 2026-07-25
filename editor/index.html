@@ -3446,6 +3446,7 @@ function applyPatterns(P){
   };
   paint(P.clover,(r,c)=>{board[r][c].sub='clover';});
   paint(P.crate,(r,c)=>{board[r][c].obs='crate1';board[r][c].gem=null;board[r][c].pu=null;}); // solid box
+  paint(P.empty,(r,c)=>{board[r][c].startEmpty=true;board[r][c].gem=null;}); // starts gem-free (sealed under crates; fills as they break)
 }
 
 // Pre-placed power-ups map onto engine power-ups; substrate.clover positions
