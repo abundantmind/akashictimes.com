@@ -2410,13 +2410,22 @@ function playTap(r,c){
     return;
   }
   const cd=board[r][c];
-  // Keys are SWAPPABLE like a gem (Township): a key holds no gem/pu, so the old
-  // guard rejected it — you couldn't slide a key aside to line up a match under
-  // it (Jed 2026-07-24: yellows W/E/S of a key couldn't be matched). Acorns stay
-  // unselectable (static). The key never color-matches itself; swapping it just
-  // moves the gem into its old cell, which is what completes the match.
-  if(!cd.active||(cd.gem===null&&!cd.pu&&cd.item!=='key'))return;
-  if(!selCell){selCell=[r,c];render();return;}
+  if(!cd.active)return; // inactive holes are never interactive
+  if(!selCell){
+    // FIRST tap picks up a MOVER — a gem, a PU, or a key. Empty cells hold
+    // nothing to move (and acorns are static), so they can't be selected.
+    // Keys ARE swappable like a gem (Township): a key holds no gem/pu, so the
+    // old guard rejected it — you couldn't slide a key aside to line up a match
+    // under it (Jed 2026-07-24). The key never color-matches itself; swapping it
+    // just slides the gem into its old cell, which completes the match.
+    if(cd.gem===null&&!cd.pu&&cd.item!=='key')return;
+    selCell=[r,c];render();return;
+  }
+  // selCell is set: this tap is the swap TARGET, and an EMPTY ACTIVE cell is a
+  // valid target — Township lets a gem slide into an empty active cell to
+  // complete a match (Jed 2026-07-25: the yellow under the ankh must move into
+  // the empty gap to make its V-match and break the chain; the rule is general —
+  // any gem beside an empty active cell must be movable into it).
   const[sr,sc]=selCell;selCell=null;
   // Double-tap on same cell: activate if it's a power-up, otherwise deselect
   if(sr===r&&sc===c){
