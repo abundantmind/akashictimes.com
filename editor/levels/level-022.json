@@ -73,7 +73,7 @@
     {
       "functionalId": "substrate.clover",
       "township": "grass turf",
-      "note": "Grass on 20 gem cells; the 10 middle cells (R2C5, R3C3-C7, R4C4-C5, R5C4-C5) start grassless (gems on blue) - spread clover into them to reach 52. Read from BoardState 2026-07-23.",
+      "note": "Symmetric starting clover (Jed 2026-07-25): all gem cells except the central bare channel R3/R4/R5 C4-C5. Clover is NOT under crates; it spreads onto broken-crate cells during play. Non-clover pattern (rows 3-6, 2/4/2/2) = the bare gems + crate cells in the central channel.",
       "positions": [
         "R0C3",
         "R0C4",
@@ -89,11 +89,15 @@
         "R2C2",
         "R2C3",
         "R2C4",
+        "R2C5",
         "R2C6",
         "R2C7",
         "R2C8",
         "R3C1",
         "R3C2",
+        "R3C3",
+        "R3C6",
+        "R3C7",
         "R3C8"
       ]
     }
