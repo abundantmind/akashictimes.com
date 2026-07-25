@@ -2410,7 +2410,12 @@ function playTap(r,c){
     return;
   }
   const cd=board[r][c];
-  if(!cd.active||(cd.gem===null&&!cd.pu))return;
+  // Keys are SWAPPABLE like a gem (Township): a key holds no gem/pu, so the old
+  // guard rejected it — you couldn't slide a key aside to line up a match under
+  // it (Jed 2026-07-24: yellows W/E/S of a key couldn't be matched). Acorns stay
+  // unselectable (static). The key never color-matches itself; swapping it just
+  // moves the gem into its old cell, which is what completes the match.
+  if(!cd.active||(cd.gem===null&&!cd.pu&&cd.item!=='key'))return;
   if(!selCell){selCell=[r,c];render();return;}
   const[sr,sc]=selCell;selCell=null;
   // Double-tap on same cell: activate if it's a power-up, otherwise deselect
@@ -2468,6 +2473,7 @@ function playTap(r,c){
   animateSwap(sr,sc,r,c,html1,html2,()=>{
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
+    const ti=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti; // carry a swapped key
     // Unified post-swap: PU activations are ENQUEUED at their post-swap
     // positions; pattern matches ride the same resolution (anchor logic in resolve).
     // PU⇄PU swap = POWER-UP COMBO (POWERUP-COMBO-SPEC.md, approved 2026-07-08).
@@ -2507,6 +2513,7 @@ function playTap(r,c){
       // Nothing happened — revert swap
       const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
       const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
+      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too
       render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
     }
     moves++;
@@ -2625,7 +2632,11 @@ function gravityWithMap(){
   // and exit at the bottom, Township "key drops to bottom to be collected").
   const occ=(r,c)=>board[r][c].gem!==null||!!board[r][c].pu||!!board[r][c].item;
   const isFaller=(r,c)=>board[r][c].item==='key'; // keys fall & exit; acorns are static
-  const emptyActive=(r,c)=>inGrid(r,c)&&board[r][c].active&&!occ(r,c);
+  // A crate is a SOLID box (no gem) — gravity must treat it like a wall, never a
+  // fill target. Without this a gem fell straight INTO the crate cell and vanished
+  // behind the box (Jed's "gems disappearing into crates", 2026-07-24). Broken
+  // crates clear their obs, so isCrate goes false and the cell refills normally.
+  const emptyActive=(r,c)=>inGrid(r,c)&&board[r][c].active&&!occ(r,c)&&!isCrate(r,c);
 
   // carrier[r][c] = move record of the gem sitting at (r,c) IF it has already
   // moved this gravity pass — lets one gem accumulate a multi-bend path.
@@ -2671,6 +2682,7 @@ function gravityWithMap(){
   };
   const entry=board.map((row,r)=>row.map((cd,c)=>{
     if(!cd.active)return false;
+    if(isCrate(r,c))return false;                          // a solid crate is never a spawn source
     if(fedByNeighbor(r,c))return false;                    // something feeds it → not a source
     const [dr,dc]=vecAt(r,c);
     return !inGrid(r-dr,c-dc)||!board[r-dr][c-dc].active;   // its own upstream is open sky
@@ -2765,6 +2777,7 @@ function gravityWithMap(){
       for(;;){
         if(!inGrid(br,bc))break;                       // open sky: spawns feed it
         if(!board[br][bc].active){blockedForever=true;break;} // hole gap
+        if(isCrate(br,bc)){blockedForever=true;break;} // solid box: gems route around it like a hole
         if(occ(br,bc)){blockedForever=isChained(br,bc)||(!!board[br][bc].item&&!isFaller(br,bc));break;} // a falling key isn't a forever-block — gems follow it down, not slip around
         br-=dr;bc-=dc;                                 // empty active: keep walking
       }
@@ -2786,7 +2799,7 @@ function gravityWithMap(){
     // 3) SPAWN — entry cells pull new gems in from stacked off-grid cells;
     //    promoted (starved-pocket) entries fade in instead of flying in
     for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-      if(!entry[r][c]||occ(r,c))continue;
+      if(!entry[r][c]||occ(r,c)||isCrate(r,c))continue; // never spawn into a solid crate
       const [dr,dc]=vecAt(r,c);
       const n=++spawnN[r][c];
       board[r][c].gem=randGem();board[r][c].pu=null;
