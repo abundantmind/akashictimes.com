@@ -2578,7 +2578,14 @@ function playTap(r,c){
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
     const ti=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti; // carry a swapped key
-    const tcl=board[sr][sc].puClover;board[sr][sc].puClover=board[r][c].puClover;board[r][c].puClover=tcl; // clover-charge follows the PU
+    // EPHEMERAL clover-charge: a PU DRAGGED off a clover cell carries clover to
+    // its imminent detonation only. sub (ground clover) doesn't move in a swap, so
+    // board[sr][sc].sub / board[r][c].sub still read the ORIGIN clover. The PU that
+    // landed at (r,c) came from (sr,sc): charge it iff (sr,sc) was clover. Vice
+    // versa. A PU that didn't move off clover is NOT charged (double-tap-in-place
+    // and chain-caught PUs stay uncharged → normal touches-clover rule).
+    board[r][c].puClover  = !!board[r][c].pu  && board[sr][sc].sub==='clover';
+    board[sr][sc].puClover= !!board[sr][sc].pu && board[r][c].sub==='clover';
     // Unified post-swap: PU activations are ENQUEUED at their post-swap
     // positions; pattern matches ride the same resolution (anchor logic in resolve).
     // PU⇄PU swap = POWER-UP COMBO (POWERUP-COMBO-SPEC.md, approved 2026-07-08).
@@ -2587,9 +2594,7 @@ function playTap(r,c){
     if(board[r][c].pu&&board[sr][sc].pu){
       if(entranceMode){
         const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
-        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
-        const tcl2=board[sr][sc].puClover;board[sr][sc].puClover=board[r][c].puClover;board[r][c].puClover=tcl2; // revert clover-charge
-        render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
+        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;        render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
       }
       startPUCombo(r,c,sr,sc);
       return;
@@ -2619,9 +2624,7 @@ function playTap(r,c){
       // Nothing happened — revert swap
       const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
       const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
-      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too
-      const tcl2=board[sr][sc].puClover;board[sr][sc].puClover=board[r][c].puClover;board[r][c].puClover=tcl2; // revert clover-charge
-      render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
+      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too      render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
     }
     moves++;
     updatePlayerHUD();
@@ -2683,13 +2686,12 @@ function resolve(pats,dr,dc,snap,sr,sc){
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
-  // CLOVER-CHARGE (Jed 2026-07-25): a PU born from a match that TOUCHED clover is
-  // "clover-charged". plantClover(p.cells) above already gave the anchor clover if
-  // the match touched it, so the charge = anchor-on-clover. The charge travels
-  // with the PU (swap + gravity carry .puClover) and, when it detonates, plants
-  // its WHOLE effect area — the row/column/blast becomes clover even if the PU was
-  // dragged onto bare ground first. One property, carried everywhere the PU goes.
-  if(board[ar]&&board[ar][ac]&&board[ar][ac].pu)board[ar][ac].puClover=(board[ar][ac].sub==='clover');
+  // NOTE: a PU born on clover is NOT pre-charged. The clover-charge is EPHEMERAL —
+  // set only by the DRAG that moves a PU off a clover cell, consumed by that
+  // detonation (see the swap). A PU sitting on the board (however it got there) is
+  // never charged; a double-tap-in-place uses the normal "plants if the blast
+  // touches clover" rule. (Jed 2026-07-26: born-on-clover charge dumped clover on
+  // a plain double-tap — wrong; the drag is what carries the clover.)
   // Any PU caught by the match clear is ENQUEUED — its cinematic plays out
   // (lasers and all) before gravity runs. Same visuals as player-fired.
   const phase=new Set();
@@ -2858,8 +2860,8 @@ function gravityWithMap(){
     let m=carrier[r][c];
     if(!m){m={gem:board[r][c].gem,pu:board[r][c].pu,item:board[r][c].item,fr:r,fc:c,tr:nr,tc:nc,isNew:false,path:[{r,c}]};moves.push(m);}
     m.path.push({r:nr,c:nc});m.tr=nr;m.tc=nc;
-    board[nr][nc].gem=board[r][c].gem;board[nr][nc].pu=board[r][c].pu;board[nr][nc].item=board[r][c].item;board[nr][nc].puClover=board[r][c].puClover; // carry a falling key + clover-charge
-    board[r][c].gem=null;board[r][c].pu=null;board[r][c].item=null;board[r][c].puClover=false;
+    board[nr][nc].gem=board[r][c].gem;board[nr][nc].pu=board[r][c].pu;board[nr][nc].item=board[r][c].item; // carry a falling key
+    board[r][c].gem=null;board[r][c].pu=null;board[r][c].item=null;
     carrier[nr][nc]=m;carrier[r][c]=null;
   }
 
