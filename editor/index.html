@@ -3472,10 +3472,10 @@ const MAX_BUILT_LEVEL=25; // levels with shipped JSONs — bump as the bundle gr
 // wired; renders fit-to-width — horizontal flyover camera is a later polish, not a
 // blocker). Held levels render "Soon" and are SKIPPED in the unlock chain.
 const HELD_LEVELS=new Set([]);
-// Cloud auth (magic-link sign-in strip) stays dark until it's verified end-to-end
-// — Supabase redirect-URL allowlist + a real magic-link round-trip. Flip true to
-// light the strip once that's done.
-const AUTH_ENABLED=false;
+// Cloud auth (magic-link sign-in strip) — LIT 2026-07-27 (Jed's go). Requires the
+// Supabase redirect-URL allowlist (localhost + akashictimes.com/editor/) + a real
+// magic-link round-trip to actually complete a sign-in. Flip false to go dark.
+const AUTH_ENABLED=true;
 
 function renderGrid(){
   showPlayerShell();
