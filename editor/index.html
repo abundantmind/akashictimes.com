@@ -189,6 +189,11 @@ body.font-lg{--base-font:20px;}
 .lbtn:hover{background:#1a1530;}
 .lbtn.on{background:#2a1d4a;color:#c8a8ff;border-color:#5a3a9a;}
 .ldot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+/* Base-brush buttons (Active/Hole) — own class so setLayer()'s .lbtn highlight
+   sweep never clears the selected brush; layer + brush highlights coexist. */
+.bbtn{display:flex;align-items:center;gap:5px;width:100%;padding:4px 5px;font-size:var(--fz-ui);border:0.5px solid transparent;border-radius:5px;background:transparent;color:#a090c0;cursor:pointer;font-family:var(--font-sans);}
+.bbtn:hover{background:#1a1530;}
+.bbtn.on{background:#2a1d4a;color:#c8a8ff;border-color:#5a3a9a;}
 /* SCENE LAYER (Jed 2026-07-10): the darkness behind the board IS the bottom
    layer — inactive cells are true holes showing it. When Akashic artwork
    exists, set a background-image here and it replaces the dark, one layer
@@ -233,6 +238,18 @@ body.player-playing #board-wrap{overflow:hidden;}
 .rrow{display:flex;justify-content:space-between;align-items:center;font-size:var(--fz-ui);color:#a090c0;margin-bottom:3px;}
 .rval{font-weight:500;color:#c8bfe0;}
 .sinput{width:44px;font-size:var(--fz-ui);padding:2px 4px;background:#1a1530;border:0.5px solid #3d3560;border-radius:4px;color:#c8bfe0;font-family:var(--font-sans);}
+/* Objectives list rows (editor Goals panel) */
+.objrow{display:flex;align-items:center;gap:5px;margin:4px 0;font-size:var(--fz-ui);color:#a090c0;}
+.objrow .oicon{width:22px;height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.objrow .oicon svg{width:22px;height:22px;}
+.objrow .olabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.objrow select.osel{flex:1;min-width:0;font-size:var(--fz-ui);padding:2px 3px;background:#1a1530;border:0.5px solid #3d3560;border-radius:4px;color:#c8bfe0;font-family:var(--font-sans);}
+.objrow .ocount{width:42px;}
+.objrow .oauto{font-size:var(--fz-xs);color:#5a7a5a;flex-shrink:0;cursor:pointer;} /* click to accept the board-derived count */
+.objrow .odel{background:transparent;border:0;color:#7a5a6a;cursor:pointer;font-size:var(--fz-md);padding:0 2px;flex-shrink:0;}
+.objrow .odel:hover{color:#d4537e;}
+.objbtns{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+.objempty{font-size:var(--fz-sm);color:#5a4a7a;font-style:italic;margin:3px 0;}
 #sbar{padding:3px 10px;font-size:var(--fz-sm);color:#5a4a7a;background:#0d0a14;border-top:0.5px solid #1a1530;display:flex;gap:12px;flex-shrink:0;}
 #flowbar{display:none;gap:4px;padding:4px 10px;background:#0d0a14;border-bottom:0.5px solid #2d2540;flex-shrink:0;}
 .mbadge{padding:2px 7px;font-size:var(--fz-sm);border-radius:4px;background:#1a3a1a;color:#4a9a4a;}
@@ -265,6 +282,7 @@ body.player-playing #board-wrap{overflow:hidden;}
 .pcell.shut{background:#130f1e;color:#3d3450;border:0.5px solid #1e1830;cursor:default;}
 .pcell .pstars{font-size:var(--fz-sm);margin-top:2px;letter-spacing:1px;color:#ffcb6b;}
 .pcell.shut .pstars{color:#2a2438;}
+.pcell .prec{font-size:var(--fz-xs);margin-top:1px;color:#7a6a9a;} /* the ★1 move-record bar */
 .pcell .plock{font-size:var(--fz-md);opacity:.6;}
 #pgrid-title{font-size:var(--fz-2xl);color:#e0d0f0;margin-bottom:4px;font-weight:500;}
 #pgrid-sub{font-size:var(--fz-sm);color:#665580;margin-bottom:20px;text-transform:uppercase;letter-spacing:.08em;}
@@ -515,6 +533,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <div class="tg">
       <button class="tb" onclick="doRandom()">Random</button>
       <button class="tb" onclick="doClear()">Clear</button>
+      <button class="tb" onclick="fillGrid()" title="Reset to a full rectangle — turn every cell active (fills all holes)">Full Grid</button>
       <button class="tb" id="btn-undo" onclick="doUndo()">Undo</button>
       <button class="tb" id="btn-redo" onclick="doRedo()">Redo</button>
     </div>
@@ -551,11 +570,19 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <div id="lpanel">
       <div class="psec">
         <div class="ptitle">Layers</div>
-        <button class="lbtn on" id="l-tile" onclick="setLayer('tile')"><span class="ldot" style="background:#7F77DD"></span>Tile</button>
+        <!-- Base/Board layer sits first: you define the board shape (active/hole) before painting on top of it (Painter Layer Model: Board = Layer 1). -->
         <button class="lbtn" id="l-base" onclick="setLayer('base')"><span class="ldot" style="background:#555"></span>Base</button>
+        <button class="lbtn on" id="l-tile" onclick="setLayer('tile')"><span class="ldot" style="background:#7F77DD"></span>Tile</button>
         <button class="lbtn" id="l-obstacle" onclick="setLayer('obstacle')"><span class="ldot" style="background:#D85A30"></span>Obstacle</button>
         <button class="lbtn" id="l-border" onclick="setLayer('border')"><span class="ldot" style="background:#D4537E"></span>Border</button>
         <button class="lbtn" id="l-flow" onclick="setLayer('flow')"><span class="ldot" style="background:#1D9E75"></span>Flow</button>
+      </div>
+      <!-- Base brush: pick Active or Hole, then click cells one at a time (Jed 2026-07-29 —
+           deterministic single-cell base painting, the foundation you lay before anything else). -->
+      <div class="psec" id="base-pal">
+        <div class="ptitle">Base</div>
+        <button class="bbtn on" id="b-hole" onclick="setBase('inactive')"><span class="ldot" style="background:#0d0a14;box-shadow:0 0 0 1px #444"></span>Hole</button>
+        <button class="bbtn" id="b-active" onclick="setBase('active')"><span class="ldot" style="background:#7F77DD"></span>Active</button>
       </div>
       <div class="psec" id="gem-pal">
         <div class="ptitle">Gems</div>
@@ -592,7 +619,21 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <div class="rsec">
         <div class="rtitle">Goals</div>
         <div class="rrow"><span>Moves</span><input class="sinput" id="mv" type="number" value="20" min="1"></div>
-        <div class="rrow"><span>Target</span><input class="sinput" id="tgt" type="number" value="15" min="1"></div>
+        <!-- Objectives list: board-derived goals (clover/key/acorn) auto-fill via Recommend;
+             gem-color goals are added + edited by hand (the board can't guess color/count). -->
+        <div id="objlist"></div>
+        <div class="objbtns">
+          <button class="tb" onclick="recommendObjectives()" title="Auto-fill clover / key / acorn goals from what's painted on the board. Gem goals stay manual.">↺ Recommend</button>
+        </div>
+        <div class="objbtns">
+          <button class="tb" onclick="addObjective('gem')">+ Gem</button>
+          <button class="tb" onclick="addObjective('clover')">+ Clover</button>
+          <button class="tb" onclick="addObjective('key')">+ Key</button>
+          <button class="tb" onclick="addObjective('acorn')">+ Acorn</button>
+        </div>
+        <div class="objbtns">
+          <button class="tb" onclick="copyObjectivesJSON()" title="Copy the objectives + moveLimit as JSON — paste into the level file (first serializer slice).">⧉ Copy JSON</button>
+        </div>
       </div>
       <div class="rsec">
         <div class="rtitle">Stars</div>
@@ -708,8 +749,10 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   <div class="wbox">
     <h2 id="pwin-title">Well done!</h2>
     <div class="wstars" id="pwin-stars"></div>
+    <div id="pwin-rec" style="font-size:var(--fz-base);color:#c8a8ff;margin-bottom:8px;"></div>
     <p class="wmsg" id="pwin-msg"></p>
     <button id="pwin-btn" data-i18n="cont" onclick="pwinContinue()">Continue</button>
+    <button id="pwin-reset" onclick="pwinResetLevel()" style="display:none;margin-top:10px;background:transparent;border:0.5px solid #6a4aaa;border-radius:6px;color:#a88ad0;padding:8px 22px;font-family:var(--font-sans);font-size:var(--fz-sm);cursor:pointer;">Reset Level Stars</button>
   </div>
 </div>
 
@@ -738,6 +781,7 @@ en:{
   toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
   win_title:'Well done!',lose_title:'Out of moves',
   win_msg:(n,m)=>'Level '+n+' complete — '+m+' moves',try_again:'Try again?',cont:'Continue',retry:'Retry',got_it:'Got it',
+  bar_to_beat:(m)=>'Bar to beat: '+m+' moves',reset_level_btn:'Reset Level Stars',rec_moves:(m)=>'⚑'+m,
   reset_btn:'Reset all stars',
   reset_confirm:'This wipes ALL stars and move records on this device.\nIt cannot be undone.\n\nReset everything?',
   boosters_cap:'Boosters',booster_locked:'Locked',
@@ -790,6 +834,7 @@ ko:{
   toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
   win_title:'잘했어요!',lose_title:'이동 횟수 소진',
   win_msg:(n,m)=>'레벨 '+n+' 완료 — 이동 '+m+'회',try_again:'다시 도전할까요?',cont:'계속',retry:'다시 시도',got_it:'알겠어요',
+  bar_to_beat:(m)=>'목표 기준: '+m+'회',reset_level_btn:'레벨 별 초기화',rec_moves:(m)=>'⚑'+m,
   reset_btn:'별 기록 초기화',
   reset_confirm:'이 기기의 모든 별과 이동 기록이 삭제됩니다.\n되돌릴 수 없습니다.\n\n전부 초기화할까요?',
   boosters_cap:'부스터',booster_locked:'잠김',
@@ -983,6 +1028,11 @@ let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (boar
 const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
 let board=[],flow=[],layer='tile',tool='paint',selGem=0,selPU=null;
+let selBase='inactive'; // Base brush: 'active' or 'inactive'(Hole) — click cells to SET this state
+// Editor Goals panel: the level's objectives, held in canonical JSON shape
+// ({type:'plant',obstacle:'clover',count} | {type:'collect',gem|item,count}).
+// This IS the serializer's objectives slice — see serializeObjectives().
+let editorObjectives=[];
 // Which gem indices spawn. Full set by default; levels narrow it via their
 // gemTypes list (Township L1–5 use 5 colors, no Amethyst), entrance uses 0–4.
 let GEM_POOL=[0,1,2,3,4,5];
@@ -1049,8 +1099,10 @@ function openEditor(){
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
   initBlankBoard();
+  playing=false; // never inherit a stale play state — clicks must paint, not playTap
   buildGPal();buildPUPal();buildObsPal();
-  render();
+  editorObjectives=[];renderObjectives(); // fresh board starts with no goals
+  setBase('inactive'); // New Level opens on the Base brush — lay the foundation first (also engages the Base layer + renders)
   updUB();
 }
 
@@ -1308,69 +1360,85 @@ function render(dropping){
   const bd=document.getElementById('board');
   bd.style.gridTemplateColumns=`repeat(${C},${CELL_SIZE}px)`;
   bd.innerHTML='';
-  for(let r=0;r<R;r++) for(let c=0;c<C;c++){
-    const el=document.createElement('div');
-    el.className='cell';el.dataset.r=r;el.dataset.c=c;
-    el.style.width=el.style.height=CELL_SIZE+'px';  // dynamic cell size (board scaling)
-    const cd=board[r][c];
-    if(!cd.active){el.classList.add('inactive');}
-    else if(layer==='flow'){
-      el.style.background='#0d1a0d';el.style.borderColor='#1a3a1a';
-      el.innerHTML=`<span style="font-size:var(--fz-2xl);color:#3a9a3a;">${FARROWS[flow[r][c]]}</span>`;
-    } else {
-      const inner=document.createElement('div');
-      inner.className='gem-inner';
-      // Layer stack: substrate (under) → gem/pu/item (middle) → overlay obstacle (over)
-      if(cd.sub){const o=OBS_TYPES.find(x=>x.id===cd.sub);if(o){
-        el.style.position='relative';
-        el.style.background=o.color;
-        el.style.borderRadius='0';
-        el.style.boxShadow='0 0 0 1.5px '+o.color;
-      }}
-      // Middle layer: item, power-up, or gem (mutually exclusive)
-      if(cd.item){const o=OBS_TYPES.find(x=>x.id===cd.item);if(o)inner.innerHTML=obsSVG(o,gemSize());}
-      else if(cd.pu){inner.innerHTML=puSVG(cd.pu,gemSize());}
-      else if(cd.gem!==null){inner.innerHTML=gemSVG(cd.gem,gemSize());}
-      else if(!cd.sub&&!cd.obs){el.classList.add('empty-hint');}
-      // Top layer: overlay obstacle (chain/leaf) — renders over gem, semi-transparent
-      if(cd.obs){
-        const ov=document.createElement('div');
-        ov.style.cssText='position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;';
-        ov.innerHTML=overlaySVG(cd.obs,CELL_SIZE);
-        el.style.position='relative';el.appendChild(ov);
-      }
-      if(dropping&&dropping.has(r+','+c))el.classList.add('dropping');
-      el.appendChild(inner);
+  for(let r=0;r<R;r++) for(let c=0;c<C;c++) bd.appendChild(buildCellEl(r,c,dropping));
+}
+// Build ONE cell's DOM node. Extracted from render() so paintCell can refresh a
+// single cell IN PLACE (renderCell) instead of tearing down + rebuilding the
+// entire board on every paint tick. The old full-render-per-stroke was the
+// editor's "flickering cells" + uncontrollable-painting bug: each mouseenter
+// during a drag destroyed the board DOM (bd.innerHTML=''), replacing the very
+// element the cursor was tracking → flicker + broken mouseenter (Jed 2026-07-29).
+function buildCellEl(r,c,dropping){
+  const el=document.createElement('div');
+  el.className='cell';el.dataset.r=r;el.dataset.c=c;
+  el.style.width=el.style.height=CELL_SIZE+'px';  // dynamic cell size (board scaling)
+  const cd=board[r][c];
+  if(!cd.active){el.classList.add('inactive');}
+  else if(layer==='flow'){
+    el.style.background='#0d1a0d';el.style.borderColor='#1a3a1a';
+    el.innerHTML=`<span style="font-size:var(--fz-2xl);color:#3a9a3a;">${FARROWS[flow[r][c]]}</span>`;
+  } else {
+    const inner=document.createElement('div');
+    inner.className='gem-inner';
+    // Layer stack: substrate (under) → gem/pu/item (middle) → overlay obstacle (over)
+    if(cd.sub){const o=OBS_TYPES.find(x=>x.id===cd.sub);if(o){
+      el.style.position='relative';
+      el.style.background=o.color;
+      el.style.borderRadius='0';
+      el.style.boxShadow='0 0 0 1.5px '+o.color;
+    }}
+    // Middle layer: item, power-up, or gem (mutually exclusive)
+    if(cd.item){const o=OBS_TYPES.find(x=>x.id===cd.item);if(o)inner.innerHTML=obsSVG(o,gemSize());}
+    else if(cd.pu){inner.innerHTML=puSVG(cd.pu,gemSize());}
+    else if(cd.gem!==null){inner.innerHTML=gemSVG(cd.gem,gemSize());}
+    else if(!cd.sub&&!cd.obs){el.classList.add('empty-hint');}
+    // Top layer: overlay obstacle (chain/leaf) — renders over gem, semi-transparent
+    if(cd.obs){
+      const ov=document.createElement('div');
+      ov.style.cssText='position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;';
+      ov.innerHTML=overlaySVG(cd.obs,CELL_SIZE);
+      el.style.position='relative';el.appendChild(ov);
     }
-    if(selCell&&selCell[0]===r&&selCell[1]===c)el.classList.add('throb');
-    if(choosingRainbow&&cd.gem!==null&&!cd.pu)el.classList.add('rainbow-pick');
-    if(choosingGrasshopper&&!choosingGrasshopper.excluded.has(r+','+c)&&(cd.gem!==null||cd.pu||cd.obs))el.classList.add('hopper-pick');
-    // Armed booster: same crosshair reticle as Grasshopper/Akasha Ball targeting
-    // (Jed 2026-07-21). Applies to all boosters — each is arm-then-tap-a-target.
-    if(armedBooster&&playerMode&&cd.active)el.classList.add('booster-pick');
-    // Pointer Events unify mouse + touch (touch never fires the old
-    // mouseenter path — touch pointers implicitly capture to the origin cell,
-    // so cell-to-cell "enter" tracking is mouse-only by design). One gesture:
-    // pointerdown selects the cell AND arms the drag tracker; the document
-    // pointermove handler fires the swap once a directional threshold is
-    // crossed — no second tap needed.
-    el.addEventListener('pointerdown',e=>{
-      if(flyLock)return; // flyover cutscene: board is camera-only until the pan rests
-      mdown=true;
-      // no drag tracking while a booster is armed — that tap is the TARGET tap
-      if(playing&&!animating&&!choosingRainbow&&!choosingGrasshopper&&!armedBooster)
-        dragSwap={r,c,x:e.clientX,y:e.clientY,id:e.pointerId,fired:false};
-      onCell(r,c,e);
-    });
-    el.addEventListener('mouseenter',()=>{
-      document.getElementById('sb3').textContent=`(${c},${r})`;
-      document.getElementById('cinfo').textContent=`Col ${c} · Row ${r} · ${cd.active?'Active':'Hole'} · ${cd.pu||(cd.gem!==null?GDEFS[cd.gem].name:'empty')}`;
-      if(mdown&&!playing)paintCell(r,c);
-      // play-mode drag-to-swap moved to the pointermove vector tracker —
-      // keeping a second trigger here would double-fire mouse drags
-    });
-    bd.appendChild(el);
+    if(dropping&&dropping.has(r+','+c))el.classList.add('dropping');
+    el.appendChild(inner);
   }
+  if(selCell&&selCell[0]===r&&selCell[1]===c)el.classList.add('throb');
+  if(choosingRainbow&&cd.gem!==null&&!cd.pu)el.classList.add('rainbow-pick');
+  if(choosingGrasshopper&&!choosingGrasshopper.excluded.has(r+','+c)&&(cd.gem!==null||cd.pu||cd.obs))el.classList.add('hopper-pick');
+  // Armed booster: same crosshair reticle as Grasshopper/Akasha Ball targeting
+  // (Jed 2026-07-21). Applies to all boosters — each is arm-then-tap-a-target.
+  if(armedBooster&&playerMode&&cd.active)el.classList.add('booster-pick');
+  // Pointer Events unify mouse + touch (touch never fires the old
+  // mouseenter path — touch pointers implicitly capture to the origin cell,
+  // so cell-to-cell "enter" tracking is mouse-only by design). One gesture:
+  // pointerdown selects the cell AND arms the drag tracker; the document
+  // pointermove handler fires the swap once a directional threshold is
+  // crossed — no second tap needed.
+  el.addEventListener('pointerdown',e=>{
+    if(flyLock)return; // flyover cutscene: board is camera-only until the pan rests
+    mdown=true;
+    // no drag tracking while a booster is armed — that tap is the TARGET tap
+    if(playing&&!animating&&!choosingRainbow&&!choosingGrasshopper&&!armedBooster)
+      dragSwap={r,c,x:e.clientX,y:e.clientY,id:e.pointerId,fired:false};
+    onCell(r,c,e);
+  });
+  el.addEventListener('mouseenter',()=>{
+    // Hover readout only — NO drag-painting. Painting is strictly one cell per
+    // click now (Jed 2026-07-29): the mouseenter-while-mdown drag was the source
+    // of the flicker + uncontrollable painting; single-click is deterministic.
+    document.getElementById('sb3').textContent=`(${c},${r})`;
+    document.getElementById('cinfo').textContent=`Col ${c} · Row ${r} · ${cd.active?'Active':'Hole'} · ${cd.pu||(cd.gem!==null?GDEFS[cd.gem].name:'empty')}`;
+  });
+  return el;
+}
+// Refresh a SINGLE cell in place — no full-board rebuild, so painting no longer
+// flickers or fights the mouse. Falls back to full render if the grid structure
+// isn't there yet.
+function renderCell(r,c){
+  const bd=document.getElementById('board');
+  const old=bd.children[r*C+c];
+  if(!old){render();return;}
+  bd.replaceChild(buildCellEl(r,c),old);
 }
 
 function buildGPal(){
@@ -1382,6 +1450,116 @@ function buildGPal(){
     d.onclick=()=>{selGem=i;document.querySelectorAll('#gpal div').forEach((x,j)=>x.style.borderColor=j===i?'#c8a8ff':'transparent');};
     p.appendChild(d);
   });
+}
+
+// ══ OBJECTIVES (editor Goals panel) ═══════════════════════════════════════════
+// The level's win conditions, authored as a list. Board-derived goals
+// (clover/key/acorn) are Recommend-able — their counts are computed from what's
+// painted; gem-color goals are added + edited by hand because the board can't
+// know which colors matter or how many (Jed, 2026-07-29). Editor Play stays a
+// sandbox — objective counting happens only in the Game (loadLevelData→playerGoals).
+// Engine gem index (GDEFS order) → the canonical color name the JSON uses.
+const GEM_JSON=['red','blue','green','yellow','purple','white'];
+// Classify an objective for icon/label rendering.
+function objKind(o){
+  if(o.type==='plant')return 'clover';
+  if(o.type==='collect'&&o.item==='key')return 'key';
+  if(o.type==='collect'&&o.item==='acorn')return 'acorn';
+  return 'gem';
+}
+// Scan the painted board for the board-derived goal counts.
+//  clover = UNCLOVERED plantable cells (active, not a solid crate, no clover yet)
+//           — the bare ground clover can still spread onto (Jed's formula).
+//  key / acorn = items currently on the board.
+function boardCounts(){
+  let clover=0,key=0,acorn=0;
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const cd=board[r][c]; if(!cd||!cd.active)continue;
+    if(!isCrate(r,c)&&cd.sub!=='clover')clover++;
+    if(cd.item==='key')key++;
+    if(cd.item==='acorn')acorn++;
+  }
+  return {clover,key,acorn};
+}
+// Render the objectives list into #objlist.
+function renderObjectives(){
+  const box=document.getElementById('objlist'); if(!box)return;
+  const bc=boardCounts();
+  box.innerHTML='';
+  if(!editorObjectives.length){box.innerHTML='<div class="objempty">No objectives — Recommend or add one.</div>';return;}
+  editorObjectives.forEach((o,i)=>{
+    const k=objKind(o);
+    const row=document.createElement('div');row.className='objrow';
+    // icon
+    const ic=document.createElement('span');ic.className='oicon';
+    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='acorn'?acornIconSVG(20):gemSVG(GEMMAP[o.gem]??3,20);
+    row.appendChild(ic);
+    // label, or gem-color selector for gem goals
+    if(k==='gem'){
+      const sel=document.createElement('select');sel.className='osel';
+      GEM_JSON.forEach((name,gi)=>{const opt=document.createElement('option');opt.value=name;opt.textContent=GDEFS[gi].name;if((GEMMAP[o.gem]??3)===gi)opt.selected=true;sel.appendChild(opt);});
+      sel.onchange=()=>{o.gem=sel.value;renderObjectives();};
+      row.appendChild(sel);
+    }else{
+      const lb=document.createElement('span');lb.className='olabel';
+      lb.textContent = k==='clover'?'Plant clover':k==='key'?'Collect keys':'Free acorns';
+      row.appendChild(lb);
+    }
+    // count (manual override — always editable)
+    const cnt=document.createElement('input');cnt.type='number';cnt.min='1';cnt.className='sinput ocount';cnt.value=o.count||0;
+    cnt.onchange=()=>{o.count=Math.max(1,parseInt(cnt.value)||1);};
+    row.appendChild(cnt);
+    // board-derived auto count (clover/key/acorn only) — click to accept
+    const auto = k==='clover'?bc.clover:k==='key'?bc.key:k==='acorn'?bc.acorn:null;
+    if(auto!=null){
+      const a=document.createElement('span');a.className='oauto';a.textContent='auto '+auto;a.title='Click to set the count from the board';
+      a.onclick=()=>{o.count=auto;renderObjectives();};
+      row.appendChild(a);
+    }
+    // remove
+    const del=document.createElement('button');del.className='odel';del.textContent='✕';del.title='Remove objective';
+    del.onclick=()=>{editorObjectives.splice(i,1);renderObjectives();};
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+// Add a blank objective of the given kind (gem defaults yellow×15; the rest seed
+// their count from the board so a fresh add already reflects what's painted).
+function addObjective(kind){
+  const bc=boardCounts();
+  if(kind==='gem')        editorObjectives.push({type:'collect',gem:'yellow',count:15});
+  else if(kind==='clover')editorObjectives.push({type:'plant',obstacle:'clover',count:bc.clover||1});
+  else if(kind==='key')   editorObjectives.push({type:'collect',item:'key',count:bc.key||1});
+  else if(kind==='acorn') editorObjectives.push({type:'collect',item:'acorn',count:bc.acorn||1});
+  renderObjectives();
+}
+// Recommend: for each board-derived goal PRESENT on the board, ensure an
+// objective exists and resync its count to the board. Gem goals are left alone.
+function recommendObjectives(){
+  const bc=boardCounts();
+  const ensure=(pred,make)=>{const ex=editorObjectives.find(pred);if(ex)ex.count=make().count;else editorObjectives.push(make());};
+  if(bc.clover>0)ensure(o=>o.type==='plant', ()=>({type:'plant',obstacle:'clover',count:bc.clover}));
+  if(bc.key>0)   ensure(o=>o.type==='collect'&&o.item==='key', ()=>({type:'collect',item:'key',count:bc.key}));
+  if(bc.acorn>0) ensure(o=>o.type==='collect'&&o.item==='acorn', ()=>({type:'collect',item:'acorn',count:bc.acorn}));
+  renderObjectives();
+}
+// SERIALIZER SLICE #1 (objectives + moveLimit) — the export half the editor was
+// missing. Emits the exact shape loadLevelData reads back. Grows into the full
+// level serializer piece by piece as MVP-25 needs it (Jed, 2026-07-29).
+function serializeObjectives(){
+  const objs=editorObjectives.map(o=>{
+    if(o.type==='plant')return {type:'plant',obstacle:o.obstacle||'clover',count:o.count};
+    if(o.gem!=null)     return {type:'collect',gem:o.gem,count:o.count};
+    return {type:'collect',item:o.item,count:o.count};
+  });
+  return {moveLimit:parseInt(document.getElementById('mv').value)||20, objectives:objs};
+}
+function copyObjectivesJSON(){
+  const txt=JSON.stringify(serializeObjectives(),null,2);
+  const done=()=>{document.getElementById('sb3').textContent='Objectives JSON copied to clipboard';};
+  if(navigator.clipboard)navigator.clipboard.writeText(txt).then(done,()=>{document.getElementById('sb3').textContent='Copy blocked — see console';});
+  else document.getElementById('sb3').textContent='Copy blocked — see console';
+  console.log(txt);
 }
 
 // Power-up palette — click selects a PU type for painting; click again to deselect
@@ -1561,6 +1739,16 @@ function setLayer(l){
   render();
 }
 
+// Pick the Base brush (Active or Hole). Selecting a brush also engages the Base
+// layer — like grabbing a tool, you don't have to switch layers separately.
+function setBase(v){
+  selBase=v;
+  document.querySelectorAll('#base-pal .bbtn').forEach(b=>b.classList.remove('on'));
+  document.getElementById(v==='active'?'b-active':'b-hole').classList.add('on');
+  if(layer!=='base') setLayer('base');
+  document.getElementById('sb1').textContent='Layer: Base ('+(v==='active'?'Active':'Hole')+')';
+}
+
 function setTool(t){
   tool=t;
   document.querySelectorAll('[id^="tt-"]').forEach(b=>b.classList.remove('on'));
@@ -1580,7 +1768,7 @@ function onCell(r,c,e){if(playing&&!animating){playTap(r,c);}else if(!playing){p
 
 function paintCell(r,c){
   const cd=board[r][c];
-  if(layer==='base'){save();cd.active=!cd.active;}
+  if(layer==='base'){save();cd.active=(selBase==='active');} // SET to the chosen brush, not toggle
   else if(layer==='tile'&&cd.active){
     if(tool==='paint'&&selObs==='_clear_sub'){save();cd.sub=null;}          // clear substrate only
     else if(tool==='paint'&&selObs==='_clear_obs'){save();cd.obs=null;}   // clear overlay/block only
@@ -1603,7 +1791,12 @@ function paintCell(r,c){
     const dirs=['down','right','left','up'];
     flow[r][c]=dirs[(dirs.indexOf(flow[r][c])+1)%4];
   }
-  render();
+  // Incremental repaint: only the touched cell(s) redraw, so a drag-paint no
+  // longer thrashes the whole board (the flicker fix). Fill floods many cells,
+  // so it still needs a full render; mirror also updates its partner column.
+  if(tool==='fill') render();
+  else if(layer==='tile'&&tool==='mirror'){renderCell(r,c);renderCell(r,C-1-c);}
+  else renderCell(r,c);
 }
 
 function flood(r,c,from,to){
@@ -1615,6 +1808,9 @@ function flood(r,c,from,to){
 
 function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=randGem();board[r][c].pu=null;}clean();render();}
 function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;board[r][c].sub=null;board[r][c].item=null;}render();}
+// Reset the board to a full rectangle — every cell active (fills any holes). Gives
+// a clean all-active canvas when a template's hole layout isn't wanted (Jed 2026-07-29).
+function fillGrid(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++)board[r][c].active=true;render();}
 
 function togglePlay(){
   playing=!playing;selCell=null;moves=0;cleared=0;animating=false;
@@ -3343,7 +3539,11 @@ const PlayerProgress={
   save(){localStorage.setItem(this.key,JSON.stringify(this.data));},
   stars(n){const d=this.data[n];return typeof d==='number'?d:(d&&d.s)||0;},
   record(n){const d=this.data[n];return (d&&d.rec)||0;},
-  set(n,s,rec){this.data[n]={s:s,rec:rec||this.record(n)||0};this.save();},
+  // m = consecutive won runs that FAILED to beat the record (once ★1 is held).
+  // 3 of them unlock the per-level star reset (Jed 2026-07-29). set() preserves m.
+  misses(n){const d=this.data[n];return (d&&d.m)||0;},
+  setMisses(n,m){const d=this.data[n];if(d&&typeof d==='object'){d.m=m;this.save();}},
+  set(n,s,rec){const old=this.data[n];this.data[n]={s:s,rec:rec||this.record(n)||0,m:(old&&typeof old==='object'&&old.m)||0};this.save();},
   unlocked(n){
     if(n===1)return true;
     let p=n-1; while(p>1&&HELD_LEVELS.has(p))p--; // skip held levels (e.g. L23) — gate on the nearest shipped predecessor
@@ -3492,7 +3692,8 @@ function renderGrid(){
     // Stars are achievements, never locks. (Bundle-purchase gating comes later,
     // and is per-bundle/all-or-nothing — never level-by-level.)
     const open=i<=MAX_BUILT_LEVEL&&!HELD_LEVELS.has(i), st=PlayerProgress.stars(i);
-    if(open) html+='<div class="pcell open" onclick="startPlayerLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span></div>';
+    if(open){const rc=PlayerProgress.record(i); // show the ★1 bar so players have a target to beat
+      html+='<div class="pcell open" onclick="startPlayerLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span>'+(rc?'<span class="prec">'+TXT('rec_moves')(rc)+'</span>':'')+'</div>';}
     else if(i>MAX_BUILT_LEVEL||HELD_LEVELS.has(i)) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">'+TXT('soon')+'</span><span>'+i+'</span></div>';
     else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
   }
@@ -3643,6 +3844,14 @@ function loadLevelData(json,num){
       return null;
     })
     .filter(Boolean);
+  // Mirror the level's objectives into the editor Goals panel (canonical shape,
+  // color names normalized to GEM_JSON so the gem selector matches).
+  editorObjectives=(json.objectives||[]).map(o=>{
+    const n={...o};
+    if(n.type==='collect'&&n.gem!=null&&GEMMAP[n.gem]!=null)n.gem=GEM_JSON[GEMMAP[n.gem]];
+    return n;
+  });
+  renderObjectives();
   // star thresholds (fewer moves = more stars)
   document.getElementById('s3').value=Math.ceil(moveLimit/3);
   document.getElementById('s2').value=Math.ceil(2*moveLimit/3);
@@ -3849,7 +4058,7 @@ function beginPlaySession(){
   buildGPal();buildPUPal();buildObsPal();
   playerMode=true; playing=false;
   flyWindow(); // flyover levels: fixed camera window (after playerMode is set; clears on normal levels)
-  window.runMaxSeq=0; // star canon: best PU-sequence of THIS run (era-1 ★2/★3)
+  window.runMaxSeq=0; // star canon: best PU-sequence of THIS run (feeds ★3: 3-chain)
   armedBooster=null; window.runBoosterCount=0; // fresh run: nothing armed, era-2 sensor zeroed
   renderBoosterPanel();
   render();
@@ -4068,28 +4277,58 @@ function playerFinish(win){
   // Entrance level ends with the two-path choice, not the stars overlay
   if(entranceMode&&win){showEntranceChoice();return;}
   playing=false; animating=true; // lock the board
-  // STAR CANON (era 1, pre-booster-panel): ★1 = complete (sets/updates the
-  // personal move RECORD); ★2 = 2 PUs detonated in sequence from one move
-  // this run; ★3 = 3 in sequence. RECORD RESET RULE: a strictly lower move
-  // count starts a new record era — banked ★2/★3 reset, this run's feats
-  // then count toward the new era.
+  // STAR CANON (sober, Jed 2026-07-29 — see memory project_star_canon):
+  // SEQUENTIAL ENABLEMENT — stars are earned strictly in order, AT MOST ONE
+  // NEW STAR PER ATTEMPT, so 3-starring on try 1 or 2 is impossible (the
+  // Akashic Swaps signature). ★1 = finish (sets your move record). ★2 = a LATER
+  // finish that IMPROVES (any 1+ fewer move than your record) — enabled only
+  // once ★1 is banked. ★3 = one swap fires 3 PUs in succession (runMaxSeq>=3) —
+  // enabled only once ★2 is banked, so an early 3-chain is WITHHELD until then.
   let stars=0;
   if(win){
-    const rec=PlayerProgress.record(curLevelNum);
-    const isNewRecord=rec===0||moves<rec;
-    const prior=(rec!==0&&moves<rec)?1:PlayerProgress.stars(curLevelNum);
-    const runStars=1+((window.runMaxSeq||0)>=2?1:0)+((window.runMaxSeq||0)>=3?1:0);
-    stars=Math.max(prior,runStars,1);
-    PlayerProgress.set(curLevelNum,stars,isNewRecord?moves:rec);
+    let prev=PlayerProgress.stars(curLevelNum); // banked stars: 0..3
+    const rec=PlayerProgress.record(curLevelNum); // 0 = never finished
+    stars=prev;
+    if(prev===0)                            stars=1;                         // ★1 first finish
+    else if(prev===1&&rec>0&&moves<rec)     stars=2;                         // ★2 improved on the record
+    else if(prev===2&&(window.runMaxSeq||0)>=3) stars=3;                     // ★3 three-PU chain from one swap
+    // record = best (fewest) moves ever; ★1 seeds it, later runs keep the min
+    const newRec=rec>0?Math.min(rec,moves):moves;
+    PlayerProgress.set(curLevelNum,stars,newRec);
+    // Miss tracking (only once ★1 is held): a finish that beat the record clears
+    // the counter; a finish that didn't bumps it. 3 misses unlock the per-level
+    // star reset so the player can set a fresh, deliberately-bad bar.
+    if(prev>=1){
+      if(rec>0&&moves<rec) PlayerProgress.setMisses(curLevelNum,0);
+      else PlayerProgress.setMisses(curLevelNum,PlayerProgress.misses(curLevelNum)+1);
+    }
   }
   document.getElementById('pwin-title').textContent=win?TXT('win_title'):TXT('lose_title');
   document.getElementById('pwin-stars').textContent=pStarStr(stars);
   document.getElementById('pwin-msg').textContent=win
     ? TXT('win_msg')(curLevelNum,moves)
     : TXT('try_again');
+  // The bar to beat — the record that set ★1. Gives the player a target and a
+  // reason to reach for the reset (Jed 2026-07-29).
+  const recNow=win?PlayerProgress.record(curLevelNum):0;
+  document.getElementById('pwin-rec').textContent=recNow?TXT('bar_to_beat')(recNow):'';
+  // Per-level star reset — surfaces only after 3 non-improving finishes.
+  const rb=document.getElementById('pwin-reset');
+  const showReset=win&&PlayerProgress.misses(curLevelNum)>=3;
+  rb.style.display=showReset?'inline-block':'none';
+  rb.textContent=TXT('reset_level_btn');
   document.getElementById('pwin-btn').textContent=win?TXT('cont'):TXT('retry');
   document.getElementById('pwin').classList.add('open');
   pwinWon=win;
+}
+// Reset ONE level's stars + record + miss counter, then replay it so the player
+// can set a new (often deliberately terrible) first-star bar (Jed 2026-07-29).
+function resetLevelStars(n){delete PlayerProgress.data[n];PlayerProgress.save();}
+function pwinResetLevel(){
+  const n=curLevelNum;
+  resetLevelStars(n);
+  document.getElementById('pwin').classList.remove('open');
+  startPlayerLevel(n);
 }
 
 function pwinContinue(){
