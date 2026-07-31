@@ -147,6 +147,22 @@ body.font-lg{--base-font:20px;}
 .tmpl-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:var(--fz-sm);font-family:var(--font-sans);color:#554470;flex-wrap:wrap;}
 .tmpl-btn{padding:6px 12px;border:0.5px solid #2d2040;border-radius:6px;cursor:pointer;color:#8a74b0;background:transparent;font-size:var(--fz-sm);font-family:var(--font-sans);}
 .tmpl-btn:hover{border-color:#8a74b0;color:#c9b8e8;}
+/* ── Their Products — bundle picker modal (signed-in editors) ── */
+#products{position:fixed;inset:0;background:rgba(13,10,20,.94);display:none;align-items:center;justify-content:center;z-index:224;padding:24px;}
+#products.open{display:flex;}
+#products .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:28px 34px;text-align:center;max-width:520px;width:calc(100% - 48px);max-height:calc(100vh - 48px);overflow:auto;}
+#products h2{font-size:var(--fz-xl);color:#c792ea;margin-bottom:6px;font-weight:500;}
+#products .pmsg{color:#887a9a;font-size:var(--fz-sm);margin-bottom:20px;font-family:var(--font-sans);}
+#products .prod-close{margin-top:22px;background:transparent;border:0.5px solid #3d2060;border-radius:6px;color:#8a74b0;padding:8px 20px;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
+#products .prod-close:hover{border-color:#8a74b0;color:#c9b8e8;}
+.prod-card{background:#1a0f2a;border:0.5px solid #3d2060;border-radius:10px;padding:18px 22px;cursor:pointer;transition:border-color .2s,transform .2s;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:16px;}
+.prod-card:hover{border-color:#c792ea;transform:translateY(-2px);}
+.prod-card .pc-name{font-size:var(--fz-lg);color:#c9b8e8;font-weight:500;}
+.prod-card .pc-meta{font-size:var(--fz-xs);color:#665580;text-transform:uppercase;letter-spacing:.08em;margin-top:3px;}
+.prod-card .pc-arrow{color:#8a74b0;font-size:var(--fz-xl);}
+.prodlvls{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:4px;}
+.prodlvl{padding:12px 0;border:0.5px solid #2d2040;border-radius:8px;cursor:pointer;color:#c9b8e8;background:#160c24;font-size:var(--fz-base);font-family:var(--font-sans);transition:border-color .15s,background .15s;}
+.prodlvl:hover{border-color:#c792ea;background:#1e1130;}
 .new-btn:hover{border-color:#c792ea;color:#c792ea;background:#0d0818;}
 
 /* ── GRID SETUP MODAL ── */
@@ -449,13 +465,11 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <button class="quad-action primary" id="btn-new-level" data-i18n="btn_new_level">+ New level</button>
       </div>
       <button class="new-btn" id="btn-new-level2" data-i18n="btn_new_level2">+ Start a new level</button>
-      <!-- Township templates: the 5 free levels, gifted as editable starting points -->
-      <div class="tmpl-row"><span data-i18n="tmpl_label">Start from a classic:</span>
-        <button class="tmpl-btn" onclick="openTemplate(1)">L1</button>
-        <button class="tmpl-btn" onclick="openTemplate(2)">L2</button>
-        <button class="tmpl-btn" onclick="openTemplate(3)">L3</button>
-        <button class="tmpl-btn" onclick="openTemplate(4)">L4</button>
-        <button class="tmpl-btn" onclick="openTemplate(5)">L5</button>
+      <!-- Their Products: a signed-in editor opens any bundle they own and edits
+           its levels (bundle-centric reframe, Jed 2026-07-30). Supersedes the old
+           L1-L5 "classic template" row — openTemplate(n) now reaches all 25. -->
+      <div class="tmpl-row"><span data-i18n="products_label">Their Products:</span>
+        <button class="tmpl-btn" onclick="openProducts()" data-i18n="products_btn">Open your Bundles</button>
       </div>
     </div>
     <div class="quad">
@@ -541,6 +555,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <button class="tb on" style="color:#c8a8ff;border-color:#6a4aaa;" onclick="togglePlay()" id="playbtn">▶ Play</button>
     </div>
     <div class="tg">
+      <!-- Back to the bundle's level grid (shown only when the level was opened
+           from Their Products); mirrors Play mode's "← Levels" navigation. -->
+      <button class="tb" id="btn-to-bundle" onclick="editorToBundle()" style="color:#665580;display:none;">← Levels</button>
       <button class="tb" onclick="goHome()" style="color:#665580;">← Home</button>
     </div>
     <div class="tg">
@@ -736,6 +753,10 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   </div>
 </div>
 
+<!-- Their Products — bundle picker for signed-in editors. Two steps drawn into
+     .wbox by renderProductsList()/renderBundleLevels(): products → levels → edit. -->
+<div id="products"><div class="wbox"></div></div>
+
 <!-- Qualifying Level intro — brief timed popup at entrance start -->
 <div id="qintro" onclick="dismissQIntro()">
   <div class="wbox">
@@ -771,6 +792,10 @@ en:{
   empty_publish:'Your published levels and their stats will live here.',
   empty_boards:'Leaderboards open when player accounts arrive.',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
+  products_label:'Their Products:',products_btn:'Open your Bundles',
+  products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',
+  products_levels:'levels',products_close:'Close',
+  products_pick:'Pick a level to edit.',products_back:'← Bundles',
   pback_bundles:'← Bundles',pback_levels:'← Levels',
   rotate_msg:'Rotate your device',
   moves_cap:'Moves',goals_cap:'Goals',
@@ -824,6 +849,10 @@ ko:{
   empty_publish:'공개한 레벨과 그 통계가 여기에 표시됩니다.',
   empty_boards:'리더보드는 플레이어 계정 도입과 함께 열립니다.',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
+  products_label:'내 제품:',products_btn:'번들 열기',
+  products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',
+  products_levels:'레벨',products_close:'닫기',
+  products_pick:'편집할 레벨을 선택하세요.',products_back:'← 번들',
   pback_bundles:'← 번들',pback_levels:'← 레벨 목록',
   rotate_msg:'기기를 가로로 돌려주세요',
   moves_cap:'이동',goals_cap:'목표',
@@ -893,6 +922,10 @@ function setLang(l){
   applyLang();
   if(document.getElementById('player').classList.contains('active')){
     if(lastPView==='grid')renderGrid();else if(lastPView==='bundles')renderBundles();
+  }
+  // Products modal is built with innerHTML (not data-i18n), so re-draw it if open.
+  if(document.getElementById('products').classList.contains('open')){
+    if(productsView)renderBundleLevels(productsView);else renderProductsList();
   }
   if(typeof playerMode!=='undefined'&&playerMode){updatePlayerHUD();renderBoosterPanel();} // live HUD + palette refresh mid-level
 }
@@ -1127,6 +1160,8 @@ async function openTemplate(n){
   clean(); // no pre-made matches on open
   document.getElementById('home').style.display='none';
   document.getElementById('editor').style.display='flex';
+  // Show "← Levels" only when this level came from a bundle (Their Products).
+  document.getElementById('btn-to-bundle').style.display=editorBundle?'':'none';
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
   buildGPal();buildPUPal();buildObsPal();
@@ -1139,6 +1174,71 @@ function goHome(){
   document.getElementById('home').style.display='flex';
   playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;animating=false;selCell=null;
   GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
+  editorBundle=null; // left the editor — no origin bundle to go back to
+}
+
+// ── Their Products — a signed-in editor's owned bundles, each level openable ───
+// Bundle-centric reframe (Jed 2026-07-30): pick a Bundle → pick a level → edit it.
+// openTemplate(n) already loads any level 1-25 fully painted, so this is just a
+// browser over that capability. Bundle metadata is client-side for now; the DB
+// `bundles` table (author-owned) is where PRODUCTS comes from once publishing lands.
+const PRODUCTS=[
+  // Bundle 1 = MVP-25 "Go with the Flow" (the Township reverse-engineering pack).
+  {id:'flow', nameKey:'bundle_title'}
+];
+// Level count resolved lazily — MAX_BUILT_LEVEL is declared later in this script,
+// so reading it in PRODUCTS's initializer would hit its temporal dead zone.
+function bundleLevelCount(p){return MAX_BUILT_LEVEL;}
+
+function openProducts(){
+  // Authorization: Their Products is for signed-in editors. If auth is live and
+  // nobody's signed in, route through the magic-link modal first — the editor is
+  // the architect surface, and a product belongs to an account.
+  if(AUTH_ENABLED && window.AkashicAuth && !AkashicAuth.user){ AkashicAuth.open(); return; }
+  renderProductsList();
+  document.getElementById('products').classList.add('open');
+}
+function closeProducts(){document.getElementById('products').classList.remove('open');}
+
+// Step 1 — list the editor's bundles.
+function renderProductsList(){
+  let html='<h2>'+TXT('products_title')+'</h2><div class="pmsg">'+TXT('products_msg')+'</div>';
+  PRODUCTS.forEach(p=>{
+    html+='<div class="prod-card" onclick="renderBundleLevels(\''+p.id+'\')">'+
+      '<div><div class="pc-name">'+TXT(p.nameKey)+'</div>'+
+        '<div class="pc-meta">'+TXT('bundle_n')+' · '+bundleLevelCount(p)+' '+TXT('products_levels')+'</div></div>'+
+      '<div class="pc-arrow">→</div></div>';
+  });
+  html+='<button class="prod-close" onclick="closeProducts()">'+TXT('products_close')+'</button>';
+  document.querySelector('#products .wbox').innerHTML=html;
+}
+
+// Step 2 — list a bundle's levels; clicking one opens it in the editor.
+function renderBundleLevels(id){
+  const p=PRODUCTS.find(x=>x.id===id); if(!p)return;
+  productsView=id; // remember which bundle we're in for a language re-render
+  let html='<h2>'+TXT(p.nameKey)+'</h2><div class="pmsg">'+TXT('products_pick')+'</div><div class="prodlvls">';
+  for(let i=1;i<=bundleLevelCount(p);i++) html+='<button class="prodlvl" onclick="editBundleLevel('+i+')">'+i+'</button>';
+  html+='</div><button class="prod-close" onclick="productsView=null;renderProductsList()">'+TXT('products_back')+'</button>';
+  document.querySelector('#products .wbox').innerHTML=html;
+}
+let productsView=null; // null = products list, else a bundle id = its level grid
+let editorBundle=null; // bundle id the level in the editor came from (null = blank/new)
+
+// Open a bundle level into the editor for editing, closing the picker. Remember
+// the origin bundle so the editor's "← Levels" button can return to its grid.
+function editBundleLevel(n){editorBundle=productsView;productsView=null;closeProducts();openTemplate(n);}
+
+// Editor "← Levels" — back to the origin bundle's level grid (like Play mode's
+// back nav). Tears the editor down via goHome (restores GEM_POOL etc.), then
+// re-opens the picker straight to the bundle. Auth-gated like openProducts.
+function editorToBundle(){
+  const b=editorBundle;
+  goHome();
+  if(!b)return;
+  if(AUTH_ENABLED && window.AkashicAuth && !AkashicAuth.user){ AkashicAuth.open(); return; }
+  document.getElementById('products').classList.add('open');
+  renderBundleLevels(b);
 }
 
 /* ── BOARD ── */
@@ -2255,7 +2355,7 @@ function processDetonations(queue,phase,onDone){
 // short beat, then the queue continues
 function detScarab(r,c,phase,queue,next,rad,charged){
   const cells=scarabCells(r,c,rad);
-  plantClover(cells,charged); // blast = one clear event; clover-charged PU plants the whole blast
+  if(charged)plantClover(cells,true); // same rule as the Dragonfly: only a clover-CHARGED Scarab plants its blast; blasting through existing clover doesn't spread it
   cells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
   render(null);
@@ -2272,7 +2372,11 @@ function detDragonfly(sr,sc,dir,phase,queue,next,wide,charged){
     if(dir==='h'){if(sr>0)cells=cells.concat(dragonflyCells(sr-1,sc,'h'));if(sr<R-1)cells=cells.concat(dragonflyCells(sr+1,sc,'h'));}
     else{if(sc>0)cells=cells.concat(dragonflyCells(sr,sc-1,'v'));if(sc<C-1)cells=cells.concat(dragonflyCells(sr,sc+1,'v'));}
   }
-  plantClover(cells,charged); // line sweep = one clear event; clover-charged PU plants the whole line
+  // A Dragonfly plants clover ONLY if it was clover-CHARGED (dragged off a clover
+  // cell). A beam merely SWEEPING THROUGH existing clover does NOT cloverize its
+  // line — crossing a seed is not spreading it (Jed 2026-07-30, L7 H-Dragonfly bug:
+  // a non-charged fly whose beam ends landed on seeds clovered the whole row).
+  if(charged)plantClover(cells,true);
   const rings=new Map();
   cells.forEach(([r,c])=>{
     const d=dir==='h'?Math.abs(c-sc):Math.abs(r-sr);
@@ -2304,10 +2408,9 @@ function detDragonfly(sr,sc,dir,phase,queue,next,wide,charged){
 function detBall(sr,sc,color,phase,queue,next,charged){
   const gemIdx=(color!=null)?color:mostPrevalentGem();
   const cells=rainbowCells(gemIdx).filter(([r,c])=>!phase.has(r+','+c));
-  // SPREAD CLOVER: the sweep's WHOLE color set + origin = one clear event —
-  // scattered bare cells plant if the set touches clover anywhere (L9 f110 proof);
-  // a clover-charged Ball plants its whole set unconditionally.
-  plantClover(cells.concat([[sr,sc]]),charged);
+  // A Ball plants clover ONLY if clover-CHARGED (dragged off clover). Sweeping
+  // through existing clover does not spread it — same rule as Dragonfly/Scarab.
+  if(charged)plantClover(cells.concat([[sr,sc]]),true);
   cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
   let i=0;
   const HIT_MS=110; // pace between laser hits
@@ -2328,7 +2431,7 @@ function detBall(sr,sc,color,phase,queue,next,charged){
 // GRASSHOPPER (chain-caught) — orthogonals blast, then laser to an auto-picked
 // goal-oriented target. Player-fired hoppers never reach here (choice flow).
 function detHopper(r,c,phase,queue,next,charged){
-  plantClover(grasshopperOrthCells(r,c).concat([[r,c]]),charged); // orth blast = one event; clover-charge plants it all
+  if(charged)plantClover(grasshopperOrthCells(r,c).concat([[r,c]]),true); // only a clover-CHARGED Grasshopper plants its orth blast; blasting through clover doesn't spread it
   grasshopperOrthCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
   render(null);
@@ -3551,6 +3654,13 @@ const PlayerProgress={
   }
 };
 PlayerProgress.load();
+// "Editor in the house?" — architects (and the #dev bypass) roam free; Explorers
+// playing in Game mode get sequential padlock gating. Gating reversal 2026-07-27:
+// gate BY ROLE (players gated so the current-level leaderboard axis is meaningful;
+// editors unrestricted so they can edit/test any level). Jed re-enabled 2026-07-29.
+function isArchitect(){
+  return location.hash==='#dev' || localStorage.getItem('akashicswaps-path')==='architect';
+}
 // Bridge for auth.js (deferred module): expose the store so the module can mirror
 // stars to the cloud and fold cloud rows back in. classic-script const ≠ window prop.
 window.PlayerProgress=PlayerProgress;
@@ -3686,16 +3796,19 @@ function renderGrid(){
   const authStrip=(AUTH_ENABLED&&window.AkashicAuth)?AkashicAuth.stripHTML():'';
   let html=authStrip+'<div id="pgrid-title">'+TXT('bundle_title')+'</div>'+
            '<div id="pgrid-sub">'+TXT('grid_sub')+'</div><div class="pgrid">';
+  const arch=isArchitect(); // editors roam free; players gate sequentially
   for(let i=1;i<=25;i++){
-    // NO sequential gating (Jed 2026-07-23): a bundle is a key, not a ladder —
-    // own it, play all 25 in any order. Every built, non-held level is open.
-    // Stars are achievements, never locks. (Bundle-purchase gating comes later,
-    // and is per-bundle/all-or-nothing — never level-by-level.)
-    const open=i<=MAX_BUILT_LEVEL&&!HELD_LEVELS.has(i), st=PlayerProgress.stars(i);
+    // Sequential gating is BY ROLE (Jed 2026-07-27 reversal, re-enabled 2026-07-29):
+    // players (Explorers, Game mode) unlock levels in order via padlocks — this makes
+    // the "current level attained" leaderboard axis meaningful; editors/architects skip
+    // gating entirely so they can edit + test any level. Bundle-PURCHASE gating (future)
+    // stays separate: per-bundle/all-or-nothing, never level-by-level. Stars never lock.
+    const built=i<=MAX_BUILT_LEVEL&&!HELD_LEVELS.has(i);
+    const open=built&&(arch||PlayerProgress.unlocked(i)), st=PlayerProgress.stars(i);
     if(open){const rc=PlayerProgress.record(i); // show the ★1 bar so players have a target to beat
       html+='<div class="pcell open" onclick="startPlayerLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span>'+(rc?'<span class="prec">'+TXT('rec_moves')(rc)+'</span>':'')+'</div>';}
-    else if(i>MAX_BUILT_LEVEL||HELD_LEVELS.has(i)) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">'+TXT('soon')+'</span><span>'+i+'</span></div>';
-    else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
+    else if(!built) html+='<div class="pcell shut"><span class="plock" style="font-size:var(--fz-xs);">'+TXT('soon')+'</span><span>'+i+'</span></div>';
+    else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>'; // built but not yet unlocked (player)
   }
   html+='</div>';
   // Star reset (Jed 2026-07-16) — wipes ALL attainments after an explicit

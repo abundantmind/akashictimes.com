@@ -73,9 +73,12 @@ window.runInvariants = async function(){
     // 3a. double-tap in place, no clover in line -> plants nothing
     wipe(); board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
     await fireDet('rocket_v',3,col); ok('clover · double-tap-in-place on bare, no clover crossed → 0', colClover()===0, colClover());
-    // 3b. in-place, line crosses a clover cell -> touches rule plants line
-    wipe(); board[6][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v';
-    await fireDet('rocket_v',3,col); ok('clover · in-place line crosses clover → plants line', colClover()===R, colClover());
+    // 3b. in-place (NON-charged) line crossing an existing clover cell plants
+    // NOTHING NEW — a beam sweeping THROUGH clover does not spread it; only a
+    // clover-CHARGED PU (dragged off clover, case 3c) plants its line
+    // (Jed 2026-07-30, L7 H-Dragonfly bug). Only the pre-existing seed remains.
+    wipe(); board[6][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
+    await fireDet('rocket_v',3,col); ok('clover · in-place line crossing clover plants NOTHING (only charged plants)', colClover()===1, colClover());
     // 3c. dragged off clover -> charged -> plants line even with origin ground stripped
     wipe(); board[3][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v';
     (()=>{ const sr=3,sc=col,r=4,cc=col; for(const k of ['gem','pu','item']){const t=board[sr][sc][k];board[sr][sc][k]=board[r][cc][k];board[r][cc][k]=t;}
