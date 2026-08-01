@@ -609,6 +609,10 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="ptitle">Power-ups</div>
         <div id="pupal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
       </div>
+      <div class="psec" id="src-pal">
+        <div class="ptitle">Sources</div>
+        <div id="srcpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+      </div>
       <div class="psec" id="sub-pal">
         <div class="ptitle">Substrate</div>
         <div id="subpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
@@ -649,7 +653,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="tb" onclick="addObjective('acorn')">+ Acorn</button>
         </div>
         <div class="objbtns">
-          <button class="tb" onclick="copyObjectivesJSON()" title="Copy the objectives + moveLimit as JSON — paste into the level file (first serializer slice).">⧉ Copy JSON</button>
+          <button class="tb" onclick="showSerialized()" title="Serialize the whole board to canonical 7-layer JSON (the Central Scrutinizer) and show it for review.">⌘ Serialize</button>
         </div>
       </div>
       <div class="rsec">
@@ -1060,7 +1064,15 @@ const FARROWS={down:'↓',right:'→',left:'←',up:'↑',custom:'?'};
 let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (board scales to viewport)
 const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
-let board=[],flow=[],layer='tile',tool='paint',selGem=0,selPU=null;
+let board=[],flow=[],layer='tile',tool='paint';
+// UNIFIED BRUSH (Jed 2026-07-31): ONE selection across every Tile-layer palette, so
+// mutual exclusivity is STRUCTURAL — there is no separate selGem / selPU / selObs to
+// fall out of sync (the bug where a leftover '_clear_pu' brush swallowed gem clicks,
+// leaving cells "stuck" as clover with no gem). Shape {type,id}:
+//   'gem'   id = gem index          'pu'   id = PU name
+//   'obs'   id = OBS_TYPES id        'clear' id = '_clear_pu'|'_clear_sub'|'_clear_obs'|'_clear_item'
+// The Base brush (Active/Hole) is a DIFFERENT layer and stays in selBase below.
+let selBrush={type:'gem',id:0};
 let selBase='inactive'; // Base brush: 'active' or 'inactive'(Hole) — click cells to SET this state
 // Editor Goals panel: the level's objectives, held in canonical JSON shape
 // ({type:'plant',obstacle:'clover',count} | {type:'collect',gem|item,count}).
@@ -1499,6 +1511,16 @@ function buildCellEl(r,c,dropping){
       ov.innerHTML=overlaySVG(cd.obs,CELL_SIZE);
       el.style.position='relative';el.appendChild(ov);
     }
+    // Layer 3 Source badge — a painted Inlet is an authoritative spawn point
+    // (gems pour in here). Editor-only: hidden during play so the hook recording
+    // stays clean (the spawn behavior is what shows on camera, not the marker).
+    if(cd.source==='inlet'&&!playing){
+      el.style.position='relative';
+      const sb=document.createElement('div');
+      sb.style.cssText='position:absolute;top:0;left:0;right:0;z-index:3;pointer-events:none;text-align:center;font-size:12px;line-height:1;color:#26d996;text-shadow:0 0 3px #05140d;';
+      sb.textContent='▼';
+      el.appendChild(sb);
+    }
     if(dropping&&dropping.has(r+','+c))el.classList.add('dropping');
     el.appendChild(inner);
   }
@@ -1545,9 +1567,11 @@ function buildGPal(){
   const p=document.getElementById('gpal');p.innerHTML='';
   GDEFS.forEach((g,i)=>{
     const d=document.createElement('div');
-    d.style.cssText=`width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid ${i===0?'#c8a8ff':'transparent'};overflow:hidden;`;
+    const on=selBrush.type==='gem'&&selBrush.id===i;
+    d.style.cssText=`width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid ${on?'#c8a8ff':'transparent'};overflow:hidden;`;
+    d.dataset.bid='gem:'+i; // level-presence highlight target (markLevelBrushes)
     d.innerHTML=gemSVG(i,34);
-    d.onclick=()=>{selGem=i;document.querySelectorAll('#gpal div').forEach((x,j)=>x.style.borderColor=j===i?'#c8a8ff':'transparent');};
+    d.onclick=()=>pickBrush('gem',i,d);
     p.appendChild(d);
   });
 }
@@ -1662,6 +1686,83 @@ function copyObjectivesJSON(){
   console.log(txt);
 }
 
+// ══ THE CENTRAL SCRUTINIZER — serializer slice (Jed 2026-07-31) ════════════════
+// board → ONE canonical object per the LOCKED Painter Layer Model (7 layers,
+// PAINTER-LAYER-MODEL.md). Deterministic by construction: fixed key order, R×C
+// ASCII grids, props maps written in row-major scan order. Two Township carryovers
+// get OPPOSITE verdicts (Jed's canonicalize call): moveLimit is GONE (no purpose
+// in Akashic Swaps — never emitted); gemTypes is SIGNAL (carried). Per-cell gem
+// COLOR is NOT emitted — colors are seeded at load (random policy), so Contents
+// records the cell TYPE only. Layers 3 (Source) + 7 (Borders) are unpainted for
+// MVP-25 → they emit "none" and round-trip trivially.
+//   L1 Board '#'active '.'hole   L2 Flow v^<>   L3 Source '.'(none)
+//   L4 Substrate 'c'lover 'o'il '.'   L5 Contents g/e/k/a/x + PU(S,H,V,A,W)
+//   L6 Overlay 'B'ind 'L'eaf '.'      L7 Borders []
+const PU_CH={helicopter:'S',rocket_h:'H',rocket_v:'V',bomb:'A',rainbow:'W'};
+function serializeLevel(){
+  const grid=(fn)=>{const g=[];for(let r=0;r<R;r++){let s='';for(let c=0;c<C;c++)s+=fn(board[r][c],r,c);g.push(s);}return g;};
+  const FL={down:'v',up:'^',left:'<',right:'>'};
+  const cprops={},oprops={}; // companion HP maps for Contents (crate) + Overlay (chain/leaf)
+  const layers={
+    board:     grid(cd=>cd.active?'#':'.'),
+    flow:      grid((cd,r,c)=>cd.active?(FL[flow[r][c]]||'v'):'.'),
+    source:    grid(cd=>!cd.active?'.':cd.source==='inlet'?'I':cd.source==='drain'?'D':'.'), // L3 'I'nlet / 'D'rain
+    substrate: grid(cd=>!cd.active?'.':cd.sub==='clover'?'c':cd.sub==='oil'?'o':'.'),
+    contents:  grid((cd,r,c)=>{
+      if(!cd.active)return '.';
+      if(isCrate(r,c)){const hp=+cd.obs.replace('crate','')||1;if(hp>1)cprops['R'+r+'C'+c]={hp};return 'x';}
+      if(cd.pu)return PU_CH[cd.pu]||'?';
+      if(cd.item==='key')return 'k';
+      if(cd.item==='acorn')return 'a';
+      if(cd.startEmpty)return 'e';                              // Contents = Empty (field.empty)
+      return 'g';                                              // Contents = Gem (color seeded, not stored)
+    }),
+    overlay:   grid((cd,r,c)=>{
+      if(!cd.active||!cd.obs)return '.';
+      if(cd.obs.indexOf('bind')===0){const hp=+cd.obs.replace('bind','')||1;if(hp>1)oprops['R'+r+'C'+c]={hp};return 'B';}
+      if(cd.obs.indexOf('leaf')===0){const hp=+cd.obs.replace('leaf','')||1;if(hp>1)oprops['R'+r+'C'+c]={hp};return 'L';}
+      return '.';                                              // crate lives in Contents, not here
+    }),
+  };
+  const objectives=editorObjectives.map(o=>
+    o.type==='plant'?{type:'plant',obstacle:o.obstacle||'clover',count:o.count}
+    :o.gem!=null    ?{type:'collect',gem:o.gem,count:o.count}
+    :                {type:'collect',item:o.item,count:o.count});
+  const out={
+    schema:'akashic-level/1',
+    board:{rows:R,cols:C},
+    gemTypes:GEM_POOL.map(i=>GEM_JSON[i]),                     // carried Township palette
+    seeding:'random',                                          // color policy (only option for now)
+    layers,
+    props:{contents:cprops,overlay:oprops},
+    borders:[],                                                // L7 — none for MVP-25
+    objectives,
+  };
+  if(flyover)out.flyover={axis:flyover.axis,viewRows:flyover.viewRows,viewCols:flyover.viewCols,stops:flyover.stops};
+  return out;
+}
+
+// Visible review panel — replaces the old silent clipboard stub. Load a level,
+// click ⌘ Serialize, and SEE its canonical JSON (the future wizard steps these
+// layers one at a time with Approve / Edit).
+function showSerialized(){
+  const txt=JSON.stringify(serializeLevel(),null,2);
+  let ov=document.getElementById('serial-ov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='serial-ov';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(10,8,18,.88);z-index:9999;display:flex;flex-direction:column;padding:24px;box-sizing:border-box;';
+    ov.innerHTML='<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">'
+      +'<strong style="color:#c8a8ff;font-family:monospace;flex:1">Canonical Level JSON — Central Scrutinizer (serialize slice)</strong>'
+      +'<button class="tb" id="serial-copy">⧉ Copy</button><button class="tb" id="serial-close">✕ Close</button></div>'
+      +'<pre id="serial-pre" style="flex:1;overflow:auto;background:#0d0a14;color:#cfe6ff;padding:12px;border-radius:8px;font-size:12px;line-height:1.45;white-space:pre;margin:0"></pre>';
+    document.body.appendChild(ov);
+    document.getElementById('serial-close').onclick=()=>{ov.style.display='none';};
+    document.getElementById('serial-copy').onclick=()=>{const t=document.getElementById('serial-pre').textContent;if(navigator.clipboard)navigator.clipboard.writeText(t);document.getElementById('sb3').textContent='Canonical JSON copied';};
+  }
+  ov.style.display='flex';
+  document.getElementById('serial-pre').textContent=txt;
+}
+
 // Power-up palette — click selects a PU type for painting; click again to deselect
 const PU_TYPES=['helicopter','rocket_h','rocket_v','bomb','rainbow'];
 function buildPUPal(){
@@ -1670,25 +1771,16 @@ function buildPUPal(){
   const cd=document.createElement('div');
   cd.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;';
   cd.innerHTML=clearXSVG(34);cd.title='Clear power-up';
-  cd.onclick=()=>{
-    selPU=selPU==='_clear_pu'?null:'_clear_pu';
-    selObs=null;
-    document.querySelectorAll('#pupal div').forEach(x=>x.style.borderColor='transparent');
-    document.querySelectorAll('#subpal div,#ovlpal div,#blkpal div,#itmpal div').forEach(x=>x.style.borderColor='transparent');
-    if(selPU==='_clear_pu') cd.style.borderColor='#c8a8ff';
-  };
+  if(selBrush.type==='clear'&&selBrush.id==='_clear_pu')cd.style.borderColor='#c8a8ff';
+  cd.onclick=()=>pickBrush('clear','_clear_pu',cd);
   p.appendChild(cd);
   PU_TYPES.forEach(pu=>{
     const d=document.createElement('div');
-    d.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;';
+    const on=selBrush.type==='pu'&&selBrush.id===pu;
+    d.style.cssText=`width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid ${on?'#c8a8ff':'transparent'};overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;`;
+    d.dataset.bid='pu:'+pu; // level-presence highlight target
     d.innerHTML=puSVG(pu,34);
-    d.onclick=()=>{
-      selPU=selPU===pu?null:pu;
-      selObs=null; // deselect obstacle when selecting PU
-      document.querySelectorAll('#pupal div').forEach(x=>x.style.borderColor='transparent');
-      document.querySelectorAll('#obspal div').forEach(x=>x.style.borderColor='transparent');
-      if(selPU) d.style.borderColor='#c8a8ff';
-    };
+    d.onclick=()=>pickBrush('pu',pu,d);
     p.appendChild(d);
   });
 }
@@ -1713,7 +1805,6 @@ const OBS_TYPES=[
   {id:'acorn',   label:'ACN', color:'#7a5a2a', desc:'Acorn (collect)',    layer:'item'},
   {id:'record',  label:'LP',  color:'#2a2a2a', desc:'Record (LP)',        layer:'item', hp:1},
 ];
-let selObs=null;
 
 // Red X icon for per-layer clear buttons in palette
 function clearXSVG(size){
@@ -1799,14 +1890,12 @@ function buildObsPal(){
     d.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;';
     d.innerHTML=html;
     d.title=title;
+    // Clear swatches ('_clear_*') are 'clear' brushes; real obstacles are 'obs'.
+    const btype=id.startsWith('_clear_')?'clear':'obs';
+    if(btype==='obs')d.dataset.bid='obs:'+id; // level-presence highlight target (clears aren't level content)
+    if((selBrush.type==='obs'||selBrush.type==='clear')&&selBrush.id===id)d.style.borderColor='#c8a8ff';
     allPalDivs.push(d);
-    d.onclick=()=>{
-      selObs=selObs===id?null:id;
-      selPU=null;
-      document.querySelectorAll('#pupal div').forEach(x=>x.style.borderColor='transparent');
-      allPalDivs.forEach(x=>x.style.borderColor='transparent');
-      if(selObs) d.style.borderColor='#c8a8ff';
-    };
+    d.onclick=()=>pickBrush(btype,id,d);
     targetEl.appendChild(d);
     return d;
   };
@@ -1828,6 +1917,63 @@ function buildObsPal(){
     if(obs.layer==='sub'){d.style.background=obs.color;d.style.borderRadius='2px';}
     else if(obs.layer==='obs'){d.style.background='#d4b483';}
   });
+  buildSrcPal();      // Layer 3 Source swatches (Inlet)
+  markLevelBrushes(); // promote the swatches this level actually uses
+}
+
+// Layer 3 Source palette — paint an Inlet (authoritative spawn point). Drain /
+// Portal join here later; Inlet is what the pyramid hook needs (Jed 2026-07-31).
+function buildSrcPal(){
+  const p=document.getElementById('srcpal');if(!p)return;p.innerHTML='';
+  const cl=document.createElement('div'); // clear-source swatch
+  cl.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1a12;';
+  cl.innerHTML=clearXSVG(34);cl.title='Clear source';
+  if(selBrush.type==='clear'&&selBrush.id==='_clear_src')cl.style.borderColor='#c8a8ff';
+  cl.onclick=()=>pickBrush('clear','_clear_src',cl);
+  p.appendChild(cl);
+  const on=selBrush.type==='source'&&selBrush.id==='inlet'; // Inlet swatch
+  const d=document.createElement('div');
+  d.style.cssText=`width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid ${on?'#c8a8ff':'transparent'};overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1a12;color:#26d996;font-size:20px;line-height:1;`;
+  d.dataset.bid='source:inlet';
+  d.title='Inlet — gems spawn here (authoritative source)';
+  d.textContent='▼';
+  d.onclick=()=>pickBrush('source','inlet',d);
+  p.appendChild(d);
+}
+
+// ── UNIFIED BRUSH selection (Jed 2026-07-31) ──────────────────────────────────
+// The ONE place a Tile-layer brush is chosen. Sets selBrush and clears EVERY other
+// swatch + the Base brush, so exactly one thing is ever selected — the Smalltalk-
+// browser model. Replaces the old per-palette cross-clearing that let a stale
+// selPU/selObs hijack paintCell (the "gem won't paint on a cleared clover cell" bug).
+function pickBrush(type,id,el){
+  selBrush={type,id};
+  if(layer!=='tile')setLayer('tile'); // grabbing a swatch engages the paint layer (mirrors setBase engaging Base)
+  document.querySelectorAll('#base-pal .bbtn').forEach(b=>b.classList.remove('on')); // Base is a different layer — drop its highlight
+  document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#itmpal div')
+    .forEach(x=>x.style.borderColor='transparent');
+  if(el)el.style.borderColor='#c8a8ff';
+}
+
+// FULL catalog, LEVEL highlighted (Jed's call 2026-07-31): every swatch stays
+// visible, but the pieces PRESENT ON THE BOARD get a purple inset ring so you see
+// at a glance what the current level is built from. Board-presence is the signal —
+// no level-metadata plumbing, and it updates live as you paint. Clear swatches
+// carry no data-bid, so they're never ringed.
+function markLevelBrushes(){
+  const present=new Set();
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const cd=board[r]&&board[r][c];if(!cd)continue;
+    if(cd.gem!=null)present.add('gem:'+cd.gem);
+    if(cd.pu)present.add('pu:'+cd.pu);
+    if(cd.source)present.add('source:'+cd.source);
+    if(cd.sub)present.add('obs:'+cd.sub);
+    if(cd.obs)present.add('obs:'+cd.obs);
+    if(cd.item)present.add('obs:'+cd.item);
+  }
+  document.querySelectorAll('[data-bid]').forEach(el=>{
+    el.style.boxShadow=present.has(el.dataset.bid)?'inset 0 0 0 2px #7F77DD':'none';
+  });
 }
 
 function setLayer(l){
@@ -1845,6 +1991,10 @@ function setBase(v){
   selBase=v;
   document.querySelectorAll('#base-pal .bbtn').forEach(b=>b.classList.remove('on'));
   document.getElementById(v==='active'?'b-active':'b-hole').classList.add('on');
+  // Base is its own layer — drop the Tile-layer swatch highlights so only one
+  // brush ever looks selected (the unified-selection contract, both directions).
+  document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#itmpal div')
+    .forEach(x=>x.style.borderColor='transparent');
   if(layer!=='base') setLayer('base');
   document.getElementById('sb1').textContent='Layer: Base ('+(v==='active'?'Active':'Hole')+')';
 }
@@ -1870,23 +2020,32 @@ function paintCell(r,c){
   const cd=board[r][c];
   if(layer==='base'){save();cd.active=(selBase==='active');} // SET to the chosen brush, not toggle
   else if(layer==='tile'&&cd.active){
-    if(tool==='paint'&&selObs==='_clear_sub'){save();cd.sub=null;}          // clear substrate only
-    else if(tool==='paint'&&selObs==='_clear_obs'){save();cd.obs=null;}   // clear overlay/block only
-    else if(tool==='paint'&&selObs==='_clear_item'){save();cd.item=null;} // clear item only
-    else if(tool==='paint'&&selPU==='_clear_pu'){save();cd.pu=null;}      // clear power-up only
-    else if(tool==='paint'&&selObs){
-      const ot=OBS_TYPES.find(x=>x.id===selObs);
-      save();
-      if(ot.layer==='sub'){cd.sub=selObs;}                              // substrate: additive, doesn't touch gem/obs
-      else if(ot.layer==='obs'&&ot.solid){cd.obs=selObs;cd.gem=null;cd.pu=null;} // solid block: replaces gem
-      else if(ot.layer==='obs'){cd.obs=selObs;}                         // overlay: additive, sits over gem
-      else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=selObs;} // item: occupies gem slot
-    }
-    else if(tool==='paint'&&selPU){save();cd.pu=selPU;cd.gem=null;}     // PU replaces gem, keeps sub/obs
-    else if(tool==='paint'){save();cd.gem=selGem;cd.pu=null;cd.item=null;} // gem replaces PU/item, keeps sub/obs
-    else if(tool==='fill'){save();flood(r,c,cd.gem,selGem);}
+    const b=selBrush; // the ONE active brush — dispatch on its type
+    // fill / erase / mirror are gem-oriented tools (they operate on the gem layer);
+    // they use the gem brush when one is picked and no-op under a non-gem brush.
+    if(tool==='fill'){if(b.type==='gem'){save();flood(r,c,cd.gem,b.id);}}
     else if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;}
-    else if(tool==='mirror'){save();cd.gem=selGem;cd.pu=null;board[r][C-1-c].gem=selGem;board[r][C-1-c].pu=null;}
+    else if(tool==='mirror'){if(b.type==='gem'){save();cd.gem=b.id;cd.pu=null;board[r][C-1-c].gem=b.id;board[r][C-1-c].pu=null;}}
+    else if(tool==='paint'){
+      save();
+      if(b.type==='clear'){                                             // clear-brush: null one layer, leave the rest
+        if(b.id==='_clear_sub')cd.sub=null;
+        else if(b.id==='_clear_obs')cd.obs=null;
+        else if(b.id==='_clear_item')cd.item=null;
+        else if(b.id==='_clear_pu')cd.pu=null;
+        else if(b.id==='_clear_src')cd.source=null;
+      }
+      else if(b.type==='source'){cd.source=b.id;}                       // Layer 3 Inlet — additive spawn marker, keeps contents
+      else if(b.type==='gem'){cd.gem=b.id;cd.pu=null;cd.item=null;}     // gem replaces PU/item, keeps sub/obs
+      else if(b.type==='pu'){cd.pu=b.id;cd.gem=null;}                   // PU replaces gem, keeps sub/obs
+      else if(b.type==='obs'){
+        const ot=OBS_TYPES.find(x=>x.id===b.id);
+        if(ot.layer==='sub'){cd.sub=b.id;}                             // substrate: additive, doesn't touch gem/obs
+        else if(ot.layer==='obs'&&ot.solid){cd.obs=b.id;cd.gem=null;cd.pu=null;} // solid block: replaces gem
+        else if(ot.layer==='obs'){cd.obs=b.id;}                        // overlay: additive, sits over gem
+        else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=b.id;} // item: occupies gem slot
+      }
+    }
   } else if(layer==='flow'&&flowMode==='custom'){
     const dirs=['down','right','left','up'];
     flow[r][c]=dirs[(dirs.indexOf(flow[r][c])+1)%4];
@@ -1897,6 +2056,7 @@ function paintCell(r,c){
   if(tool==='fill') render();
   else if(layer==='tile'&&tool==='mirror'){renderCell(r,c);renderCell(r,C-1-c);}
   else renderCell(r,c);
+  markLevelBrushes(); // keep the level-presence rings current as the board changes
 }
 
 function flood(r,c,from,to){
@@ -1906,8 +2066,8 @@ function flood(r,c,from,to){
   flood(r-1,c,from,to);flood(r+1,c,from,to);flood(r,c-1,from,to);flood(r,c+1,from,to);
 }
 
-function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=randGem();board[r][c].pu=null;}clean();render();}
-function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;board[r][c].sub=null;board[r][c].item=null;}render();}
+function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=randGem();board[r][c].pu=null;}clean();render();markLevelBrushes();}
+function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;board[r][c].sub=null;board[r][c].item=null;}render();markLevelBrushes();}
 // Reset the board to a full rectangle — every cell active (fills any holes). Gives
 // a clean all-active canvas when a template's hole layout isn't wanted (Jed 2026-07-29).
 function fillGrid(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++)board[r][c].active=true;render();}
@@ -3111,6 +3271,17 @@ function gravityWithMap(){
     return !inGrid(r-dr,c-dc);
   }));
 
+  // AUTHORITATIVE PAINTED SOURCES (Painter Layer Model locked call #1, cashed in
+  // 2026-07-31 for Jed's pyramid hook). If the level paints ANY Inlet, those are
+  // the ONLY spawn sources — open-sky inference AND the starved-pocket promotion
+  // below are BOTH overridden, so a single apex Inlet feeds the whole pyramid via
+  // the diagonal-slip fixpoint (the single-column-then-alternating-diagonal drop
+  // rhythm). No painted Inlet → no-op: every inferred level runs the identical
+  // legacy path, so the 24 existing levels are byte-for-byte unchanged.
+  let paintedInlet=false;
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].source==='inlet')paintedInlet=true;
+  if(paintedInlet)for(let r=0;r<R;r++)for(let c=0;c<C;c++)entry[r][c]=board[r][c].active&&board[r][c].source==='inlet';
+
   // STARVED POCKETS BECOME SOURCES (Jed's rule, 2026-07-09): a cell that can
   // never be refilled — not straight from upstream, not diagonally around a
   // hole (L4 wing pockets: hole above AND both diagonals inactive) — behaves
@@ -3119,7 +3290,7 @@ function gravityWithMap(){
   // Promoted entries are remembered: their spawns FADE IN (no flight path
   // exists — the pocket's ceiling is a hole, not open sky).
   const promotedEntry=board.map(row=>row.map(()=>false));
-  {
+  if(!paintedInlet){ // authoritative sources suppress starved-pocket promotion — cells no Inlet can reach stay empty by design
     const feed=board.map((row,r)=>row.map((cd,c)=>cd.active&&entry[r][c]));
     for(;;){
       let grew=false;
