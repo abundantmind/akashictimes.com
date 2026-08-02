@@ -1167,8 +1167,12 @@ async function openTemplate(n){
   playerMode=false;playing=false;entranceMode=false;animating=false;CELL_SIZE=44;
   flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
   document.body.classList.remove('player-playing'); // editor styling (inactive ghost tiles)
-  // fill gems for a ready-to-play board; pre-placed PUs stay as painted
-  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu)board[r][c].gem=randGem();
+  // fill gems for a ready-to-play board; pre-placed PUs stay as painted. SKIP
+  // startEmpty (field.empty), items and crates — same guard as togglePlay. Was
+  // filling ALL active non-PU cells, so opening L14+ for edit DESTROYED its
+  // field.empty cells (they came back as gems — Jed 2026-08-01). field.empty must
+  // survive an edit: those cells stay gem-free until the first swap feeds them.
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
   clean(); // no pre-made matches on open
   document.getElementById('home').style.display='none';
   document.getElementById('editor').style.display='flex';
@@ -1521,6 +1525,15 @@ function buildCellEl(r,c,dropping){
       sb.textContent='▼';
       el.appendChild(sb);
     }
+    // Editor marker: an active cell that STARTS empty (fills only after move #1).
+    // Dashed inset ring distinguishes intentional field.empty from a just-cleared
+    // cell (which would refill on Play). Editor-only, and only while truly empty.
+    if(cd.startEmpty&&!playing&&cd.gem===null&&!cd.pu&&!cd.item){
+      el.style.position='relative';
+      const em=document.createElement('div');
+      em.style.cssText='position:absolute;inset:3px;z-index:1;pointer-events:none;border:1px dashed #55557a;border-radius:4px;';
+      el.appendChild(em);
+    }
     if(dropping&&dropping.has(r+','+c))el.classList.add('dropping');
     el.appendChild(inner);
   }
@@ -1565,6 +1578,18 @@ function renderCell(r,c){
 
 function buildGPal(){
   const p=document.getElementById('gpal');p.innerHTML='';
+  // Empty swatch — Contents=Empty: paints an ACTIVE cell that starts gem-free and
+  // fills only after the first swap (field.empty). Needed from L14 on (Jed
+  // 2026-08-01: "remove a gem from an active cell"). Sits with the gems since it's
+  // the gem's Contents-layer sibling.
+  const eon=selBrush.type==='empty';
+  const ed=document.createElement('div');
+  ed.style.cssText=`width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid ${eon?'#c8a8ff':'transparent'};overflow:hidden;display:flex;align-items:center;justify-content:center;background:#120f1a;color:#7a7a9a;font-size:18px;line-height:1;`;
+  ed.dataset.bid='empty:empty';
+  ed.title='Empty — active cell, no gem until the first swap (field.empty)';
+  ed.textContent='∅';
+  ed.onclick=()=>pickBrush('empty','empty',ed);
+  p.appendChild(ed);
   GDEFS.forEach((g,i)=>{
     const d=document.createElement('div');
     const on=selBrush.type==='gem'&&selBrush.id===i;
@@ -1967,6 +1992,7 @@ function markLevelBrushes(){
     if(cd.gem!=null)present.add('gem:'+cd.gem);
     if(cd.pu)present.add('pu:'+cd.pu);
     if(cd.source)present.add('source:'+cd.source);
+    if(cd.startEmpty&&cd.gem==null&&!cd.pu&&!cd.item)present.add('empty:empty');
     if(cd.sub)present.add('obs:'+cd.sub);
     if(cd.obs)present.add('obs:'+cd.obs);
     if(cd.item)present.add('obs:'+cd.item);
@@ -2036,14 +2062,15 @@ function paintCell(r,c){
         else if(b.id==='_clear_src')cd.source=null;
       }
       else if(b.type==='source'){cd.source=b.id;}                       // Layer 3 Inlet — additive spawn marker, keeps contents
-      else if(b.type==='gem'){cd.gem=b.id;cd.pu=null;cd.item=null;}     // gem replaces PU/item, keeps sub/obs
-      else if(b.type==='pu'){cd.pu=b.id;cd.gem=null;}                   // PU replaces gem, keeps sub/obs
+      else if(b.type==='empty'){cd.gem=null;cd.pu=null;cd.item=null;cd.startEmpty=true;} // Contents=Empty: active but gem-free until move #1 (field.empty); keeps sub (clover ground)
+      else if(b.type==='gem'){cd.gem=b.id;cd.pu=null;cd.item=null;cd.startEmpty=false;}  // gem replaces PU/item, un-empties, keeps sub/obs
+      else if(b.type==='pu'){cd.pu=b.id;cd.gem=null;cd.startEmpty=false;}                // PU replaces gem, un-empties, keeps sub/obs
       else if(b.type==='obs'){
         const ot=OBS_TYPES.find(x=>x.id===b.id);
-        if(ot.layer==='sub'){cd.sub=b.id;}                             // substrate: additive, doesn't touch gem/obs
-        else if(ot.layer==='obs'&&ot.solid){cd.obs=b.id;cd.gem=null;cd.pu=null;} // solid block: replaces gem
+        if(ot.layer==='sub'){cd.sub=b.id;}                             // substrate: additive, doesn't touch gem/obs (clover can sit under an empty cell)
+        else if(ot.layer==='obs'&&ot.solid){cd.obs=b.id;cd.gem=null;cd.pu=null;cd.startEmpty=false;} // solid block: replaces gem
         else if(ot.layer==='obs'){cd.obs=b.id;}                        // overlay: additive, sits over gem
-        else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=b.id;} // item: occupies gem slot
+        else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=b.id;cd.startEmpty=false;} // item: occupies gem slot
       }
     }
   } else if(layer==='flow'&&flowMode==='custom'){
