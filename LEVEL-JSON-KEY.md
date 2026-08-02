@@ -35,8 +35,10 @@ Each grid is `rows` strings of `cols` characters, row-major.
 | 6 | `overlay`   | `B` chain (bind) · `L` leaf · `.` none/hole |
 
 **`.` convention:** *hole* in `board`; *hole-or-none* in flow/source/substrate/overlay
-(a hole can't hold those). `contents` is the exception — an active cell always has
-some content, so `.` there is strictly a hole.
+(a hole can't hold those). In `contents`, an active cell always emits a non-`.` char —
+but **`e` (empty) is one of them**: an active cell that starts gem-free and fills only
+after the first swap (`field.empty`). So `.` in `contents` = strictly a hole; `e` = an
+*authored empty* cell. Essential from L14 on — the editor's **∅ Empty** brush paints it.
 
 **Gem COLOR is not stored.** `g` = "a gem lives here"; the color is seeded at load
 (random policy). Only the cell TYPE round-trips — this is what makes the fingerprint
@@ -59,19 +61,19 @@ and exact-dup detection work.
 
 ## Open canonicalize decisions (Jed's call)
 
-1. **Power-up letters map to LEGACY engine ids, not the game's names.** Recommend
-   re-lettering to the real PU vocabulary so the bytes read true (same cleanup class
-   as dropping `moveLimit`). Current mapping — **the game-PU column needs Jed**:
+1. **Power-up letters map to LEGACY engine ids.** Mapping CONFIRMED (Jed 2026-08-01):
 
-   | Letter | Internal id | Game PU (to confirm) |
+   | Letter | Internal id | Game PU |
    |---|---|---|
-   | `S` | helicopter | Grasshopper? |
-   | `H` | rocket_h   | ? |
-   | `V` | rocket_v   | Dragonfly? |
-   | `A` | bomb       | Scarab? |
-   | `W` | rainbow    | Akasha Ball? |
+   | `S` | helicopter | Grasshopper |
+   | `H` | rocket_h   | Dragonfly (horizontal) |
+   | `V` | rocket_v   | Dragonfly (vertical) |
+   | `A` | bomb       | Scarab |
+   | `W` | rainbow    | Akasha Ball |
 
-   Note: 5 internal ids but 4 branded PUs — one is a variant/booster or a mismap.
+   4 branded PUs — **Dragonfly has two orientations (H + V)**, which is the "5 ids".
+   OPEN: whether to re-letter to a brand-derived alphabet so the bytes read true
+   (same cleanup class as dropping `moveLimit`). Jed's call before the loader locks.
 
 2. **Borders (Layer 7)** emits `[]` — no paint tool yet. Planned per-seam shape:
    `{seam, type:"breakable"|"unbreakable", hp}`.
