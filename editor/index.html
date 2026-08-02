@@ -654,6 +654,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         </div>
         <div class="objbtns">
           <button class="tb" onclick="showSerialized()" title="Serialize the whole board to canonical 7-layer JSON (the Central Scrutinizer) and show it for review.">⌘ Serialize</button>
+          <button class="tb" onclick="saveLevelToDisk()" title="Save this board as canonical JSON straight into editor/levels/ (Chrome File System Access — one directory grant per session). These files seed Bundle 1.">▽ Save</button>
         </div>
       </div>
       <div class="rsec">
@@ -1787,6 +1788,85 @@ function showSerialized(){
   ov.style.display='flex';
   document.getElementById('serial-pre').textContent=txt;
 }
+
+// ── LOCAL FILE SAVE (Jed's call 2026-08-02, over the vault RPC) ───────────────
+// Chrome File System Access API: one directory grant to editor/levels/ per
+// session, then ▽ Save writes level-0NN.json in canonical shape straight to
+// disk. Git-tracked — THESE files seed Bundle 1. (The vault publish-RPC is a
+// later, separate session; this is the author-side durable save it depends on.)
+let levelsDirHandle=null; // readwrite handle for editor/levels/ (session-scoped)
+async function saveLevelToDisk(){
+  if(!window.showDirectoryPicker){
+    alert('Local Save needs a Chromium browser (File System Access API). Use ⌘ Serialize → ⧉ Copy as a fallback.');return;
+  }
+  // GESTURE ORDER MATTERS: showDirectoryPicker needs the click's user activation,
+  // and a modal (prompt/alert) CONSUMES that activation. So grab the directory
+  // grant FIRST — before the level-number prompt — or Chrome rejects the picker
+  // ("Must be handling a user gesture"). Granted once, reused all session; the
+  // later getFileHandle/write on an already-granted handle needs no fresh gesture.
+  if(!levelsDirHandle){
+    try{
+      levelsDirHandle=await window.showDirectoryPicker({id:'akashic-levels',mode:'readwrite'});
+    }catch(e){
+      if(e.name==='AbortError')return;           // user dismissed the picker — not an error
+      alert('Save failed: '+e.message);return;
+    }
+  }
+  // Level number: default to the loaded level, let Jed redirect (blank editor = 1).
+  const def=curLevelNum||1;
+  const raw=prompt('Save as level number (writes level-0NN.json into editor/levels/):',def);
+  if(raw==null)return;
+  const n=parseInt(raw,10);
+  if(!(n>=1)){alert('Level number must be a positive integer.');return;}
+  const name='level-'+String(n).padStart(3,'0')+'.json';
+  try{
+    const fh=await levelsDirHandle.getFileHandle(name,{create:true}); // lands in editor/levels/
+    const w=await fh.createWritable();
+    await w.write(JSON.stringify(serializeLevel(),null,2)+'\n');
+    await w.close();
+    document.getElementById('sb3').textContent='Saved '+name+' → editor/levels/';
+  }catch(e){
+    levelsDirHandle=null; // a stale/denied handle shouldn't stick for the session
+    alert('Save failed: '+e.message);
+  }
+}
+
+// ── window.roundTrip25() — the Central Scrutinizer's proof-of-work ────────────
+// Load each of the 25 levels, serialize (old→canonical), reload from THAT
+// canonical JSON, serialize again — the two canonical strings must be identical.
+// Idempotence = the loader is the exact inverse of the serializer, so a saved
+// level is a stable, lossless artifact. Run it in the Hermes console like
+// runInvariants(): await roundTrip25(). Prints a per-level table + a diff on the
+// first mismatch, and returns the results array.
+window.roundTrip25=async function(max){
+  const N=max||MAX_BUILT_LEVEL||25;
+  const results=[];
+  const wasNum=curLevelNum; // restore afterwards so we don't strand the editor mid-level
+  for(let n=1;n<=N;n++){
+    let rec={n,ok:false,note:''};
+    try{
+      const resp=await fetch('levels/level-'+String(n).padStart(3,'0')+'.json',{cache:'no-cache'});
+      if(!resp.ok){rec.note='http '+resp.status;results.push(rec);continue;}
+      const json=await resp.json();
+      loadLevelData(json,n);
+      const s1=JSON.stringify(serializeLevel());   // old|canonical → canonical
+      loadLevelData(JSON.parse(s1),n);             // canonical → board
+      const s2=JSON.stringify(serializeLevel());   // canonical → canonical (must equal s1)
+      rec.ok=(s1===s2);
+      if(!rec.ok){
+        // First differing character — a fast pointer at the offending layer.
+        let i=0;while(i<s1.length&&i<s2.length&&s1[i]===s2[i])i++;
+        rec.note='diverged @char '+i+': …'+s1.slice(Math.max(0,i-30),i+30)+' | …'+s2.slice(Math.max(0,i-30),i+30);
+      }
+    }catch(e){rec.note='ERR '+e.message;}
+    results.push(rec);
+    console.log((rec.ok?'✅':'❌')+' L'+n+(rec.note?'  '+rec.note:''));
+  }
+  const pass=results.filter(r=>r.ok).length;
+  console.log('roundTrip25: '+pass+'/'+results.length+' stable'+(pass===results.length?' — Scrutinizer PROVEN ✅':' — see notes above ❌'));
+  if(wasNum) { try{ const r=await fetch('levels/level-'+String(wasNum).padStart(3,'0')+'.json',{cache:'no-cache'}); loadLevelData(await r.json(),wasNum);}catch(e){} }
+  return results;
+};
 
 // Power-up palette — click selects a PU type for painting; click again to deselect
 const PU_TYPES=['helicopter','rocket_h','rocket_v','bomb','rainbow'];
@@ -4105,6 +4185,47 @@ function applyObstacles(json){
   });
 }
 
+// ── CANONICAL LOADER — the exact inverse of serializeLevel() ──────────────────
+// Rebuilds board[] + flow[] from the 7-layer Painter Model grids. Char alphabet
+// is LOCKED (LEVEL-JSON-KEY.md / project_painter_layer_model). serialize→load→
+// serialize MUST be a fixed point — that's what window.roundTrip25() checks, and
+// what lets these files be the authoritative, git-tracked seed of Bundle 1.
+const FLOW_FROM={v:'down','^':'up','<':'left','>':'right'};   // Flow layer (L2)
+const PU_FROM={S:'helicopter',H:'rocket_h',V:'rocket_v',A:'bomb',W:'rainbow'}; // Contents PUs — inverse of PU_CH
+function loadCanonicalLayers(json){
+  const L=json.layers||{}, props=json.props||{};
+  const cprops=props.contents||{}, oprops=props.overlay||{}; // HP maps, keyed 'R#C#'
+  const at=(g,r,c)=>(((g&&g[r])||'')[c])||'.';               // char at cell, '.' off-grid
+  board=[]; flow=[];
+  for(let r=0;r<R;r++){
+    board.push([]); flow.push([]);
+    for(let c=0;c<C;c++){
+      const active=at(L.board,r,c)==='#';
+      const cell={gem:null,active,obs:null,pu:null,sub:null,item:null};
+      flow[r].push(active?(FLOW_FROM[at(L.flow,r,c)]||'down'):'down');
+      if(active){
+        const sc=at(L.source,r,c);                            // L3 Source
+        if(sc==='I')cell.source='inlet'; else if(sc==='D')cell.source='drain';
+        const sb=at(L.substrate,r,c);                         // L4 Substrate
+        if(sb==='c')cell.sub='clover'; else if(sb==='o')cell.sub='oil';
+        const ct=at(L.contents,r,c);                          // L5 Contents
+        if(ct==='x'){const hp=(cprops['R'+r+'C'+c]||{}).hp||1;cell.obs='crate'+hp;} // solid box
+        else if(PU_FROM[ct])cell.pu=PU_FROM[ct];
+        else if(ct==='k')cell.item='key';
+        else if(ct==='a')cell.item='acorn';
+        else if(ct==='e')cell.startEmpty=true;                // field.empty — stays gem-free
+        // 'g' (and anything else) = a normal gem cell — color seeded at play/open, not stored
+        const ov=at(L.overlay,r,c);                           // L6 Overlay (never on a crate cell)
+        if(!cell.obs){
+          if(ov==='B'){const hp=(oprops['R'+r+'C'+c]||{}).hp||1;cell.obs='bind'+hp;} // chain
+          else if(ov==='L'){const hp=(oprops['R'+r+'C'+c]||{}).hp||1;cell.obs='leaf'+hp;}
+        }
+      }
+      board[r].push(cell);
+    }
+  }
+}
+
 function loadLevelData(json,num){
   R=json.board.rows; C=json.board.cols;
   // Flyover camera spec (L20+): camera-only presentation of big boards.
@@ -4115,25 +4236,35 @@ function loadLevelData(json,num){
     ?{axis:(json.flyover.axis==='x'?'x':'y'),viewRows:json.flyover.viewRows||9,
       viewCols:json.flyover.viewCols||11,stops:json.flyover.stops}:null;
   flyStop=0;flyLock=false;
-  // PATTERN LAYERS (Jed 2026-07-25): optional `patterns` section holds parallel
-  // ASCII grids so a level's clover/crate placement reads and edits like the
-  // board. patterns.active (if present) is the active/inactive grid — same
-  // convention as board.layout ('#'=active, '.'=inactive); otherwise board.layout.
-  const P=json.patterns||{};
-  const layout=(Array.isArray(P.active)&&P.active.length)?P.active:(json.board.layout||[]);
-  board=[]; flow=[];
-  for(let r=0;r<R;r++){
-    board.push([]); flow.push([]);
-    for(let c=0;c<C;c++){
-      const row=layout[r]||'';
-      const active=row[c]==='#';
-      board[r].push({gem:null,active,obs:null,pu:null});
-      flow[r].push('down');
+  // TWO INPUT SHAPES, ONE BOARD. `schema:'akashic-level/1'` = the canonical
+  // 7-layer Painter Model emitted by serializeLevel() — read it back through
+  // loadCanonicalLayers (the exact inverse of serialize; roundTrip25 proves it).
+  // Anything else = the OLD hand-authored shape (board.layout + obstacles[] +
+  // flowDirection + patterns). Both converge on the same in-memory board here,
+  // then share the tail below (gem palette, objectives, star thresholds).
+  if(json.schema==='akashic-level/1'){
+    loadCanonicalLayers(json);
+  }else{
+    // PATTERN LAYERS (Jed 2026-07-25): optional `patterns` section holds parallel
+    // ASCII grids so a level's clover/crate placement reads and edits like the
+    // board. patterns.active (if present) is the active/inactive grid — same
+    // convention as board.layout ('#'=active, '.'=inactive); otherwise board.layout.
+    const P=json.patterns||{};
+    const layout=(Array.isArray(P.active)&&P.active.length)?P.active:(json.board.layout||[]);
+    board=[]; flow=[];
+    for(let r=0;r<R;r++){
+      board.push([]); flow.push([]);
+      for(let c=0;c<C;c++){
+        const row=layout[r]||'';
+        const active=row[c]==='#';
+        board[r].push({gem:null,active,obs:null,pu:null});
+        flow[r].push('down');
+      }
     }
+    applyFlow(json);
+    applyObstacles(json);
+    applyPatterns(P); // paint clover/crate layers on top of any obstacles
   }
-  applyFlow(json);
-  applyObstacles(json);
-  applyPatterns(P); // paint clover/crate layers on top of any obstacles
   curLevelNum=num;
   moveLimit=json.moveLimit||20;
   curBoosterSlots=json.boosterSlots||3; // right-palette slot count (Township HUD)
