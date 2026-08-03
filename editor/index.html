@@ -2301,6 +2301,32 @@ function dragonflyCells(r,c,dir){
   return cells;
 }
 
+// DRAGONFLY DIRECTIONAL EXCEPTION (project_clover_model, piece 3): an UNCHARGED
+// Dragonfly plants nothing — EXCEPT where a beam arm CROSSES an existing clover
+// cell and keeps going: it clovers the cells it clears BEYOND that seed, per arm
+// independently. Clover at an arm's terminus (nothing past it) plants nothing (the
+// L7 reported case); cells BEFORE the first crossed seed stay bare. Groups the
+// beam(s) by their fixed perpendicular coordinate so a WIDE (combo) fly's parallel
+// lines are each handled on their own. Returns the beyond-seed cells to plant.
+function dragonflyDirectionalPlant(sr,sc,dir,cells){
+  const out=[];
+  const seed=dir==='v'?sr:sc, coord=p=>dir==='v'?p[0]:p[1];
+  const beams={};
+  cells.forEach(p=>{const key=dir==='v'?p[1]:p[0];(beams[key]=beams[key]||[]).push(p);});
+  Object.values(beams).forEach(list=>{
+    const near=list.filter(p=>coord(p)<seed).sort((a,b)=>coord(b)-coord(a)); // outward from seed
+    const far =list.filter(p=>coord(p)>seed).sort((a,b)=>coord(a)-coord(b));
+    [near,far].forEach(arm=>{
+      let crossed=false;
+      for(const p of arm){
+        if(crossed)out.push(p);                              // beyond a crossed seed → plant
+        if(board[p[0]][p[1]].sub==='clover')crossed=true;    // seed reached; everything further out plants
+      }
+    });
+  });
+  return out;
+}
+
 // Grasshopper orthogonal clear: 4 cells around the Grasshopper (up/down/left/right)
 function grasshopperOrthCells(r,c){
   const cells=[];
@@ -2310,43 +2336,44 @@ function grasshopperOrthCells(r,c){
   return cells;
 }
 
-// Grasshopper auto-target for chain activation: goal gem furthest from complete,
-// nearest instance by Manhattan distance. Falls back to nearest gem if no goal
-// gem exists. Will expand when obstacle-type goals are implemented.
+// Grasshopper auto-target for CASCADE activation — the hopper is the "brain"
+// (project_clover_model, piece 4). A player-fired hopper uses the choice flow
+// instead; this drives auto/chain-caught jumps. Pick the live goal with the
+// HIGHEST remaining need, then jump to the nearest cell that ADVANCES it:
+//   collect-gem  → nearest gem of that color
+//   plant-clover → nearest UNCLOVERED, non-shielded cell (seeds clover inward — L7)
+//   acorn        → nearest acorn or leaf (breaking a leaf frees its acorn)
+//   key          → nearest key
+// Falls back to the nearest gem of any color when nothing advances the goal
+// (or the level has no goals). Excludes self + already-cleared (excludeSet) cells.
 function autoGrasshopperTarget(r,c,excludeSet){
-  // Find the goal color with the most remaining need
-  let bestGoal=null,bestNeed=0;
+  let goal=null,bestNeed=0;
   if(playerMode&&playerGoals.length){
-    playerGoals.forEach(g=>{
-      const remaining=g.need-g.have;
-      if(remaining>bestNeed){bestNeed=remaining;bestGoal=g.gemIdx;}
-    });
+    playerGoals.forEach(g=>{const rem=g.need-g.have;if(rem>bestNeed){bestNeed=rem;goal=g;}});
   }
-  // Search for nearest instance of that color (or any gem as fallback)
-  let best=null,bestDist=Infinity;
-  for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
-    if(nr===r&&nc===c)continue;
-    const k=nr+','+nc;
-    if(excludeSet&&excludeSet.has(k))continue;
-    if(!board[nr][nc].active||board[nr][nc].gem===null)continue;
-    // Prefer goal-color gems; fall back to any gem
-    const isGoal=bestGoal!==null&&board[nr][nc].gem===bestGoal;
-    const d=Math.abs(nr-r)+Math.abs(nc-c);
-    if(isGoal&&d<bestDist){bestDist=d;best=[nr,nc];}
-  }
-  // Fallback: nearest gem of any color
-  if(!best){
-    bestDist=Infinity;
+  const shielded=(nr,nc)=>isChained(nr,nc)||isCrate(nr,nc)||isLeafy(nr,nc);
+  const advances=(nr,nc)=>{
+    const cd=board[nr][nc];
+    if(!goal)return cd.gem!==null;                                    // no goals → any gem
+    if(goal.kind==='collect')return cd.gem===goal.gemIdx;             // gem color
+    if(goal.kind==='plant')  return cd.sub!=='clover'&&!shielded(nr,nc); // unclovered plantable ground
+    if(goal.kind==='acorn')  return cd.item==='acorn'||isLeafy(nr,nc);
+    if(goal.kind==='key')    return cd.item==='key';
+    return cd.gem!==null;
+  };
+  const nearest=(pred)=>{
+    let best=null,bestDist=Infinity;
     for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
       if(nr===r&&nc===c)continue;
-      const k=nr+','+nc;
-      if(excludeSet&&excludeSet.has(k))continue;
-      if(!board[nr][nc].active||board[nr][nc].gem===null)continue;
+      if(excludeSet&&excludeSet.has(nr+','+nc))continue;
+      if(!board[nr][nc].active||!pred(nr,nc))continue;
       const d=Math.abs(nr-r)+Math.abs(nc-c);
       if(d<bestDist){bestDist=d;best=[nr,nc];}
     }
-  }
-  return best;
+    return best;
+  };
+  // advance the chosen goal; fall back to nearest gem of any color
+  return nearest(advances)||nearest((nr,nc)=>board[nr][nc].gem!==null);
 }
 
 // Akasha Ball auto-target: most prevalent gem color on the board
@@ -2644,11 +2671,13 @@ function detDragonfly(sr,sc,dir,phase,queue,next,wide,charged){
     if(dir==='h'){if(sr>0)cells=cells.concat(dragonflyCells(sr-1,sc,'h'));if(sr<R-1)cells=cells.concat(dragonflyCells(sr+1,sc,'h'));}
     else{if(sc>0)cells=cells.concat(dragonflyCells(sr,sc-1,'v'));if(sc<C-1)cells=cells.concat(dragonflyCells(sr,sc+1,'v'));}
   }
-  // A Dragonfly plants clover ONLY if it was clover-CHARGED (dragged off a clover
-  // cell). A beam merely SWEEPING THROUGH existing clover does NOT cloverize its
-  // line — crossing a seed is not spreading it (Jed 2026-07-30, L7 H-Dragonfly bug:
-  // a non-charged fly whose beam ends landed on seeds clovered the whole row).
+  // A CHARGED Dragonfly plants its whole line. An UNCHARGED one plants nothing —
+  // except the directional exception: a beam arm that crosses existing clover and
+  // keeps going clovers the cells BEYOND the seed (project_clover_model, piece 3).
+  // A beam whose end merely LANDS on a seed (terminus) spreads nothing — the
+  // original L7 H-Dragonfly bug (Jed 2026-07-30).
   if(charged)plantClover(cells,true);
+  else{const beyond=dragonflyDirectionalPlant(sr,sc,dir,cells);if(beyond.length)plantClover(beyond,true);}
   const rings=new Map();
   cells.forEach(([r,c])=>{
     const d=dir==='h'?Math.abs(c-sc):Math.abs(r-sr);

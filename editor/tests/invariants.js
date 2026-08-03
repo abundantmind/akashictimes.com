@@ -73,12 +73,12 @@ window.runInvariants = async function(){
     // 3a. double-tap in place, no clover in line -> plants nothing
     wipe(); board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
     await fireDet('rocket_v',3,col); ok('clover · double-tap-in-place on bare, no clover crossed → 0', colClover()===0, colClover());
-    // 3b. in-place (NON-charged) line crossing an existing clover cell plants
-    // NOTHING NEW — a beam sweeping THROUGH clover does not spread it; only a
-    // clover-CHARGED PU (dragged off clover, case 3c) plants its line
-    // (Jed 2026-07-30, L7 H-Dragonfly bug). Only the pre-existing seed remains.
+    // 3b. UNCHARGED beam crossing a MID-PATH clover seed plants the cells BEYOND
+    // it (project_clover_model directional exception, piece 3): fire row3, seed at
+    // row6 → the down-beam crosses row6 and keeps going, so it plants row7. The
+    // up-beam and rows 4-5 (before the seed) stay bare → column holds row6+row7.
     wipe(); board[6][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
-    await fireDet('rocket_v',3,col); ok('clover · in-place line crossing clover plants NOTHING (only charged plants)', colClover()===1, colClover());
+    await fireDet('rocket_v',3,col); ok('clover · uncharged beam crossing a mid-path seed plants BEYOND it (row6+row7)', colClover()===2, colClover());
     // 3c. dragged off clover -> charged -> plants line even with origin ground stripped
     wipe(); board[3][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v';
     (()=>{ const sr=3,sc=col,r=4,cc=col; for(const k of ['gem','pu','item']){const t=board[sr][sc][k];board[sr][sc][k]=board[r][cc][k];board[r][cc][k]=t;}
@@ -95,6 +95,11 @@ window.runInvariants = async function(){
     // -> plants its WHOLE line. This is the double-tap-on-clover reversal.
     wipe(); board[3][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
     await fireDet('rocket_v',3,col); ok('clover · in-place ON a clover cell charges → whole line planted', colClover()===R, colClover());
+    // 3f. clover at an arm's TERMINUS (nothing beyond) plants nothing — the
+    // original L7 case. Fire row3, seed at the bottom terminus (row R-1): the
+    // down-beam ends ON the seed with nothing past it; the up-beam crosses none.
+    wipe(); board[R-1][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
+    await fireDet('rocket_v',3,col); ok('clover · uncharged beam ending ON a seed (terminus) plants nothing new', colClover()===1, colClover());
 
     // ═══ 4. CRATE SPLASH FROM DETONATIONS ═════════════════════════════════════
     await startPlayerLevel(14); await wait(60); wipe(GEM_POOL[1]);
