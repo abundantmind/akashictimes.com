@@ -89,6 +89,12 @@ window.runInvariants = async function(){
     // 3d. chain-caught (never dragged) bare -> plants nothing
     wipe(); board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
     await fireDet('rocket_v',3,col); ok('clover · chain-caught bare PU → 0', colClover()===0, colClover());
+    // 3e. in-place ON a clover cell -> CHARGED (project_clover_model: on-clover
+    // takeoff now charges too, revising aac80b1's drag-off-ONLY rule; keyed off the
+    // cell's REAL substrate, so a match-born PU on bare ground stays uncharged — 3a)
+    // -> plants its WHOLE line. This is the double-tap-on-clover reversal.
+    wipe(); board[3][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
+    await fireDet('rocket_v',3,col); ok('clover · in-place ON a clover cell charges → whole line planted', colClover()===R, colClover());
 
     // ═══ 4. CRATE SPLASH FROM DETONATIONS ═════════════════════════════════════
     await startPlayerLevel(14); await wait(60); wipe(GEM_POOL[1]);

@@ -2586,6 +2586,15 @@ function processDetonations(queue,phase,onDone){
   if(!queue.length){onDone();return;}
   const det=queue.shift();
   const next=()=>processDetonations(queue,phase,onDone);
+  // CLOVER-CHARGE (project_clover_model, unified): a PU is charged if it was
+  // DRAGGED off a clover cell (puClover) OR is firing IN PLACE from a clover cell
+  // (its own sub==='clover'). Keying the in-place case off the cell's real
+  // substrate — not a "born on clover" flag — dodges aac80b1's false positive (a
+  // PU born via a match on a BARE cell) while charging a genuine on-clover takeoff.
+  // Charged → plants its WHOLE effect area; uncharged → plants nothing. Computed
+  // HERE (before the consume-on-play branch) so the combo-hopper path shares it.
+  const charged=!!(board[det.r]&&board[det.r][det.c]&&(board[det.r][det.c].puClover||board[det.r][det.c].sub==='clover'));
+  if(board[det.r]&&board[det.r][det.c])board[det.r][det.c].puClover=false; // ephemeral — consumed by this detonation
   // Consume-on-play (staged Ball-family combos): the converted PU stays
   // VISIBLE on its cell until this moment. If a chain already caught it
   // (pu gone), the entry is a no-op — the chain path owns its cinematic.
@@ -2596,7 +2605,7 @@ function processDetonations(queue,phase,onDone){
     if(det.pu==='helicopter'&&det.combo){
       // The creature stays alive as a DOM actor (feed → swell → jump);
       // its cell is cleared by the actor flow, not here.
-      detHopperCombo(det.r,det.c,phase,queue,next);return;
+      detHopperCombo(det.r,det.c,phase,queue,next,charged);return;
     }
     clearCell(det.r,det.c,phase);
     render(null);
@@ -2604,10 +2613,6 @@ function processDetonations(queue,phase,onDone){
     if(selfEl)selfEl.classList.add('popping');
   }
   SFX.play('detonate'); // one sound per REAL detonation (past the consume-on-play no-op); player-fired or chain-caught, every type
-  // CLOVER-CHARGE: consume it off the PU's cell and hand it to the detonation so a
-  // clover-born PU plants its WHOLE effect area (Jed's drag-from-clover rule).
-  const charged=!!(board[det.r]&&board[det.r][det.c]&&board[det.r][det.c].puClover);
-  if(board[det.r]&&board[det.r][det.c])board[det.r][det.c].puClover=false;
   if(det.pu==='helicopter'&&det.combo){detHopperCombo(det.r,det.c,phase,queue,next,charged);return;}
   if(det.pu==='bomb')            detScarab(det.r,det.c,phase,queue,next,det.rad,charged);
   else if(det.pu==='rocket_h')   detDragonfly(det.r,det.c,'h',phase,queue,next,det.wide,charged);
@@ -2706,7 +2711,7 @@ function detHopper(r,c,phase,queue,next,charged){
   if(!t){setTimeout(next,200);return;}
   setTimeout(()=>{
     hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
-      plantClover([[t[0],t[1]]],true); // landings plant UNCONDITIONALLY (remote seeding)
+      if(charged)plantClover([[t[0],t[1]]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model — kills L7's "clover before any hopper fires" leak)
       clearCellD(t[0],t[1],phase,queue);
       if(playerMode)updatePlayerHUD();
       render(null);
@@ -2718,11 +2723,11 @@ function detHopper(r,c,phase,queue,next,charged){
 // GRASSHOPPER JUMP (combo-spawned, #8 Hopper×Hopper) — targeted jump ONLY:
 // laser to an auto-picked goal-oriented target, no orthogonal blast (the
 // combo's 3×3 origin blast already covered that ground).
-function detHopperJump(r,c,phase,queue,next){
+function detHopperJump(r,c,phase,queue,next,charged){
   const t=autoGrasshopperTarget(r,c,phase);
   if(!t){setTimeout(next,120);return;}
   hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
-    plantClover([[t[0],t[1]]],true); // landings plant unconditionally
+    if(charged)plantClover([[t[0],t[1]]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model)
     clearCellD(t[0],t[1],phase,queue);
     if(playerMode)updatePlayerHUD();
     render(null);
@@ -2853,7 +2858,7 @@ function randomHopperTarget(r,c,excludeSet){
 // (clones tween to its center and shrink away) as it swells ~25% — eating for
 // energy before the jump. Data-side the orths clear through clearCellD, so
 // chains and goal tallies are untouched. Calls onFed(actor) when swollen.
-function hopperFeedAndSwell(r,c,phase,queue,onFed){
+function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
   const wrap=document.getElementById('board-wrap');
   const center=cellPos(r,c);
   // actor: the living creature, above the (about-to-clear) cell
@@ -2867,7 +2872,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed){
   wrap.appendChild(actor);
   // clone each orthogonal's contents BEFORE clearing the data, so the visuals
   // can fly into the mouth while the board is already square underneath
-  plantClover(grasshopperOrthCells(r,c).concat([[r,c]])); // feed blast = one event
+  if(charged)plantClover(grasshopperOrthCells(r,c).concat([[r,c]]),true); // feed/orth blast plants ONLY if the hopper took off charged (project_clover_model)
   const meals=[];
   grasshopperOrthCells(r,c).forEach(([or,oc])=>{
     const el=document.querySelector(`[data-r="${or}"][data-c="${oc}"]`);
@@ -2921,12 +2926,13 @@ function hopperSwarm(cells,src){
   hoppers.forEach(([r,c],idx)=>{
     setTimeout(()=>{
       if(board[r][c].pu!=='helicopter'){done();return;} // a chain ate it first
+      const hopCharged=!!(board[r][c].puClover||board[r][c].sub==='clover'); // did THIS hopper take off charged? (capture before consuming the PU)
       board[r][c].pu=null;puFired('helicopter');
       hopperFeedAndSwell(r,c,phase,chainQueue,(actor)=>{
         const t=randomHopperTarget(r,c,phase);
         if(!t){actor.style.opacity='0';setTimeout(()=>{actor.remove();done();},150);return;}
         hopperFlight(actor,r,c,t[0],t[1],()=>{
-          plantClover([[t[0],t[1]]],true); // swarm landings plant unconditionally
+          if(hopCharged)plantClover([[t[0],t[1]]],true); // swarm landing seeds ONLY if this hopper took off charged (project_clover_model)
           clearCellD(t[0],t[1],phase,chainQueue);
           if(playerMode)updatePlayerHUD();
           render(null);
@@ -2934,7 +2940,7 @@ function hopperSwarm(cells,src){
           if(el)el.classList.add('popping');
           done();
         });
-      });
+      },hopCharged); // 6th arg: this hopper's charge gates its feed/orth blast
     },idx*TAKEOFF_MS);
   });
 }
@@ -2982,18 +2988,18 @@ function hopperFlight(actor,fr,fc,tr,tc,onLand){
 // COMBO GRASSHOPPER (sequential fallback — superseded by hopperSwarm for #5;
 // kept for any future queue entry flagged {pu:'helicopter',combo:true}) —
 // feed & swell, then the jump laser fires at a random target.
-function detHopperCombo(r,c,phase,queue,next){
+function detHopperCombo(r,c,phase,queue,next,charged){
   hopperFeedAndSwell(r,c,phase,queue,(actor)=>{
     const t=randomHopperTarget(r,c,phase);
     if(!t){actor.remove();render(null);setTimeout(next,120);return;}
     hopperFlight(actor,r,c,t[0],t[1],()=>{ // the fed actor flies — no laser
-      plantClover([[t[0],t[1]]],true); // landings plant unconditionally
+      if(charged)plantClover([[t[0],t[1]]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model)
       clearCellD(t[0],t[1],phase,queue);
       if(playerMode)updatePlayerHUD();
       render(null);
       next();
     });
-  });
+  },charged); // 6th arg: charge gates the feed/orth blast
 }
 
 // ── Apply a combined set of cleared cells: pop, run detonation queue, settle ──
@@ -3041,6 +3047,7 @@ function playTap(r,c){
     animating=true;
     // The Grasshopper stayed visible while the player chose — NOW he jumps:
     // consume the PU and fire the goal event at the moment of takeoff.
+    const hopCharged=!!(board[hop.r][hop.c].puClover||board[hop.r][hop.c].sub==='clover'); // player-fired: charged iff origin was clover (capture before consuming)
     board[hop.r][hop.c].pu=null;
     puFired('helicopter'); // goal event: detonated (jump committed)
     // The creature lifts off as a flying actor the instant it's consumed —
@@ -3049,7 +3056,7 @@ function playTap(r,c){
     // Step 1: blast the orthogonals — any PU caught is ENQUEUED, not instant
     const phase=new Set();
     const queue=[];
-    plantClover(hop.orthCells.concat([[hop.r,hop.c]])); // orth blast = one event
+    if(hopCharged)plantClover(hop.orthCells.concat([[hop.r,hop.c]]),true); // orth blast plants ONLY if charged (project_clover_model — matches the chain-caught rule; uncharged blast doesn't spread through clover)
     hop.orthCells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
     if(playerMode)updatePlayerHUD();
     render(null);
@@ -3057,7 +3064,7 @@ function playTap(r,c){
     // Step 2: after pop, laser to the chosen target, clear it (PU there enqueues too)
     setTimeout(()=>{
       hopperFlight(hopActor,hop.r,hop.c,r,c,()=>{ // jumpers, not lasers
-        plantClover([[r,c]],true); // landings plant unconditionally
+        if(hopCharged)plantClover([[r,c]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model)
         clearCellD(r,c,phase,queue);
         // Combo partner (#1 Fly×Hopper / #4 Hopper×Scarab): fires FROM the
         // landing cell, ahead of any chain-caught PUs from the orth blast
