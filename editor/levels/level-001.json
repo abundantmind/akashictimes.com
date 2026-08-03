@@ -1,30 +1,77 @@
 {
-  "level": 1,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 6,
-    "cols": 7,
-    "layout": [
+    "cols": 7
+  },
+  "gemTypes": [
+    "yellow",
+    "green",
+    "red",
+    "blue",
+    "white"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
       "#######",
       "#######",
       "#######",
       "#######",
       "#######",
       "#######"
+    ],
+    "flow": [
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv"
+    ],
+    "source": [
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      "......."
+    ],
+    "substrate": [
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      "......."
+    ],
+    "contents": [
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg"
+    ],
+    "overlay": [
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      "......."
     ]
   },
-  "gemTypes": ["yellow", "green", "red", "blue", "white"],
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
   "objectives": [
-    { "type": "collect", "gem": "yellow", "count": 12 }
-  ],
-  "moveLimit": 26,
-  "boosterSlots": 3,
-  "obstacles": [],
-  "rewards": { "energy": 7 },
-  "captureMeta": {
-    "source": "screenshot",
-    "verified": true,
-    "hasDynamicObstacles": false,
-    "notes": "Static 7x6 rectangle, no obstacles. Captured in-play 2026-06-16. Tutorial level. Gem layout random per play, not stored."
-  }
+    {
+      "type": "collect",
+      "gem": "yellow",
+      "count": 12
+    }
+  ]
 }

@@ -1,10 +1,18 @@
 {
-  "level": 21,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 9,
-    "cols": 11,
-    "layout": [
+    "cols": 11
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
       "..#.....#..",
       ".#..###..#.",
       "#..#####..#",
@@ -14,14 +22,68 @@
       "#..#####..#",
       ".#..###..#.",
       "..#.....#.."
+    ],
+    "flow": [
+      "..v.....v..",
+      ".v..vvv..v.",
+      "v..vvvvv..v",
+      "..vvvvvvv..",
+      "..vvvvvvv..",
+      "..vvvvvvv..",
+      "v..vvvvv..v",
+      ".v..vvv..v.",
+      "..v.....v.."
+    ],
+    "source": [
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "..........."
+    ],
+    "substrate": [
+      "...........",
+      ".c.......c.",
+      "...........",
+      "...........",
+      "..c.....c..",
+      "...........",
+      "...........",
+      ".c...c...c.",
+      "..........."
+    ],
+    "contents": [
+      "..g.....g..",
+      ".S..ggg..S.",
+      "g..ggggg..g",
+      "..ggggggg..",
+      "..SgggggS..",
+      "..ggggggg..",
+      "g..ggggg..g",
+      ".S..gSg..S.",
+      "..g.....g.."
+    ],
+    "overlay": [
+      "...........",
+      "...........",
+      "...........",
+      "..BB...BB..",
+      "...B...B...",
+      "..BB...BB..",
+      "...BBBBB...",
+      "....B.B....",
+      "..........."
     ]
   },
-  "gemTypes": [
-    "red",
-    "green",
-    "yellow",
-    "blue"
-  ],
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
   "objectives": [
     {
       "type": "collect",
@@ -32,61 +94,6 @@
       "type": "plant",
       "obstacle": "clover",
       "count": 42
-    }
-  ],
-  "moveLimit": 20,
-  "boosterSlots": 4,
-  "obstacles": [
-    {
-      "functionalId": "overlay.bind",
-      "hp": 1,
-      "note": "17 HP1 chains. Diamond ring pattern around center gem core. Positions 0-indexed.",
-      "positions": [
-        "R3C2",
-        "R3C3",
-        "R3C7",
-        "R3C8",
-        "R4C3",
-        "R4C7",
-        "R5C2",
-        "R5C3",
-        "R5C7",
-        "R5C8",
-        "R6C3",
-        "R6C4",
-        "R6C5",
-        "R6C6",
-        "R6C7",
-        "R7C4",
-        "R7C6"
-      ]
-    },
-    {
-      "functionalId": "substrate.clover",
-      "note": "7 pre-placed clover cells under Grasshopper power-ups. Cross-check: 49 active \u2212 7 starting clover = 42 plant objective. Positions 0-indexed.",
-      "positions": [
-        "R1C1",
-        "R1C9",
-        "R4C2",
-        "R4C8",
-        "R7C1",
-        "R7C5",
-        "R7C9"
-      ]
-    },
-    {
-      "functionalId": "powerup.seeker",
-      "township": "Grasshopper",
-      "note": "7 pre-placed Grasshoppers on clover substrate cells. Positions 0-indexed.",
-      "positions": [
-        "R1C1",
-        "R1C9",
-        "R4C2",
-        "R4C8",
-        "R7C1",
-        "R7C5",
-        "R7C9"
-      ]
     }
   ]
 }

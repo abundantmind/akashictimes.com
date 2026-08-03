@@ -1,10 +1,19 @@
 {
-  "level": 2,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 8,
-    "cols": 8,
-    "layout": [
+    "cols": 8
+  },
+  "gemTypes": [
+    "yellow",
+    "green",
+    "red",
+    "blue",
+    "white"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
       ".######.",
       ".######.",
       ".######.",
@@ -13,21 +22,73 @@
       "########",
       ".######.",
       ".######."
+    ],
+    "flow": [
+      ".vvvvvv.",
+      ".vvvvvv.",
+      ".vvvvvv.",
+      "vvvvvvvv",
+      "vvv..vvv",
+      "vvvvvvvv",
+      ".vvvvvv.",
+      ".vvvvvv."
+    ],
+    "source": [
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........"
+    ],
+    "substrate": [
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........"
+    ],
+    "contents": [
+      ".gggggg.",
+      ".gggggg.",
+      ".gggggg.",
+      "gggggggg",
+      "ggg..ggg",
+      "gggggggg",
+      ".gggggg.",
+      ".gggggg."
+    ],
+    "overlay": [
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........"
     ]
   },
-  "gemTypes": ["yellow", "green", "red", "blue", "white"],
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
   "objectives": [
-    { "type": "collect", "gem": "green", "count": 16 },
-    { "type": "collect", "gem": "blue", "count": 16 }
-  ],
-  "moveLimit": 27,
-  "boosterSlots": 3,
-  "obstacles": [],
-  "rewards": { "energy": 7 },
-  "captureMeta": {
-    "source": "screenshot",
-    "verified": false,
-    "hasDynamicObstacles": false,
-    "notes": "Cross/plus outline (narrow 6-wide top/bottom, full 8-wide middle) with two interior holes at row5 cols4-5, reconstructed from in-play stills. Demonstrates interior-hole lateral gravity. Exact outline + hole cells need a clean start-of-level verification pass."
-  }
+    {
+      "type": "collect",
+      "gem": "green",
+      "count": 16
+    },
+    {
+      "type": "collect",
+      "gem": "blue",
+      "count": 16
+    }
+  ]
 }

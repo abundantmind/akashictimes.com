@@ -1,10 +1,18 @@
 {
-  "level": 13,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 9,
-    "cols": 9,
-    "layout": [
+    "cols": 9
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
       ".#######.",
       ".#######.",
       "#########",
@@ -14,57 +22,143 @@
       "#########",
       ".###.###.",
       ".###.###."
+    ],
+    "flow": [
+      ".vvvvvvv.",
+      ".vvvvvvv.",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      ".vvv.vvv.",
+      ".vvv.vvv."
+    ],
+    "source": [
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "substrate": [
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "contents": [
+      ".ggggggg.",
+      ".ggggggg.",
+      "gagagagag",
+      "agagagaga",
+      "ggggggggg",
+      "agagagaga",
+      "aaagaagag",
+      ".gag.gga.",
+      ".aga.aga."
+    ],
+    "overlay": [
+      ".........",
+      ".........",
+      ".L.L.L.L.",
+      "L.L.L.L.L",
+      ".........",
+      "L.L.L.L.L",
+      "LLLLLLLLL",
+      ".LLL.LLL.",
+      ".LLL.LLL."
     ]
   },
-  "gemTypes": ["red", "green", "yellow", "blue"],
-  "objectives": [
-    { "type": "collect", "item": "acorn", "count": 26 }
-  ],
-  "moveLimit": 16,
-  "boosterSlots": 4,
-  "obstacles": [
-    {
-      "functionalId": "overlay.leaf",
-      "hp": 1,
-      "note": "1-HP leaf overlay. Cannot swap until leaf removed by adjacent match. 12 cells. Positions 0-indexed.",
-      "positions": [
-        "R3C2","R3C6",
-        "R6C1","R6C2","R6C3","R6C5","R6C6","R6C7",
-        "R7C2","R7C6",
-        "R8C2","R8C6"
-      ]
-    },
-    {
-      "functionalId": "overlay.leaf",
-      "hp": 2,
-      "note": "2-HP leaf overlay. Requires two adjacent matches (or one power-up hit) to remove. 23 cells. First appearance of 2-HP leaves. Positions 0-indexed.",
-      "positions": [
-        "R2C1","R2C3","R2C5","R2C7",
-        "R3C0","R3C4","R3C8",
-        "R5C0","R5C2","R5C4","R5C6","R5C8",
-        "R6C0","R6C4","R6C8",
-        "R7C1","R7C3","R7C5","R7C7",
-        "R8C1","R8C3","R8C5","R8C7"
-      ]
-    },
-    {
-      "functionalId": "item.acorn",
-      "township": "Acorn in Leaves",
-      "note": "Acorn collectible under a leaf (HP varies per cell — see overlay.leaf entries). Removing the leaf collects the acorn. 26 acorns = full objective. Positions 0-indexed.",
-      "positions": [
-        "R2C1","R2C3","R2C5","R2C7",
-        "R3C0","R3C2","R3C4","R3C6","R3C8",
-        "R5C0","R5C2","R5C4","R5C6","R5C8",
-        "R6C0","R6C1","R6C2","R6C4","R6C5","R6C7",
-        "R7C2","R7C7",
-        "R8C1","R8C3","R8C5","R8C7"
-      ]
+  "props": {
+    "contents": {},
+    "overlay": {
+      "R2C1": {
+        "hp": 2
+      },
+      "R2C3": {
+        "hp": 2
+      },
+      "R2C5": {
+        "hp": 2
+      },
+      "R2C7": {
+        "hp": 2
+      },
+      "R3C0": {
+        "hp": 2
+      },
+      "R3C4": {
+        "hp": 2
+      },
+      "R3C8": {
+        "hp": 2
+      },
+      "R5C0": {
+        "hp": 2
+      },
+      "R5C2": {
+        "hp": 2
+      },
+      "R5C4": {
+        "hp": 2
+      },
+      "R5C6": {
+        "hp": 2
+      },
+      "R5C8": {
+        "hp": 2
+      },
+      "R6C0": {
+        "hp": 2
+      },
+      "R6C4": {
+        "hp": 2
+      },
+      "R6C8": {
+        "hp": 2
+      },
+      "R7C1": {
+        "hp": 2
+      },
+      "R7C3": {
+        "hp": 2
+      },
+      "R7C5": {
+        "hp": 2
+      },
+      "R7C7": {
+        "hp": 2
+      },
+      "R8C1": {
+        "hp": 2
+      },
+      "R8C3": {
+        "hp": 2
+      },
+      "R8C5": {
+        "hp": 2
+      },
+      "R8C7": {
+        "hp": 2
+      }
     }
-  ],
-  "rewards": { "energy": null },
-  "captureMeta": {
-    "source": "BoardState PNG captured by Jed pre-move. Video: Township-Level-0013.mov. Patterns: Township-Level-0013-Pattern-Layer1.md + Layer2.md.",
-    "verified": true,
-    "notes": "9×9 board: top 2 rows notched (cols 0,8 inactive), bottom 2 rows split (cols 0,4,8 inactive). 71 active cells. 35 total leaf cells (12 HP1 + 23 HP2). First level with 2-HP leaves. 26 A cells match objective exactly. Objective count confirmed by pattern cell count; cross-checked against BoardState left panel."
-  }
+  },
+  "borders": [],
+  "objectives": [
+    {
+      "type": "collect",
+      "item": "acorn",
+      "count": 26
+    }
+  ]
 }

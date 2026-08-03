@@ -1,10 +1,18 @@
 {
-  "level": 25,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 9,
-    "cols": 11,
-    "layout": [
+    "cols": 11
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
       "####...####",
       "####...####",
       "####...####",
@@ -14,196 +22,73 @@
       "###########",
       "###########",
       "###########"
+    ],
+    "flow": [
+      "vvvv...^^^^",
+      "vvvv...^^^^",
+      "vvvv...^^^^",
+      "vvvv...^^^^",
+      "vvvv...^^^^",
+      "vvv>>>>^^^^",
+      "vv>>>>>>^^^",
+      "v>>>>>>>>^^",
+      ">>>>>>>>>>^"
+    ],
+    "source": [
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "..........."
+    ],
+    "substrate": [
+      "cccc...cccc",
+      "...........",
+      "...........",
+      "...........",
+      "cccc...cccc",
+      ".....c.....",
+      ".....c.....",
+      ".....c.....",
+      ".....c....."
+    ],
+    "contents": [
+      "gggg...eeee",
+      "gggg...eeee",
+      "gggg...eeee",
+      "gggg...eeee",
+      "gggg...gggg",
+      "eeeeegeeeee",
+      "eeeeegeeeee",
+      "eeeeegeeeee",
+      "eeeeegeeeee"
+    ],
+    "overlay": [
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "BBBB...BBBB",
+      ".....B.....",
+      ".....B.....",
+      ".....B.....",
+      ".....B....."
     ]
   },
-  "flowDirection": {
-    "note": "U-pipe staircase (Jed's river model): each inlet column falls to its own lane depth, turns right across the floor, then climbs the mirrored column up the right arm to exit top-right. Every cell one-in/one-out; only R0 C0-C3 are inlets.",
-    "regions": [
-      {
-        "direction": "down",
-        "cells": "R0-R7, C0",
-        "label": "lane0 descent"
-      },
-      {
-        "direction": "down",
-        "cells": "R0-R6, C1",
-        "label": "lane1 descent"
-      },
-      {
-        "direction": "down",
-        "cells": "R0-R5, C2",
-        "label": "lane2 descent"
-      },
-      {
-        "direction": "down",
-        "cells": "R0-R4, C3",
-        "label": "lane3 descent (left arm)"
-      },
-      {
-        "direction": "right",
-        "cells": "R8, C0-C9",
-        "label": "floor lane R8"
-      },
-      {
-        "direction": "right",
-        "cells": "R7, C1-C8",
-        "label": "floor lane R7"
-      },
-      {
-        "direction": "right",
-        "cells": "R6, C2-C7",
-        "label": "floor lane R6"
-      },
-      {
-        "direction": "right",
-        "cells": "R5, C3-C6",
-        "label": "floor lane R5"
-      },
-      {
-        "direction": "up",
-        "cells": "R0-R8, C10",
-        "label": "lane R8 ascent (right arm)"
-      },
-      {
-        "direction": "up",
-        "cells": "R0-R7, C9",
-        "label": "lane R7 ascent"
-      },
-      {
-        "direction": "up",
-        "cells": "R0-R6, C8",
-        "label": "lane R6 ascent"
-      },
-      {
-        "direction": "up",
-        "cells": "R0-R5, C7",
-        "label": "lane R5 ascent"
-      }
-    ]
+  "props": {
+    "contents": {},
+    "overlay": {}
   },
-  "gemTypes": [
-    "red",
-    "green",
-    "yellow",
-    "blue"
-  ],
+  "borders": [],
   "objectives": [
     {
       "type": "plant",
       "obstacle": "clover",
-      "count": 64,
-      "note": "Cross-check: 84 active \u2212 20 starting clover = 64."
-    }
-  ],
-  "moveLimit": 15,
-  "boosterSlots": 4,
-  "obstacles": [
-    {
-      "functionalId": "substrate.clover",
-      "note": "20 pre-placed clover cells: R0 all 8 active cells + all 12 chain cells (R4 arms + C5 barrier). Positions 0-indexed.",
-      "positions": [
-        "R0C0",
-        "R0C1",
-        "R0C2",
-        "R0C3",
-        "R0C7",
-        "R0C8",
-        "R0C9",
-        "R0C10",
-        "R4C0",
-        "R4C1",
-        "R4C2",
-        "R4C3",
-        "R4C7",
-        "R4C8",
-        "R4C9",
-        "R4C10",
-        "R5C5",
-        "R6C5",
-        "R7C5",
-        "R8C5"
-      ]
-    },
-    {
-      "functionalId": "overlay.bind",
-      "hp": 1,
-      "note": "12 HP1 chains on clover substrate. R4 left and right arms + C5 vertical barrier in connector. Positions 0-indexed.",
-      "positions": [
-        "R4C0",
-        "R4C1",
-        "R4C2",
-        "R4C3",
-        "R4C7",
-        "R4C8",
-        "R4C9",
-        "R4C10",
-        "R5C5",
-        "R6C5",
-        "R7C5",
-        "R8C5"
-      ]
-    },
-    {
-      "functionalId": "field.empty",
-      "note": "Only the top-left arm (cols0-3, rows0-4) is prefilled with gems. The right arm (rows0-3) and the whole bottom (rows5-8) start EMPTY; gems flow in as the chain dams (row4 arm-feet + col5 wall) break. Jed 2026-07-25.",
-      "positions": [
-        "R0C7",
-        "R0C8",
-        "R0C9",
-        "R0C10",
-        "R1C7",
-        "R1C8",
-        "R1C9",
-        "R1C10",
-        "R2C7",
-        "R2C8",
-        "R2C9",
-        "R2C10",
-        "R3C7",
-        "R3C8",
-        "R3C9",
-        "R3C10",
-        "R5C0",
-        "R5C1",
-        "R5C2",
-        "R5C3",
-        "R5C4",
-        "R5C6",
-        "R5C7",
-        "R5C8",
-        "R5C9",
-        "R5C10",
-        "R6C0",
-        "R6C1",
-        "R6C2",
-        "R6C3",
-        "R6C4",
-        "R6C6",
-        "R6C7",
-        "R6C8",
-        "R6C9",
-        "R6C10",
-        "R7C0",
-        "R7C1",
-        "R7C2",
-        "R7C3",
-        "R7C4",
-        "R7C6",
-        "R7C7",
-        "R7C8",
-        "R7C9",
-        "R7C10",
-        "R8C0",
-        "R8C1",
-        "R8C2",
-        "R8C3",
-        "R8C4",
-        "R8C6",
-        "R8C7",
-        "R8C8",
-        "R8C9",
-        "R8C10"
-      ]
+      "count": 64
     }
   ]
 }

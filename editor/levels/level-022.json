@@ -1,20 +1,8 @@
 {
-  "level": 22,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 9,
-    "cols": 10,
-    "layout": [
-      "...####...",
-      "..######..",
-      ".########.",
-      "##########",
-      "##########",
-      "##########",
-      "##########",
-      "##########",
-      ".##....##."
-    ]
+    "cols": 10
   },
   "gemTypes": [
     "red",
@@ -22,20 +10,9 @@
     "blue",
     "yellow"
   ],
-  "objectives": [
-    {
-      "type": "plant",
-      "obstacle": "clover",
-      "count": 52,
-      "note": "GROW/PLANT goal \u2014 spread grass to cover 52 tiles (corrected from 'clear' per L6 grass tutorial)."
-    }
-  ],
-  "moveLimit": 26,
-  "boosterSlots": 3,
-  "obstacles": [],
-  "patterns": {
-    "legend": "active: #=active .=inactive (=board.layout). clover: c. crate: K. empty: e = active but starts gem-free (sealed under crates; fills as they break). '.'=absent.",
-    "active": [
+  "seeding": "random",
+  "layers": {
+    "board": [
       "...####...",
       "..######..",
       ".########.",
@@ -46,7 +23,29 @@
       "##########",
       ".##....##."
     ],
-    "clover": [
+    "flow": [
+      "...vvvv...",
+      "..vvvvvv..",
+      ".vvvvvvvv.",
+      "vvvvvvvvvv",
+      "vvvvvvvvvv",
+      "vvvvvvvvvv",
+      "vvvvvvvvvv",
+      "vvvvvvvvvv",
+      ".vv....vv."
+    ],
+    "source": [
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      ".........."
+    ],
+    "substrate": [
       "...cccc...",
       "..cccccc..",
       ".ccc..ccc.",
@@ -57,27 +56,39 @@
       "..........",
       ".........."
     ],
-    "crate": [
-      "..........",
-      "..........",
-      "..........",
-      "K........K",
-      "KKKK..KKKK",
-      "..KK..KK..",
-      "K..KKKK..K",
-      "KK..KK..KK",
-      ".KK....KK."
+    "contents": [
+      "...gggg...",
+      "..gggggg..",
+      ".gggggggg.",
+      "xggggggggx",
+      "xxxxggxxxx",
+      "eexxggxxee",
+      "xeexxxxeex",
+      "xxeexxeexx",
+      ".xx....xx."
     ],
-    "empty": [
+    "overlay": [
       "..........",
       "..........",
       "..........",
       "..........",
       "..........",
-      "ee......ee",
-      ".ee....ee.",
-      "..ee..ee..",
+      "..........",
+      "..........",
+      "..........",
       ".........."
     ]
-  }
+  },
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
+  "objectives": [
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 52
+    }
+  ]
 }

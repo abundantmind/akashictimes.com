@@ -1,10 +1,18 @@
 {
-  "level": 20,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 18,
-    "cols": 7,
-    "layout": [
+    "cols": 7
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
       "...#...",
       "..###..",
       ".#####.",
@@ -23,100 +31,118 @@
       "#######",
       "#######",
       "#######"
+    ],
+    "flow": [
+      "...v...",
+      "..vvv..",
+      ".vvvvv.",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv"
+    ],
+    "source": [
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      "......."
+    ],
+    "substrate": [
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      "......."
+    ],
+    "contents": [
+      "...k...",
+      "..ggg..",
+      ".ggggg.",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "ggggggg",
+      "eeegeee",
+      "eegggee",
+      "eggggge",
+      "ggegegg"
+    ],
+    "overlay": [
+      ".......",
+      ".......",
+      "...B...",
+      "...B...",
+      "..B.B..",
+      "...B...",
+      "...B...",
+      "..BBB..",
+      "...B...",
+      "...B...",
+      "B.BBB.B",
+      "...B...",
+      ".......",
+      "BBBBBBB",
+      "...B...",
+      "..BBB..",
+      ".BBBBB.",
+      "BB.B.BB"
     ]
   },
-  "flyover": {
-    "viewRows": 9,
-    "stops": [0, 4, 9],
-    "note": "CAMERA ONLY (no-multi-zone canon) — one continuous 18x7 board, straight-down gravity. Stops are the view's TOP row: R0-R8 / R4-R12 / R9-R17 (Jed's 1-indexed 1-9, 5-13, 9-18). Opening cutscene pans bottom-to-top, easing off at the R13 wall view. In play: a key reaching the current view's bottom row scrolls the camera one stop down; keys collect ONLY out of the true board bottom."
+  "props": {
+    "contents": {},
+    "overlay": {}
   },
-  "gemTypes": [
-    "red",
-    "green",
-    "yellow",
-    "blue"
-  ],
+  "borders": [],
   "objectives": [
     {
       "type": "collect",
       "item": "key",
       "count": 1
-    }
-  ],
-  "moveLimit": 18,
-  "boosterSlots": 4,
-  "obstacles": [
-    {
-      "functionalId": "item.key",
-      "note": "1 key at top center. Falls via gravity through 18 rows to exit at bottom. Positions 0-indexed.",
-      "positions": [
-        "R0C3"
-      ]
-    },
-    {
-      "functionalId": "overlay.bind",
-      "hp": 1,
-      "note": "40 HP1 chains. Center-column spine with expansions at R4/R7/R10, full wall at R13, inverted triangle R14-R17. Positions 0-indexed.",
-      "positions": [
-        "R2C3",
-        "R3C3",
-        "R4C2",
-        "R4C4",
-        "R5C3",
-        "R6C3",
-        "R7C2",
-        "R7C3",
-        "R7C4",
-        "R8C3",
-        "R9C3",
-        "R10C0",
-        "R10C2",
-        "R10C3",
-        "R10C4",
-        "R10C6",
-        "R11C3",
-        "R13C0",
-        "R13C1",
-        "R13C2",
-        "R13C3",
-        "R13C4",
-        "R13C5",
-        "R13C6",
-        "R14C3",
-        "R15C2",
-        "R15C3",
-        "R15C4",
-        "R16C1",
-        "R16C2",
-        "R16C3",
-        "R16C4",
-        "R16C5",
-        "R17C0",
-        "R17C1",
-        "R17C2",
-        "R17C3",
-        "R17C4",
-        "R17C5",
-        "R17C6"
-      ]
-    },
-    {
-      "functionalId": "field.empty",
-      "note": "12 cells start gem-free below the R13 chain wall (sealed pockets outside the inverted triangle) — the wall blocks gravity flow until broken.",
-      "positions": [
-        "R14C0",
-        "R14C1",
-        "R14C2",
-        "R14C4",
-        "R14C5",
-        "R14C6",
-        "R15C0",
-        "R15C1",
-        "R15C5",
-        "R15C6",
-        "R16C0",
-        "R16C6"
-      ]
     }
   ]
 }

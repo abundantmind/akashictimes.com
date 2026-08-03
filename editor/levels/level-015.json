@@ -1,10 +1,18 @@
 {
-  "level": 15,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 9,
-    "cols": 10,
-    "layout": [
+    "cols": 10
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
       "###....###",
       "####..####",
       "##########",
@@ -14,39 +22,73 @@
       "###.##.###",
       "###.##.###",
       "###....###"
+    ],
+    "flow": [
+      "vvv....vvv",
+      "vvvv..vvvv",
+      "vvvvvvvvvv",
+      "vvvvvvvvvv",
+      "vvvvvvvvvv",
+      "vvv.vv.vvv",
+      "vvv.vv.vvv",
+      "vvv.vv.vvv",
+      "vvv....vvv"
+    ],
+    "source": [
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      ".........."
+    ],
+    "substrate": [
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..c.cc.c..",
+      ".cc.cc.cc.",
+      "ccc....ccc"
+    ],
+    "contents": [
+      "ggg....ggg",
+      "gggg..gggg",
+      "gggggggggg",
+      "gggggggggg",
+      "gggggggggg",
+      "ggg.ee.ggg",
+      "eee.ee.eee",
+      "eee.ee.eee",
+      "eee....eee"
+    ],
+    "overlay": [
+      "..........",
+      "..........",
+      "..........",
+      "..BBBBBB..",
+      ".BBBBBBBB.",
+      "BBB....BBB",
+      "..........",
+      "..........",
+      ".........."
     ]
   },
-  "gemTypes": ["red", "green", "yellow", "blue"],
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
   "objectives": [
-    { "type": "plant", "obstacle": "clover", "count": 58, "note": "Count approximate — verify against BoardState image." }
-  ],
-  "moveLimit": 17,
-  "boosterSlots": 4,
-  "obstacles": [
     {
-      "functionalId": "substrate.clover",
-      "note": "Pre-placed grass seed patches at board start. Rows 7–9 (1-indexed). 16 cells. Positions 0-indexed.",
-      "positions": [
-        "R6C2","R6C4","R6C5","R6C7",
-        "R7C1","R7C2","R7C4","R7C5","R7C7","R7C8",
-        "R8C0","R8C1","R8C2","R8C7","R8C8","R8C9"
-      ]
-    },
-    {
-      "functionalId": "overlay.bind",
-      "hp": 1,
-      "note": "1-HP chains. Row 4 (1-indexed) middle 6; row 5 middle 8; row 6 outer first-3 + last-3 (interpreted from description — second 'R5' in source likely typo for R6). Diamond pattern expanding top-to-bottom. 20 cells. Positions 0-indexed.",
-      "positions": [
-        "R3C2","R3C3","R3C4","R3C5","R3C6","R3C7",
-        "R4C1","R4C2","R4C3","R4C4","R4C5","R4C6","R4C7","R4C8",
-        "R5C0","R5C1","R5C2","R5C7","R5C8","R5C9"
-      ]
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 58
     }
-  ],
-  "rewards": { "energy": null },
-  "captureMeta": {
-    "source": "BoardState PNG only. .mov capture was unusable — captured screenshot preview window instead of gameplay.",
-    "verified": false,
-    "notes": "9×10 capital-M shaped board. No leaves or acorns — chains and grass only. Grass seed positions confirmed by Jed (16 cells across rows 7–9, 1-indexed). Chain positions confirmed (20 cells, diamond pattern). Clover objective count (58) still approximate — verify against BoardState."
-  }
+  ]
 }

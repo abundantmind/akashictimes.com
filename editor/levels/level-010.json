@@ -1,19 +1,8 @@
 {
-  "level": 10,
-  "source": "Township (com.playrix.township-mac) Match-3 minigame",
+  "schema": "akashic-level/1",
   "board": {
     "rows": 8,
-    "cols": 11,
-    "layout": [
-      ".####.####.",
-      "###########",
-      "###########",
-      "###########",
-      ".#########.",
-      "..#######..",
-      "...........",
-      "..##...##.."
-    ]
+    "cols": 11
   },
   "gemTypes": [
     "red",
@@ -21,6 +10,74 @@
     "blue",
     "yellow"
   ],
+  "seeding": "random",
+  "layers": {
+    "board": [
+      ".####.####.",
+      "###########",
+      "###########",
+      "###########",
+      ".#########.",
+      "..##...##..",
+      "...........",
+      "..##...##.."
+    ],
+    "flow": [
+      ".vvvv.vvvv.",
+      "vvvvvvvvvvv",
+      "vvvvvvvvvvv",
+      "vvvvvvvvvvv",
+      ".vvvvvvvvv.",
+      "..vv...vv..",
+      "...........",
+      "..vv...vv.."
+    ],
+    "source": [
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "..........."
+    ],
+    "substrate": [
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "..........."
+    ],
+    "contents": [
+      ".gggg.gggg.",
+      "ggggggggggg",
+      "eegegggegee",
+      "ggggggggggg",
+      ".eeegggeee.",
+      "..ee...ee..",
+      "...........",
+      "..AS...SV.."
+    ],
+    "overlay": [
+      "...........",
+      "BBBBBBBBBBB",
+      "..B.BBB.B..",
+      "BBBBBBBBBBB",
+      "....BBB....",
+      "...........",
+      "...........",
+      "..........."
+    ]
+  },
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
   "objectives": [
     {
       "type": "collect",
@@ -32,101 +89,5 @@
       "gem": "blue",
       "count": 30
     }
-  ],
-  "moveLimit": 16,
-  "boosterSlots": 3,
-  "obstacles": [
-    {
-      "functionalId": "overlay.bind",
-      "hp": 1,
-      "positions": [
-        "R1C0",
-        "R1C1",
-        "R1C2",
-        "R1C3",
-        "R1C4",
-        "R1C5",
-        "R1C6",
-        "R1C7",
-        "R1C8",
-        "R1C9",
-        "R1C10",
-        "R2C2",
-        "R2C4",
-        "R2C5",
-        "R2C6",
-        "R2C8",
-        "R3C0",
-        "R3C1",
-        "R3C2",
-        "R3C3",
-        "R3C4",
-        "R3C5",
-        "R3C6",
-        "R3C7",
-        "R3C8",
-        "R3C9",
-        "R3C10",
-        "R4C5",
-        "R4C6",
-        "R4C7",
-        "R5C5",
-        "R5C6"
-      ],
-      "note": "32 HP1 chains \u2014 rows 1 and 3 FULLY chained (two sealing bands), scattered mid-board."
-    },
-    {
-      "functionalId": "field.empty",
-      "positions": [
-        "R2C0",
-        "R2C1",
-        "R2C3",
-        "R2C7",
-        "R2C9",
-        "R2C10",
-        "R4C1",
-        "R4C2",
-        "R4C3",
-        "R4C4",
-        "R4C8",
-        "R4C9",
-        "R5C2",
-        "R5C3",
-        "R5C4",
-        "R5C7",
-        "R5C8"
-      ],
-      "note": "17 cells start gem-free between/below the chain bands. (Was 22: R5C9 + the four R6 cells fell off the board with Jed's 2026-07-16 layout edit — row 6 is now fully inactive, so the pods are true islands.)"
-    },
-    {
-      "functionalId": "powerup.seeker",
-      "positions": [
-        "R7C3",
-        "R7C7"
-      ],
-      "note": "One Grasshopper per bottom island pod, beside its combo partner (combo-discovery design, Jed 2026-07-12)."
-    },
-    {
-      "functionalId": "powerup.area",
-      "positions": [
-        "R7C2"
-      ],
-      "note": "Scarab, left pod \u2014 Hopper+Scarab combo."
-    },
-    {
-      "functionalId": "powerup.dragonfly",
-      "positions": [
-        "R7C8"
-      ],
-      "orientation": "vertical",
-      "note": "V-Dragonfly, right pod \u2014 Hopper+V-Fly combo."
-    }
-  ],
-  "captureMeta": {
-    "source": "BoardState.png hi-res trace 2026-07-15",
-    "verified": false,
-    "puRuling": "RULING (Jed 2026-07-12): pod PUs ARE design \u2014 the level introduces PU combos as adjacent pairs.",
-    "pods": "Two 2-cell island pods at R7 (C2-C3, C7-C8), detached from the main grid. Footage: pods REFILL with gems after the combos are spent.",
-    "notes": "Rows 0-3 traced high-confidence. Bottom legs corrected by Jed's manual layout edit 2026-07-16 (post Fire-tablet play): R5 = C2-C8, R6 fully inactive \u2014 pods are true disconnected islands. No goal arithmetic available (collect level)."
-  }
+  ]
 }
