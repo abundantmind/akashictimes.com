@@ -2347,10 +2347,19 @@ function grasshopperOrthCells(r,c){
 // Falls back to the nearest gem of any color when nothing advances the goal
 // (or the level has no goals). Excludes self + already-cleared (excludeSet) cells.
 function autoGrasshopperTarget(r,c,excludeSet){
+  // Goals drive targeting in BOTH game mode (playerGoals, with live progress) and
+  // EDITOR test-play (editorObjectives — the live-edited Goals panel; progress
+  // isn't tracked there, so remaining = full count). The old playerMode-only guard
+  // meant the EDITOR — where levels are actually tested — never ran objective-aware
+  // targeting, so a cascade hopper always fell back to nearest-gem (Jed's L7 repro).
+  const goals=playerMode?playerGoals:editorObjectives.map(o=>
+      o.type==='plant' ? {kind:'plant',need:o.count,have:0}
+    : o.gem!=null      ? {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0}
+    : o.item==='acorn' ? {kind:'acorn',need:o.count,have:0}
+    : o.item==='key'   ? {kind:'key',need:o.count,have:0}
+    :                    {kind:'collect',gemIdx:0,need:o.count,have:0});
   let goal=null,bestNeed=0;
-  if(playerMode&&playerGoals.length){
-    playerGoals.forEach(g=>{const rem=g.need-g.have;if(rem>bestNeed){bestNeed=rem;goal=g;}});
-  }
+  goals.forEach(g=>{const rem=g.need-g.have;if(rem>bestNeed){bestNeed=rem;goal=g;}});
   const shielded=(nr,nc)=>isChained(nr,nc)||isCrate(nr,nc)||isLeafy(nr,nc);
   const advances=(nr,nc)=>{
     const cd=board[nr][nc];
