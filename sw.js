@@ -7,7 +7,7 @@
 // Bump this string on every ship. The activate handler deletes any cache whose
 // name != CACHE, so a version bump force-purges every stale cache on the next
 // load — the self-heal for the stale-cache disease (sessions 11/13/17 got bitten).
-const CACHE = 'akashic-v21';
+const CACHE = 'akashic-v22';
 
 self.addEventListener('install', () => self.skipWaiting());
 
