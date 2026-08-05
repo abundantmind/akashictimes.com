@@ -1079,6 +1079,7 @@ let selBase='inactive'; // Base brush: 'active' or 'inactive'(Hole) — click ce
 // ({type:'plant',obstacle:'clover',count} | {type:'collect',gem|item,count}).
 // This IS the serializer's objectives slice — see serializeObjectives().
 let editorObjectives=[];
+let editorFlyover=null; // level's flyover spec, persisted across flyTeardown() so Save preserves it
 // Which gem indices spawn. Full set by default; levels narrow it via their
 // gemTypes list (Township L1–5 use 5 colors, no Amethyst), entrance uses 0–4.
 let GEM_POOL=[0,1,2,3,4,5];
@@ -1147,7 +1148,7 @@ function openEditor(){
   initBlankBoard();
   playing=false; // never inherit a stale play state — clicks must paint, not playTap
   buildGPal();buildPUPal();buildObsPal();
-  editorObjectives=[];renderObjectives(); // fresh board starts with no goals
+  editorObjectives=[];editorFlyover=null;renderObjectives(); // fresh board starts with no goals, no flyover
   setBase('inactive'); // New Level opens on the Base brush — lay the foundation first (also engages the Base layer + renders)
   updUB();
 }
@@ -1764,7 +1765,7 @@ function serializeLevel(){
     borders:[],                                                // L7 — none for MVP-25
     objectives,
   };
-  if(flyover)out.flyover={axis:flyover.axis,viewRows:flyover.viewRows,viewCols:flyover.viewCols,stops:flyover.stops};
+  if(editorFlyover)out.flyover=editorFlyover; // emit from the persisted spec, NOT the runtime camera (torn down while editing)
   return out;
 }
 
@@ -4281,6 +4282,12 @@ function loadLevelData(json,num){
     ?{axis:(json.flyover.axis==='x'?'x':'y'),viewRows:json.flyover.viewRows||9,
       viewCols:json.flyover.viewCols||11,stops:json.flyover.stops}:null;
   flyStop=0;flyLock=false;
+  // PERSIST the level's flyover spec SEPARATELY from the runtime camera. The editor
+  // calls flyTeardown() to show the full board while editing (nulls `flyover`), so
+  // serializeLevel can't read the camera global or Save would DROP flyover — exactly
+  // the L20/L23 regression from the canonical re-save (Jed 2026-08-05). editorFlyover
+  // survives the teardown and is emitted verbatim on Save; no editor UI edits it yet.
+  editorFlyover=(json.flyover&&Array.isArray(json.flyover.stops)&&json.flyover.stops.length)?json.flyover:null;
   // TWO INPUT SHAPES, ONE BOARD. `schema:'akashic-level/1'` = the canonical
   // 7-layer Painter Model emitted by serializeLevel() — read it back through
   // loadCanonicalLayers (the exact inverse of serialize; roundTrip25 proves it).

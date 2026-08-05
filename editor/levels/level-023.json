@@ -84,5 +84,14 @@
       "item": "key",
       "count": 6
     }
-  ]
+  ],
+  "flyover": {
+    "axis": "x",
+    "viewCols": 11,
+    "stops": [
+      0,
+      16
+    ],
+    "note": "HORIZONTAL flyover (translateX). Camera frames one 11-col zone at a time; the other zone is FROZEN (no matching/clearing/PU reach — the hard rule). stops = each zone's LEFT column: 0 = left zone (play starts here), 16 = right zone. Opening cutscene previews right zone then pans left to the start. Unlock: collect the live zone's 3 keys out the bottom, then the camera pans to the next zone (flyScrollCheck axis-x rule)."
+  }
 }

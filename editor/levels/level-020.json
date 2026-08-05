@@ -144,5 +144,14 @@
       "item": "key",
       "count": 1
     }
-  ]
+  ],
+  "flyover": {
+    "viewRows": 9,
+    "stops": [
+      0,
+      4,
+      9
+    ],
+    "note": "CAMERA ONLY (no-multi-zone canon) — one continuous 18x7 board, straight-down gravity. Stops are the view's TOP row: R0-R8 / R4-R12 / R9-R17 (Jed's 1-indexed 1-9, 5-13, 9-18). Opening cutscene pans bottom-to-top, easing off at the R13 wall view. In play: a key reaching the current view's bottom row scrolls the camera one stop down; keys collect ONLY out of the true board bottom."
+  }
 }
