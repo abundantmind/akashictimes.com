@@ -3420,7 +3420,7 @@ function gravityWithMap(){
     // (Jed's L2 recording, 2026-07-25). Such cells instead fill by DIAGONAL SLIP
     // around the hole (feed fixpoint below handles it), or — if genuinely starved
     // (hole above + both diagonals dead, L4 wing pockets) — get promoted to a
-    // fadeIn spawn that materializes in place, never through the hole.
+    // source and drop their gem in from the hole above (the mask hides it there).
     return !inGrid(r-dr,c-dc);
   }));
 
@@ -3439,10 +3439,10 @@ function gravityWithMap(){
   // never be refilled — not straight from upstream, not diagonally around a
   // hole (L4 wing pockets: hole above AND both diagonals inactive) — behaves
   // like a top-row position: new gems spawn into it. Feedability fixpoint;
-  // each starved region's most-upstream cell gets promoted to an entry.
-  // Promoted entries are remembered: their spawns FADE IN (no flight path
-  // exists — the pocket's ceiling is a hole, not open sky).
-  const promotedEntry=board.map(row=>row.map(()=>false));
+  // each starved region's most-upstream cell gets promoted to an entry. A
+  // promoted cell's spawn simply FALLS in from the hole(s) above it like any
+  // other — the active-cell mask (see animateFall) hides the descent over the
+  // holes, so no special "fade in place" case is needed (Jed, 2026-08-06).
   if(!paintedInlet){ // authoritative sources suppress starved-pocket promotion — cells no Inlet can reach stay empty by design
     const feed=board.map((row,r)=>row.map((cd,c)=>cd.active&&entry[r][c]));
     for(;;){
@@ -3462,20 +3462,35 @@ function gravityWithMap(){
         }
       }
       if(grew)continue;
-      // no growth left: promote each starved region's root, or finish
+      // no growth left: promote each starved region's root, or finish.
+      // A GENUINE root (a self-source) is a cell with NO upstream body to
+      // slip from — none of its three feed-neighbors (straight-up + the two
+      // diagonals it could slip around a hole from, same set the growth loop
+      // above feeds through) is an active cell in its OWN region. The old test
+      // looked only STRAIGHT up, so a shoulder cell under a hole but beside a
+      // live body cell (L21/L7 diamond edges: R2C7 sits under the R1C7 hole yet
+      // R1C6 is right there) was wrongly promoted and FADED IN instead of
+      // slipping down. Aligning the root test with the growth loop's feed model
+      // makes those shoulders slip-fed; genuinely sealed pockets (hole above AND
+      // both diagonals dead — L4 wings, L7's detached foot) still promote. The
+      // region guard is essential: an adjacent cell in a DIFFERENT region (an
+      // isolated satellite's body neighbor) can't donate, so it stays a root.
       let promoted=false;
       for(let r=0;r<R;r++)for(let c=0;c<C;c++){
         if(!board[r][c].active||feed[r][c])continue;
         const [dr,dc]=vecAt(r,c);
         const ur=r-dr,uc=c-dc;
-        // root = upstream is NOT an active starved cell (it's a hole/edge/fed)
-        if(!(inGrid(ur,uc)&&board[ur][uc].active&&!feed[ur][uc])){
-          entry[r][c]=true;promotedEntry[r][c]=true;feed[r][c]=true;promoted=true;
+        const rid=region[r][c];
+        const bodyUp=(pr,pc)=>inGrid(pr,pc)&&board[pr][pc].active&&region[pr][pc]===rid;
+        const diag=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
+        if(!(bodyUp(ur,uc)||diag.some(([pr,pc])=>bodyUp(pr,pc)))){
+          entry[r][c]=true;feed[r][c]=true;promoted=true;
         }
       }
       if(!promoted)break; // every active cell is feedable
     }
   }
+
   const spawnN=board.map(row=>row.map(()=>0)); // virtual-row stack per entry
 
   // Move the gem at (r,c) one step to (nr,nc), extending its recorded path
@@ -3507,30 +3522,43 @@ function gravityWithMap(){
     //    from resting donors only
     for(let r=R-1;r>=0;r--)for(let c=0;c<C;c++){
       if(!emptyActive(r,c)||entry[r][c])continue;
-      const [dr,dc]=vecAt(r,c);
-      const ur=r-dr,uc=c-dc; // upstream neighbor
-      // Walk upstream past EMPTY active cells to find what actually feeds this
-      // cell (L11 bug, Jed 2026-07-16: the old check looked only at the
-      // immediate neighbor, so an empty RUN under a chain never refilled —
-      // mid-run cells saw "empty active above" and waited for a straight feed
-      // that the chain blocks forever). Slip is allowed only when the first
-      // thing found is a PERMANENT blocker: a hole gap, a chained gem (never
-      // vacates — L9 footage: gems route around chains like holes), or an
-      // item cell (acorns don't fall). A plain gem/PU means straight feed is
-      // coming — no slip, which is what keeps the corner-drift fix intact.
-      // A full chain WALL still seals: its diagonals are chained too, so no
-      // donors qualify (L8 donut / L9 waist stay empty by design).
-      let br=ur,bc=uc,blockedForever=false;
+      // FLOW-FEEDER (not the geometric upstream): the neighbor whose flow points
+      // INTO this cell. In a uniform-flow region that IS exactly (r-dr,c-dc), so
+      // every down-flow level behaves byte-identically. But at a flow TURN (L25's
+      // staircase: R5C3 flows RIGHT yet is fed from ABOVE by the R4C3 dam) the
+      // feeder is PERPENDICULAR to the cell's own flow. The old code walked the
+      // cell's own flow axis, so a turn cell whose real feeder is a chained dam
+      // instead saw its lateral neighbor — a plain gem that never actually feeds
+      // it — and wrongly concluded "a straight feed is coming," leaving R5C3
+      // empty instead of routing R4C2 diagonally around the dam (Jed's L25
+      // capture, 2026-08-05). We route around the FEEDER, exactly as we route
+      // around a hole. (L25 is the only turn-flow level; all others are unchanged.)
+      let fr=-1,fc=-1;
+      for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+        if(!inGrid(nr,nc)||!board[nr][nc].active)continue;
+        const [ndr,ndc]=vecAt(nr,nc);
+        if(nr+ndr===r&&nc+ndc===c){fr=nr;fc=nc;break;}  // this neighbor releases INTO (r,c)
+      }
+      if(fr<0){const [dr,dc]=vecAt(r,c);fr=r-dr;fc=c-dc;} // none flows in → geometric upstream (open-sky / hole-above, unchanged)
+      const fdr=fr-r,fdc=fc-c;                            // unit step from (r,c) toward its feeder
+      // Walk from the feeder onward past EMPTY active cells (L11: an empty RUN
+      // under a chain must still refill) to the first PERMANENT block: a hole, a
+      // solid crate, a chained gem (never vacates — L9: gems route around chains
+      // like holes), or a static item. A plain gem means a straight feed is
+      // coming — no slip, which keeps the corner-drift fix intact. A full chain
+      // WALL still seals: its diagonals are chained too, so no donors qualify
+      // (L8 donut / L9 waist stay empty by design).
+      let br=fr,bc=fc,blockedForever=false;
       for(;;){
         if(!inGrid(br,bc))break;                       // open sky: spawns feed it
         if(!board[br][bc].active){blockedForever=true;break;} // hole gap
         if(isCrate(br,bc)){blockedForever=true;break;} // solid box: gems route around it like a hole
         if(occ(br,bc)){blockedForever=isChained(br,bc)||(!!board[br][bc].item&&!isFaller(br,bc));break;} // a falling key isn't a forever-block — gems follow it down, not slip around
-        br-=dr;bc-=dc;                                 // empty active: keep walking
+        br+=fdr;bc+=fdc;                               // empty active: keep walking toward the source
       }
       if(!blockedForever)continue;
-      // the two upstream diagonals, perpendicular to the flow axis
-      const perp=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
+      // the two diagonals flanking the feeder, perpendicular to the feed axis
+      const perp=fdr!==0?[[fr,fc-1],[fr,fc+1]]:[[fr-1,fc],[fr+1,fc]];
       const donors=perp.filter(([pr,pc])=>{
         if(!inGrid(pr,pc)||!board[pr][pc].active||!occ(pr,pc))return false;
         if(isChained(pr,pc))return false; // chained gems can't slide anywhere
@@ -3544,20 +3572,19 @@ function gravityWithMap(){
       step(pr,pc,r,c);progress=true;
     }
     // 3) SPAWN — entry cells pull new gems in from stacked off-grid cells;
-    //    promoted (starved-pocket) entries fade in instead of flying in
+    //    every entry (open-sky or promoted pocket) drops its gem in, masked.
     for(let r=0;r<R;r++)for(let c=0;c<C;c++){
       // startEmpty cells are AUTHORED empty — they fill ONLY by gems flowing in
       // from the true inlet (a chain/crate dam breaking upstream), NEVER by a
       // spawn. Without this, a sealed region with no open-sky feed got PROMOTED
-      // to a starved-pocket source and fadeIn-spawned gems from below — L25's
+      // to a starved-pocket source and spawned gems from below — L25's
       // canal filled its bottom sections from the bottom edge up (Jed, 2026-07-25).
       if(!entry[r][c]||occ(r,c)||isCrate(r,c)||board[r][c].startEmpty)continue; // never spawn into a solid crate or an authored-empty cell
       const [dr,dc]=vecAt(r,c);
       const n=++spawnN[r][c];
       board[r][c].gem=randGem();board[r][c].pu=null;
       const m={gem:board[r][c].gem,pu:null,fr:r-dr*n,fc:c-dc*n,tr:r,tc:c,isNew:true,
-               fadeIn:promotedEntry[r][c],
-               path:[{r:r-dr*n,c:c-dc*n},{r,c}]};
+               path:[{r:r-dr*n,c:c-dc*n},{r,c}]}; // every source FALLS in; the active-cell mask hides the descent over holes
       moves.push(m);carrier[r][c]=m;progress=true;
     }
     if(!progress)break;
@@ -3657,6 +3684,28 @@ function animateFall(fallMoves,onDone){
   // Board data is already at destinations — render so destination cells exist in DOM.
   render();
 
+  // ── TOWNSHIP SPAWN MASKING (Jed 2026-08-05) ──────────────────────────────
+  // Gems are visible ONLY within active cells. A dedicated fly layer is clipped
+  // to the union of the active-cell rectangles, so a gem dropping in from
+  // off-board or down a hole-notch is INVISIBLE until its LEADING EDGE crosses
+  // into an active cell — the holes read as an opaque sheet lying over the fall,
+  // exactly like Township (no long gem columns above/around the playable grid).
+  // Rebuilt every pass in px() space so it tracks the current layout (resize /
+  // flyover camera). All spawn/fall/slip flies go into this layer, not the wrap.
+  let flyLayer=document.getElementById('fly-layer');
+  if(!flyLayer){
+    flyLayer=document.createElement('div');
+    flyLayer.id='fly-layer';
+    flyLayer.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:20;';
+    wrap.appendChild(flyLayer);
+  }
+  (()=>{
+    const rects=[];
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){ if(!board[r][c].active)continue;
+      const p=px(r,c); rects.push(`M${p.x} ${p.y}h${CELL_SIZE}v${CELL_SIZE}h${-CELL_SIZE}Z`); }
+    flyLayer.style.clipPath=rects.length?`path('${rects.join('')}')`:'none';
+  })();
+
   // Group moves by column so each column animates independently.
   const byCol={};
   fallMoves.forEach(m=>{
@@ -3688,39 +3737,10 @@ function animateFall(fallMoves,onDone){
     sorted.forEach((m,rank)=>{
       const delay=rank*STAGGER_MS;
 
-      // Starved-pocket spawn (fadeIn): the gem has no flight path — its
-      // ceiling is an inactive hole, not open sky — so it materializes at its
-      // destination, opacity 0 → 1, instead of falling through the wall.
-      if(m.fadeIn){
-        const dpos=px(m.tr,m.tc);
-        // gem layer only — the cell keeps its substrate visible (no blink)
-        const dEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"] .gem-inner`);
-        if(dEl)dEl.style.visibility='hidden';
-        const ghost=document.createElement('div');
-        ghost.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
-          +`pointer-events:none;z-index:20;display:flex;align-items:center;`
-          +`justify-content:center;opacity:0;`;
-        ghost.innerHTML=m.gem!==null?`<div class="gem-inner">${gemSVG(m.gem,gemSize())}</div>`:'';
-        ghost.style.left=dpos.x+'px';
-        ghost.style.top =dpos.y+'px';
-        wrap.appendChild(ghost);
-        setTimeout(()=>{
-          const start=performance.now(),fdur=BASE_DUR*1.2;
-          function fstep(now){
-            const t=Math.min((now-start)/fdur,1);
-            ghost.style.opacity=t.toFixed(3);
-            if(t<1){requestAnimationFrame(fstep);}
-            else{
-              ghost.remove();
-              if(dEl)dEl.style.visibility='';
-              doneGems++;
-              if(doneGems===totalGems)onDone();
-            }
-          }
-          requestAnimationFrame(fstep);
-        },delay);
-        return;
-      }
+      // Every gem — cascade, slip, or self-source spawn — FALLS along its path;
+      // the active-cell mask on #fly-layer hides the part of the flight that is
+      // over a hole or off-board, so a source under a hole-notch simply drops in
+      // (fadeIn was retired 2026-08-06 now that the mask does the hiding).
 
       // Waypoint polyline in pixels: a straight fall is 2 points; hole-routing
       // paths carry the bend points recorded by gravityWithMap.
@@ -3754,7 +3774,7 @@ function animateFall(fallMoves,onDone){
         :(m.gem!==null?`<div class="gem-inner">${gemSVG(m.gem,gemSize())}</div>`:''); // a falling key carries its own graphic
       fly.style.left=originPos.x+'px';
       fly.style.top =originPos.y+'px';
-      wrap.appendChild(fly);
+      flyLayer.appendChild(fly);
 
       // Each gem starts its own rAF loop after its stagger delay.
       setTimeout(()=>{
