@@ -3186,18 +3186,21 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
 // the re-scan skips it) — never re-detonated on empty cells.
 function hopperSequence(cells,src){
   const phase=new Set(),chainQueue=[];
-  const nextHopper=()=>{
+  const TAKEOFF_MS=170;      // stagger between activations = one hopper's cross-read + takeoff
+  let inFlight=0, allActivated=false;
+  // settle only once EVERY hopper has activated AND every flight has landed —
+  // otherwise the board would settle out from under airborne hoppers.
+  const maybeFinish=()=>{
+    if(!allActivated||inFlight>0)return;
+    const rest=chainQueue.filter(d=>d.pu!=='helicopter'); // never re-detonate an absorbed hopper (the empty-grid cross)
+    processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c));
+  };
+  const activateNext=()=>{
     // next LIVE helicopter in reading order (re-scanned, so absorbed ones drop out)
     let hop=null;
     for(let r=0;r<R&&!hop;r++)for(let c=0;c<C&&!hop;c++)
       if(board[r][c].active&&board[r][c].pu==='helicopter')hop=[r,c];
-    if(!hop){
-      // every hopper has fired; drain only NON-hopper chain-caught PUs (a converted
-      // hopper is never re-detonated here — that was the empty-grid cross), then settle
-      const rest=chainQueue.filter(d=>d.pu!=='helicopter');
-      processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c));
-      return;
-    }
+    if(!hop){ allActivated=true; maybeFinish(); return; } // no more to launch; wait on the airborne ones
     const [r,c]=hop;
     const hopCharged=!!(board[r][c].puClover||board[r][c].sub==='clover'); // charged? (capture before consuming)
     board[r][c].pu=null;puFired('helicopter'); // consume before firing — the re-scan won't re-trigger it
@@ -3207,22 +3210,27 @@ function hopperSequence(cells,src){
     grasshopperOrthCells(r,c).forEach(([or,oc])=>clearCellD(or,oc,phase,chainQueue));
     if(playerMode)updatePlayerHUD();
     render(null);
-    // 2) once the cross reads, JUMP (trail behind it); clear on touchdown; THEN next hopper
+    // 2) once the cross reads, TAKE OFF (trail behind it). As soon as it's AIRBORNE
+    //    the NEXT hopper activates — flights OVERLAP (the Township swarm, Jed
+    //    2026-08-08) while activations still cascade in reading order.
     setTimeout(()=>{
-      const t=randomHopperTarget(r,c,phase); // combo target stays chaotic (Jed 07-09); firing is sequential
-      if(!t){nextHopper();return;}
-      hopperFlight(makeHopperActor(r,c),r,c,t[0],t[1],()=>{
-        if(hopCharged)plantClover([[t[0],t[1]]],true); // landing seeds only if it took off charged
-        clearCellD(t[0],t[1],phase,chainQueue);
-        if(playerMode)updatePlayerHUD();
-        render(null);
-        const el=document.querySelector(`[data-r="${t[0]}"][data-c="${t[1]}"]`);
-        if(el)el.classList.add('popping');
-        nextHopper(); // ONLY now does the next hopper activate
-      });
-    },Math.round(200/playbackSpeed));
+      const t=randomHopperTarget(r,c,phase); // combo target stays chaotic (Jed 07-09)
+      if(t){
+        inFlight++;
+        hopperFlight(makeHopperActor(r,c),r,c,t[0],t[1],()=>{
+          if(hopCharged)plantClover([[t[0],t[1]]],true); // landing seeds only if it took off charged
+          clearCellD(t[0],t[1],phase,chainQueue);
+          if(playerMode)updatePlayerHUD();
+          render(null);
+          const el=document.querySelector(`[data-r="${t[0]}"][data-c="${t[1]}"]`);
+          if(el)el.classList.add('popping');
+          inFlight--; maybeFinish();
+        });
+      }
+      activateNext(); // the swarm builds: next one launches while this one is still in the air
+    },Math.round(TAKEOFF_MS/playbackSpeed));
   };
-  nextHopper();
+  activateNext();
 }
 
 // Grasshoppers are JUMPERS, not laser turrets (Jed 2026-07-09): every jump —
