@@ -2699,8 +2699,112 @@ function processDetonations(queue,phase,onDone){
 
 // SCARAB — 3×3 blast (rad 2 → 5×5 for Scarab×Scarab): one simultaneous pop,
 // short beat, then the queue continues
+// ═══ DETONATION EYE-CANDY (Jed 2026-08-06/07) ═══════════════════════════════
+// PURE overlay VFX layered over the detonation engine. These NEVER touch what
+// clears or the resolution order — they draw, animate, and self-remove. The
+// clear still happens through clearCellD in the detXxx functions below exactly
+// as before; the VFX just plays on top of it. Respect playbackSpeed like BASE_DUR.
+
+// Shared clipped overlay layer for detonation VFX. Same principle as #fly-layer:
+// clipped to the union of active-cell rectangles so smoke/bars over a hole or
+// past a board edge don't paint outside the playable grid. Rebuilt each call so
+// the clip tracks the current layout (resize / flyover camera translate).
+function vfxLayer(){
+  const wrap=document.getElementById('board-wrap');
+  const boardEl=document.getElementById('board');
+  let L=document.getElementById('vfx-layer');
+  if(!L){
+    L=document.createElement('div');
+    L.id='vfx-layer';
+    // z 23 = above gems/fragments/actors (20–22), below beams (25)
+    L.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:23;';
+    wrap.appendChild(L);
+  }
+  const br=boardEl.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+  const rects=[];
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){ if(!board[r][c].active)continue;
+    const x=br.left-wr.left+c*(CELL_SIZE+CELL_GAP), y=br.top-wr.top+r*(CELL_SIZE+CELL_GAP);
+    rects.push(`M${x} ${y}h${CELL_SIZE}v${CELL_SIZE}h${-CELL_SIZE}Z`); }
+  L.style.clipPath=rects.length?`path('${rects.join('')}')`:'none';
+  return L;
+}
+
+// SCARAB SMOKE — a round puff swells to cover the 3×3 it clears, then contracts
+// to nothing as the gems cascade in (imitates Township's scarab smoke circle).
+// Sized to the exact 3×3 (rad=1) / 5×5 (rad=2 combo) bounding box, centered on
+// the detonation cell. Runs independently of the clear/next timing.
+function scarabSmoke(r,c,rad){
+  const rr=rad||1;
+  const L=vfxLayer();
+  const center=cellPos(r,c);
+  const span=(2*rr+1)*CELL_SIZE+2*rr*CELL_GAP; // full diameter incl. inter-cell gaps
+  const puff=document.createElement('div');
+  puff.style.cssText='position:absolute;pointer-events:none;border-radius:50%;filter:blur(2px);'
+    +'background:radial-gradient(circle,rgba(232,232,238,0.85) 0%,rgba(200,200,212,0.6) 45%,rgba(184,184,196,0.16) 74%,rgba(184,184,196,0) 100%);'
+    +'left:'+center.x+'px;top:'+center.y+'px;width:0px;height:0px;transform:translate(-50%,-50%);opacity:0.95;';
+  L.appendChild(puff);
+  const EXPAND=Math.round(150/playbackSpeed), HOLD=Math.round(70/playbackSpeed), CONTRACT=Math.round(200/playbackSpeed);
+  const t0=performance.now();
+  function expand(now){
+    const t=Math.min((now-t0)/EXPAND,1), e=1-Math.pow(1-t,2); // ease-out
+    const d=span*e; puff.style.width=d+'px'; puff.style.height=d+'px';
+    if(t<1){requestAnimationFrame(expand);return;}
+    setTimeout(()=>{
+      const t1=performance.now();
+      (function contract(n){
+        const t=Math.min((n-t1)/CONTRACT,1), e=t*t; // ease-in as gems fall back in
+        const d=span*(1-e); puff.style.width=d+'px'; puff.style.height=d+'px';
+        puff.style.opacity=String(0.95*(1-t));
+        if(t<1)requestAnimationFrame(contract); else puff.remove();
+      })(t1);
+    },HOLD);
+  }
+  requestAnimationFrame(expand);
+}
+
+// GRASSHOPPER CROSS — the orthogonal blast reads as a growing PLUS: a vertical
+// bar swells up/down and a horizontal bar swells left/right from the center to
+// the 4 adjacent cells it clears, then snaps back to center as cascades occur.
+// Extent = the 4 orth-adjacent cells (grasshopperOrthCells); the VFX follows the
+// clear, never extends it (Jed confirmed 2026-08-07). The vfxLayer clip masks any
+// arm that would reach a hole or off-board edge.
+function grasshopperCross(r,c){
+  const L=vfxLayer();
+  const center=cellPos(r,c);
+  const long=3*CELL_SIZE+2*CELL_GAP; // center + one cell each side (incl. gaps)
+  const thick=CELL_SIZE;             // 1 cell wide
+  // Dark, high-contrast body against the light sand cells (Jed 2026-08-07: darker
+  // is better for readability) with a bright green rim so it still reads as energy.
+  const barCss='position:absolute;pointer-events:none;border-radius:3px;'
+    +'background:linear-gradient(90deg,rgba(18,86,28,0.97),rgba(10,58,18,0.94));'
+    +'box-shadow:0 0 6px rgba(74,214,96,0.95),0 0 15px rgba(30,150,54,0.7);';
+  const vBar=document.createElement('div'); // vertical arm — grows in height
+  vBar.style.cssText=barCss+'left:'+center.x+'px;top:'+center.y+'px;width:'+thick+'px;height:0px;transform:translate(-50%,-50%);';
+  const hBar=document.createElement('div'); // horizontal arm — grows in width
+  hBar.style.cssText=barCss+'left:'+center.x+'px;top:'+center.y+'px;height:'+thick+'px;width:0px;transform:translate(-50%,-50%);';
+  L.appendChild(vBar);L.appendChild(hBar);
+  const GROW=Math.round(130/playbackSpeed), HOLD=Math.round(60/playbackSpeed), SNAP=Math.round(120/playbackSpeed);
+  const t0=performance.now();
+  function grow(now){
+    const t=Math.min((now-t0)/GROW,1), e=1-Math.pow(1-t,2); // ease-out
+    vBar.style.height=(long*e)+'px'; hBar.style.width=(long*e)+'px';
+    if(t<1){requestAnimationFrame(grow);return;}
+    setTimeout(()=>{
+      const t1=performance.now();
+      (function snap(n){
+        const t=Math.min((n-t1)/SNAP,1), e=t*t; // ease-in back to center
+        vBar.style.height=(long*(1-e))+'px'; hBar.style.width=(long*(1-e))+'px';
+        const op=String(1-t*0.6); vBar.style.opacity=op; hBar.style.opacity=op;
+        if(t<1)requestAnimationFrame(snap); else{vBar.remove();hBar.remove();}
+      })(t1);
+    },HOLD);
+  }
+  requestAnimationFrame(grow);
+}
+
 function detScarab(r,c,phase,queue,next,rad,charged){
   const cells=scarabCells(r,c,rad);
+  scarabSmoke(r,c,rad); // eye-candy overlay — does not affect the clear below
   if(charged)plantClover(cells,true); // same rule as the Dragonfly: only a clover-CHARGED Scarab plants its blast; blasting through existing clover doesn't spread it
   cells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
@@ -2779,6 +2883,7 @@ function detBall(sr,sc,color,phase,queue,next,charged){
 // GRASSHOPPER (chain-caught) — orthogonals blast, then laser to an auto-picked
 // goal-oriented target. Player-fired hoppers never reach here (choice flow).
 function detHopper(r,c,phase,queue,next,charged){
+  grasshopperCross(r,c); // eye-candy overlay — growing plus over the orth blast; does not affect the clear below
   if(charged)plantClover(grasshopperOrthCells(r,c).concat([[r,c]]),true); // only a clover-CHARGED Grasshopper plants its orth blast; blasting through clover doesn't spread it
   grasshopperOrthCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
@@ -3132,6 +3237,7 @@ function playTap(r,c){
     // Step 1: blast the orthogonals — any PU caught is ENQUEUED, not instant
     const phase=new Set();
     const queue=[];
+    grasshopperCross(hop.r,hop.c); // eye-candy: growing plus over the orth blast BEFORE lift-off (Jed 2026-08-07 — the feed-and-swell never animated; this is the visual that trains the orth-blast mechanic). Overlay only; does not affect the clear below. The 230ms pre-jump delay lets it read.
     if(hopCharged)plantClover(hop.orthCells.concat([[hop.r,hop.c]]),true); // orth blast plants ONLY if charged (project_clover_model — matches the chain-caught rule; uncharged blast doesn't spread through clover)
     hop.orthCells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
     if(playerMode)updatePlayerHUD();
