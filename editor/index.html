@@ -392,6 +392,29 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 #pwin button{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:10px 32px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);font-weight:500;cursor:pointer;}
 #pwin button:hover{background:#4a3580;}
 
+/* ── Star splash (opening "how to earn the next star" instructions) ── */
+#pstar-splash{position:fixed;inset:0;background:rgba(13,10,20,.9);display:none;align-items:center;justify-content:center;z-index:210;}
+#pstar-splash.open{display:flex;}
+#pstar-splash .sbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:32px 40px;max-width:420px;text-align:center;}
+#pstar-splash .slevel{font-size:var(--fz-sm);letter-spacing:.12em;text-transform:uppercase;color:#7a6a9a;margin-bottom:6px;}
+#pstar-splash .sstars{font-size:34px;letter-spacing:6px;margin:6px 0 16px;}
+#pstar-splash .sstars .on{color:#ffcb6b;}
+#pstar-splash .sstars .next{color:#ffcb6b;display:inline-block;animation:starpulse 1s ease-in-out infinite;}
+#pstar-splash .sstars .off{color:#2a2438;}
+#pstar-splash h3{font-size:var(--fz-2xl);color:#c792ea;margin-bottom:10px;font-weight:500;}
+#pstar-splash p{font-size:var(--fz-base);color:#a89ac0;line-height:1.55;margin-bottom:22px;}
+#pstar-splash button{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:10px 34px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);font-weight:500;cursor:pointer;}
+#pstar-splash button:hover{background:#4a3580;}
+@keyframes starpulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.28);opacity:.55;}}
+
+/* ── Star-earned celebration (rainbow arc text + fireworks canvas) ── */
+#pstar-cele{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:320;overflow:hidden;background:rgba(8,6,14,.35);}
+#pstar-cele.open{display:flex;}
+#pstar-cele #cele-fw{position:absolute;inset:0;width:100%;height:100%;}
+#pstar-cele .celewrap{position:relative;text-align:center;animation:celepop .55s cubic-bezier(.2,1.5,.4,1) both;}
+#pstar-cele .celestars{font-size:60px;letter-spacing:10px;color:#ffd76b;filter:drop-shadow(0 0 12px rgba(255,190,60,.85));margin-top:2px;}
+@keyframes celepop{0%{transform:scale(.3);opacity:0;}100%{transform:scale(1);opacity:1;}}
+
 /* ── Entrance: multi-goal HUD rows, help popup, two-path choice ── */
 .goal-row{display:flex;align-items:center;gap:8px;padding:4px 0;width:100%;}
 .goal-row.complete{opacity:.55;}
@@ -813,6 +836,23 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   </div>
 </div>
 
+<!-- Star splash — opening instructions for the NEXT star (adapts to banked stars) -->
+<div id="pstar-splash">
+  <div class="sbox">
+    <div class="slevel" id="ssplash-level"></div>
+    <div class="sstars" id="ssplash-stars"></div>
+    <h3 id="ssplash-head"></h3>
+    <p id="ssplash-body"></p>
+    <button id="ssplash-btn" onclick="hideStarSplash()">Play</button>
+  </div>
+</div>
+
+<!-- Star-earned celebration — rainbow arc text + fireworks; tap or auto-dismiss -->
+<div id="pstar-cele" onclick="hideCelebration()">
+  <canvas id="cele-fw"></canvas>
+  <div class="celewrap" id="cele-wrap"></div>
+</div>
+
 <script>
 // ── i18n — English + 한국어 ────────────────────────────────────────────────────
 // Player-facing strings only; the editor tooling (palette, toolbar, status bar)
@@ -843,6 +883,16 @@ en:{
   win_title:'Well done!',lose_title:'Out of moves',
   win_msg:(n,m)=>'Level '+n+' complete — '+m+' moves',try_again:'Try again?',cont:'Continue',retry:'Retry',got_it:'Got it',
   bar_to_beat:(m)=>'Bar to beat: '+m+' moves',reset_level_btn:'Reset Level Stars',rec_moves:(m)=>'⚑'+m,
+  splash_play:'Play',
+  star1_head:'Earn your 1st Star',
+  star1_body:'Complete the level’s goals. Your first finish banks ★1 and sets your move record — the bar to beat.',
+  star2_head:'Earn your 2nd Star',
+  star2_body:(rec)=>'Finish again in FEWER moves than your record (⚑'+(rec||'—')+'). Any improvement banks ★2.',
+  star3_head:'Earn your 3rd Star',
+  star3_body:'Detonate 3 power-ups from a SINGLE swap. Build up 2+ power-ups on the board, then swap to chain through them.',
+  star_mastered_head:'Level Mastered',
+  star_mastered_body:'All three stars earned. Replay any time to sharpen your record.',
+  cele_head:(n)=>['','One Star','Two Stars','Three Stars'][n],cele_achieved:'Achieved',
   reset_btn:'Reset all stars',
   reset_confirm:'This wipes ALL stars and move records on this device.\nIt cannot be undone.\n\nReset everything?',
   boosters_cap:'Boosters',booster_locked:'Locked',
@@ -900,6 +950,16 @@ ko:{
   win_title:'잘했어요!',lose_title:'이동 횟수 소진',
   win_msg:(n,m)=>'레벨 '+n+' 완료 — 이동 '+m+'회',try_again:'다시 도전할까요?',cont:'계속',retry:'다시 시도',got_it:'알겠어요',
   bar_to_beat:(m)=>'목표 기준: '+m+'회',reset_level_btn:'레벨 별 초기화',rec_moves:(m)=>'⚑'+m,
+  splash_play:'시작',
+  star1_head:'첫 번째 별 획득하기',
+  star1_body:'레벨 목표를 완료하세요. 첫 완료 시 ★1을 획득하고 이동 기록이 설정됩니다 — 이것이 깨야 할 기준입니다.',
+  star2_head:'두 번째 별 획득하기',
+  star2_body:(rec)=>'기록(⚑'+(rec||'—')+')보다 더 적은 이동으로 다시 완료하세요. 조금이라도 개선하면 ★2를 획득합니다.',
+  star3_head:'세 번째 별 획득하기',
+  star3_body:'한 번의 스왑으로 파워업 3개를 연쇄 폭발시키세요. 보드에 파워업을 2개 이상 만든 뒤, 스왑으로 연쇄시키세요.',
+  star_mastered_head:'레벨 마스터',
+  star_mastered_body:'세 개의 별을 모두 획득했습니다. 언제든 다시 플레이하여 기록을 단축하세요.',
+  cele_head:(n)=>['','별 하나','별 둘','별 셋'][n],cele_achieved:'획득!',
   reset_btn:'별 기록 초기화',
   reset_confirm:'이 기기의 모든 별과 이동 기록이 삭제됩니다.\n되돌릴 수 없습니다.\n\n전부 초기화할까요?',
   boosters_cap:'부스터',booster_locked:'잠김',
@@ -2739,8 +2799,11 @@ function scarabSmoke(r,c,rad){
   const center=cellPos(r,c);
   const span=(2*rr+1)*CELL_SIZE+2*rr*CELL_GAP; // full diameter incl. inter-cell gaps
   const puff=document.createElement('div');
+  // Charcoal smoke — dark body for contrast against the light sand cells (Jed
+  // 2026-08-07: charcoal beats the pale white). A lighter smoky rim keeps the
+  // "puff of smoke" read; the fill stays dark so it pops.
   puff.style.cssText='position:absolute;pointer-events:none;border-radius:50%;filter:blur(2px);'
-    +'background:radial-gradient(circle,rgba(232,232,238,0.85) 0%,rgba(200,200,212,0.6) 45%,rgba(184,184,196,0.16) 74%,rgba(184,184,196,0) 100%);'
+    +'background:radial-gradient(circle,rgba(38,38,44,0.86) 0%,rgba(58,58,68,0.62) 46%,rgba(120,120,132,0.2) 76%,rgba(140,140,152,0) 100%);'
     +'left:'+center.x+'px;top:'+center.y+'px;width:0px;height:0px;transform:translate(-50%,-50%);opacity:0.95;';
   L.appendChild(puff);
   const EXPAND=Math.round(150/playbackSpeed), HOLD=Math.round(70/playbackSpeed), CONTRACT=Math.round(200/playbackSpeed);
@@ -4163,6 +4226,110 @@ window.PlayerProgress=PlayerProgress;
 
 function pStarStr(n){return '★'.repeat(n)+'☆'.repeat(3-n);}
 
+// ═══ STAR SPLASH + CELEBRATION (Jed 2026-08-07) ═════════════════════════════
+// On opening a level: a splash tells the Explorer how to earn their NEXT star
+// (0→★1, 1→★2, 2→★3, 3→mastered) — matched exactly to the sober star canon
+// (project_star_canon: ★1 finish, ★2 beat your move record, ★3 three PUs from
+// one swap). On banking a NEW star: a rainbow-arc "N Star(s) Achieved" over a
+// fireworks burst. Both are bilingual (EN/KR) via the TXT() dict.
+function showStarSplash(num){
+  const banked=PlayerProgress.stars(num), rec=PlayerProgress.record(num);
+  document.getElementById('ssplash-level').textContent=TXT('lvl_prefix')+num;
+  // star row: earned = solid gold, the next one = pulsing, the rest = dim
+  let row='';
+  for(let i=1;i<=3;i++){
+    const cls=i<=banked?'on':(i===banked+1?'next':'off');
+    row+='<span class="'+cls+'">'+(i<=banked?'★':'☆')+'</span>';
+  }
+  document.getElementById('ssplash-stars').innerHTML=row;
+  let head,body;
+  if(banked===0){head=TXT('star1_head');body=TXT('star1_body');}
+  else if(banked===1){head=TXT('star2_head');body=TXT('star2_body')(rec||0);}
+  else if(banked===2){head=TXT('star3_head');body=TXT('star3_body');}
+  else{head=TXT('star_mastered_head');body=TXT('star_mastered_body');}
+  document.getElementById('ssplash-head').textContent=head;
+  document.getElementById('ssplash-body').textContent=body;
+  document.getElementById('ssplash-btn').textContent=TXT('splash_play');
+  document.getElementById('pstar-splash').classList.add('open'); // covers the board → blocks input until dismissed
+}
+function hideStarSplash(){document.getElementById('pstar-splash').classList.remove('open');}
+
+// Rainbow text bent along an upward arc (a rainbow shape), fill = 7-stop gradient.
+function celeArcSVG(text){
+  return '<svg viewBox="0 0 640 250" width="min(90vw,640px)" style="overflow:visible">'
+    +'<defs>'
+    +'<linearGradient id="rbwg" x1="0" y1="0" x2="1" y2="0">'
+    +'<stop offset="0%" stop-color="#ff4d4d"/><stop offset="17%" stop-color="#ff9a3d"/>'
+    +'<stop offset="34%" stop-color="#ffe14d"/><stop offset="52%" stop-color="#5cff7a"/>'
+    +'<stop offset="70%" stop-color="#4dc3ff"/><stop offset="86%" stop-color="#7a6bff"/>'
+    +'<stop offset="100%" stop-color="#e06bff"/></linearGradient>'
+    +'<filter id="rbwsh" x="-20%" y="-20%" width="140%" height="140%">'
+    +'<feDropShadow dx="0" dy="2" stdDeviation="5" flood-color="#000" flood-opacity="0.55"/></filter>'
+    +'</defs>'
+    +'<path id="celearc" d="M 40 205 Q 320 25 600 205" fill="none"/>'
+    +'<text font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="52" font-weight="800" '
+    +'fill="url(#rbwg)" filter="url(#rbwsh)" letter-spacing="1">'
+    +'<textPath href="#celearc" startOffset="50%" text-anchor="middle">'+text+'</textPath></text>'
+    +'</svg>';
+}
+function celebrateStar(n){
+  const wrap=document.getElementById('cele-wrap');
+  const label=TXT('cele_head')(n)+' '+TXT('cele_achieved'); // e.g. "One Star Achieved" / "별 하나 획득!"
+  wrap.innerHTML=celeArcSVG(label)+'<div class="celestars">'+'★'.repeat(n)+'</div>';
+  document.getElementById('pstar-cele').classList.add('open');
+  startFireworks(document.getElementById('cele-fw'));
+  clearTimeout(window.__celeT);
+  window.__celeT=setTimeout(hideCelebration,3200); // auto-reveal the win overlay beneath; tap dismisses early
+}
+function hideCelebration(){
+  document.getElementById('pstar-cele').classList.remove('open');
+  stopFireworks();
+}
+
+// ── Fireworks — a lightweight canvas particle burst engine for the celebration.
+// Launches a new colored burst every ~360ms for ~2.6s, particles fall + fade.
+(function(){
+  let raf=null, parts=[], cvs=null, ctx=null, running=false, startMs=0, lastLaunch=0;
+  const COLORS=['#ff4d4d','#ffb03d','#ffe14d','#5cff7a','#4dc3ff','#9a7bff','#ff6bd1','#ffffff'];
+  function resize(){ if(!cvs)return; const dpr=window.devicePixelRatio||1; cvs.width=cvs.clientWidth*dpr; cvs.height=cvs.clientHeight*dpr; }
+  function burst(x,y){
+    const color=COLORS[Math.floor(Math.random()*COLORS.length)];
+    const dpr=window.devicePixelRatio||1, n=46+Math.floor(Math.random()*24);
+    for(let i=0;i<n;i++){
+      const a=Math.PI*2*(i/n)+Math.random()*0.25, sp=(2+Math.random()*4.2)*dpr;
+      parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,color,size:(1.4+Math.random()*2.1)*dpr});
+    }
+  }
+  function tick(now){
+    if(!ctx){raf=null;return;}
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    if(running && now-startMs<2600 && now-lastLaunch>360){
+      lastLaunch=now;
+      burst((0.18+Math.random()*0.64)*cvs.width,(0.16+Math.random()*0.42)*cvs.height);
+    }
+    const dpr=window.devicePixelRatio||1, g=0.05*dpr;
+    for(let i=parts.length-1;i>=0;i--){
+      const p=parts[i]; p.vy+=g; p.x+=p.vx; p.y+=p.vy; p.vx*=0.99; p.vy*=0.99; p.life-=0.014;
+      if(p.life<=0){parts.splice(i,1);continue;}
+      ctx.globalAlpha=Math.max(p.life,0); ctx.fillStyle=p.color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    if(running||parts.length){ raf=requestAnimationFrame(tick); } else { raf=null; }
+  }
+  window.startFireworks=function(canvas){
+    cvs=canvas; ctx=cvs.getContext('2d'); resize();
+    window.removeEventListener('resize',resize); window.addEventListener('resize',resize);
+    parts=[]; running=true; startMs=performance.now(); lastLaunch=0;
+    if(!raf)raf=requestAnimationFrame(tick);
+  };
+  window.stopFireworks=function(){
+    running=false; parts=[];
+    if(raf){cancelAnimationFrame(raf);raf=null;}
+    if(ctx&&cvs)ctx.clearRect(0,0,cvs.width,cvs.height);
+  };
+})();
+
 // ═══ BOOSTER PALETTE — Township's right column (Jed spec 2026-07-17) ═════════
 // Always visible in play mode; early levels show only padlocks. Gating is by
 // LEVEL INDEX (intro = the level that introduces the booster — Township canon
@@ -4543,7 +4710,10 @@ function loadLevelData(json,num){
   renderObjectives();
 }
 
-async function startPlayerLevel(num){
+// fromGrid=true → a deliberate open from the level grid, so the star splash
+// (how-to-earn-the-next-star instructions) shows. Retries/star-resets pass false
+// so the splash doesn't nag between attempts of the same level (Jed 2026-08-07).
+async function startPlayerLevel(num,fromGrid=true){
   let json;
   try{
     // no-cache = revalidate against the server's ETag every load — level data
@@ -4557,6 +4727,7 @@ async function startPlayerLevel(num){
   loadLevelData(json,num);
   entranceMode=false; // a bundle level is never the Qualifying level — combos live here
   beginPlaySession();
+  if(fromGrid) showStarSplash(num); // opening instructions for the next star
 }
 
 // ── PLAY LAYOUT CONSTANTS (Jed's native-feel spec, 2026-07-17) ────────────────
@@ -4990,7 +5161,7 @@ function playerFinish(win){
   // finish that IMPROVES (any 1+ fewer move than your record) — enabled only
   // once ★1 is banked. ★3 = one swap fires 3 PUs in succession (runMaxSeq>=3) —
   // enabled only once ★2 is banked, so an early 3-chain is WITHHELD until then.
-  let stars=0;
+  let stars=0, earnedNew=false;
   if(win){
     let prev=PlayerProgress.stars(curLevelNum); // banked stars: 0..3
     const rec=PlayerProgress.record(curLevelNum); // 0 = never finished
@@ -4998,6 +5169,7 @@ function playerFinish(win){
     if(prev===0)                            stars=1;                         // ★1 first finish
     else if(prev===1&&rec>0&&moves<rec)     stars=2;                         // ★2 improved on the record
     else if(prev===2&&(window.runMaxSeq||0)>=3) stars=3;                     // ★3 three-PU chain from one swap
+    earnedNew=stars>prev;                                                    // a brand-new star this attempt → celebrate
     // record = best (fewest) moves ever; ★1 seeds it, later runs keep the min
     const newRec=rec>0?Math.min(rec,moves):moves;
     PlayerProgress.set(curLevelNum,stars,newRec);
@@ -5026,6 +5198,7 @@ function playerFinish(win){
   document.getElementById('pwin-btn').textContent=win?TXT('cont'):TXT('retry');
   document.getElementById('pwin').classList.add('open');
   pwinWon=win;
+  if(earnedNew) celebrateStar(stars); // rainbow arc + fireworks OVER the win overlay, then reveals it
 }
 // Reset ONE level's stars + record + miss counter, then replay it so the player
 // can set a new (often deliberately terrible) first-star bar (Jed 2026-07-29).
@@ -5034,13 +5207,13 @@ function pwinResetLevel(){
   const n=curLevelNum;
   resetLevelStars(n);
   document.getElementById('pwin').classList.remove('open');
-  startPlayerLevel(n);
+  startPlayerLevel(n,false); // re-bar replay — no splash nag
 }
 
 function pwinContinue(){
   document.getElementById('pwin').classList.remove('open');
   if(pwinWon) exitToGrid();
-  else startPlayerLevel(curLevelNum);
+  else startPlayerLevel(curLevelNum,false); // retry after a loss — no splash nag
 }
 
 function exitToGrid(){
