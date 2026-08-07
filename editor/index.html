@@ -4936,6 +4936,9 @@ function beginPlaySession(){
   buildGPal();buildPUPal();buildObsPal();
   playerMode=true; playing=false;
   flyWindow(); // flyover levels: fixed camera window (after playerMode is set; clears on normal levels)
+  moves=0; cleared=0; // FRESH player run — zero the move counter. togglePlay() PERSISTS moves
+  // (for the editor's pause→edit→resume), so the player entry must reset it here or a
+  // stale count carries into the next level (Jed 2026-08-07: L9 opened at Moves=10 and kept climbing).
   window.runMaxSeq=0; // star canon: best PU-sequence of THIS run (feeds ★3: 3-chain)
   armedBooster=null; window.runBoosterCount=0; // fresh run: nothing armed, era-2 sensor zeroed
   renderBoosterPanel();
