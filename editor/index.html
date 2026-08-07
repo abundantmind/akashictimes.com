@@ -64,7 +64,11 @@ body{
 body.font-sm{--base-font:13px;}
 body.font-md{--base-font:16px;}
 body.font-lg{--base-font:20px;}
-#shell{font-family:var(--font-sans);background:#0d0a14;min-height:600px;border-radius:var(--border-radius-lg);overflow:hidden;border:0.5px solid #2a2040;display:flex;flex-direction:column;}
+/* flex:1 so the editor shell FILLS the viewport height (no dead whitespace below
+   it) on any monitor — the play-frame change made the middle content short, which
+   let #shell fall back to its 600px min and leave a gap (Jed 2026-08-06). Play
+   mode overrides this below. */
+#shell{font-family:var(--font-sans);background:#0d0a14;flex:1;min-height:600px;border-radius:var(--border-radius-lg);overflow:hidden;border:0.5px solid #2a2040;display:flex;flex-direction:column;}
 
 /* ── HOME ── */
 #home{display:flex;flex-direction:column;flex:1;}
@@ -249,6 +253,31 @@ body.player-playing #board-wrap{overflow:hidden;}
 .cell.dropping .gem-inner{animation:drop-in 260ms ease-out;}
 .gem-inner{display:flex;align-items:center;justify-content:center;width:100%;height:100%;}
 #rpanel{width:148px;background:#100d1a;border-left:0.5px solid #2d2540;padding:8px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex-shrink:0;}
+/* ── EDITOR PLAY-FRAME (Jed 2026-08-06) ──────────────────────────────────────
+   The Level#/moves/goals column + grid + boosters read as ONE centered tablet
+   (#eframe), exactly like the shipped Play layout. The paint palette (left) and
+   config/Save (right) flank it as satellites with breathing room — never touching
+   the frame. Additive + EDIT-ONLY: #ehud/#eboost are display:none in play, and
+   #eframe becomes display:contents there, so play mode's own #phud/#bpanel row is
+   byte-for-byte unchanged. */
+#emid{justify-content:center;align-items:center;}
+/* Paint palette (left) + config/Save (right) stay PINNED to the screen edges
+   (Jed 2026-08-06): the wide margins between them and the tablet are deliberately
+   left open for the future flyover pan affordances — 8-direction arrows + grid
+   extension around the 9×11 Township view. Auto margins push them out; all three
+   columns are locked to the grid height (--grid-h, set by updEditorFrame). */
+#lpanel{margin-right:auto;height:var(--grid-h,100%);overflow-y:auto;}
+#rpanel{margin-left:auto;height:var(--grid-h,100%);}
+/* The centered tablet: Level#/moves/goals | grid | boosters as ONE cohesive box. */
+#eframe{display:flex;align-items:stretch;flex:0 0 auto;background:#0a0810;border-radius:16px;overflow:hidden;}
+#eframe #board-wrap{flex:0 0 auto;align-items:center;overflow:visible;padding:10px;background:transparent;}
+#ehud{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:22px 18px;min-width:128px;}
+#eboost{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:22px 12px;min-width:104px;}
+#ehud-level{font-size:var(--fz-2xl);color:#c792ea;font-weight:500;text-align:center;line-height:1.1;}
+#ehud-goal{display:flex;flex-direction:column;align-items:center;gap:14px;}
+.ehud-goalrow{display:flex;flex-direction:column;align-items:center;gap:2px;}
+body.player-playing #ehud,body.player-playing #eboost{display:none!important;}
+body.player-playing #eframe{display:contents;background:none;}
 .rsec{padding:7px;background:#13111a;border-radius:6px;border:0.5px solid #2d2540;}
 .rtitle{font-size:var(--fz-xs);color:#5a4a7a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
 .rrow{display:flex;justify-content:space-between;align-items:center;font-size:var(--fz-ui);color:#a090c0;margin-bottom:3px;}
@@ -630,7 +659,18 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div id="itmpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
       </div>
     </div>
-    <div id="board-wrap"><div id="board"></div></div>
+    <div id="eframe">
+      <!-- EDITOR play-frame LEFT column: mirrors the tablet HUD so the author
+           always sees which Level they're editing + the live move count. -->
+      <div id="ehud">
+        <div class="phud-level" id="ehud-level">Level —</div>
+        <div id="ehud-goal"></div>
+        <div class="phud-moves"><div class="phud-num" id="ehud-moves">0</div><div class="phud-cap">Moves</div></div>
+      </div>
+      <div id="board-wrap"><div id="board"></div></div>
+      <!-- RIGHT column: boosters (renderBoosterPanel mirrors #bpanel here). -->
+      <div id="eboost"></div>
+    </div>
     <div id="rpanel">
       <div class="rsec">
         <div class="rtitle">Grid</div>
@@ -639,7 +679,6 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       </div>
       <div class="rsec">
         <div class="rtitle">Goals</div>
-        <div class="rrow"><span>Moves</span><input class="sinput" id="mv" type="number" value="20" min="1"></div>
         <!-- Objectives list: board-derived goals (clover/key/acorn) auto-fill via Recommend;
              gem-color goals are added + edited by hand (the board can't guess color/count). -->
         <div id="objlist"></div>
@@ -657,17 +696,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="tb" onclick="saveLevelToDisk()" title="Save this board as canonical JSON straight into editor/levels/ (Chrome File System Access — one directory grant per session). These files seed Bundle 1.">▽ Save</button>
         </div>
       </div>
-      <div class="rsec">
-        <div class="rtitle">Stars</div>
-        <div class="rrow"><span>★</span><input class="sinput" id="s1" type="number" value="20"></div>
-        <div class="rrow"><span>★★</span><input class="sinput" id="s2" type="number" value="15"></div>
-        <div class="rrow"><span>★★★</span><input class="sinput" id="s3" type="number" value="10"></div>
-      </div>
       <div class="rsec" id="playstats" style="display:none;">
         <div class="rtitle">Play stats</div>
-        <div class="rrow"><span>Moves</span><span class="rval" id="pm">0</span></div>
         <div class="rrow"><span>Cleared</span><span class="rval" id="pc">0</span></div>
-        <div class="rrow"><span>Stars</span><span class="rval" id="ps">—</span></div>
       </div>
       <div class="rsec" id="history-sec" style="display:none;">
         <div class="rtitle">Last move</div>
@@ -815,7 +846,7 @@ en:{
   reset_btn:'Reset all stars',
   reset_confirm:'This wipes ALL stars and move records on this device.\nIt cannot be undone.\n\nReset everything?',
   boosters_cap:'Boosters',booster_locked:'Locked',
-  booster_jackhammer:'JackHammer',booster_hdrill:'Akashic Horizon',booster_vweight:'Akashic Ascension',
+  booster_jackhammer:'Akashic Aim',booster_hdrill:'Akashic Horizon',booster_vweight:'Akashic Ascension',
   verb_get:'Get',verb_make:'Make',verb_fire:'Fire',verb_plant:'Plant',verb_free:'Free',
   cap_collect:'Collect',cap_plant:'Plant',cap_free:'Free',
   qintro_title:'Qualifying Level',qintro_msg:'Match 12 Yellow Gems.<br>Create and Fire all Power-Ups.',
@@ -872,7 +903,7 @@ ko:{
   reset_btn:'별 기록 초기화',
   reset_confirm:'이 기기의 모든 별과 이동 기록이 삭제됩니다.\n되돌릴 수 없습니다.\n\n전부 초기화할까요?',
   boosters_cap:'부스터',booster_locked:'잠김',
-  booster_jackhammer:'잭해머',booster_hdrill:'아카식 호라이즌',booster_vweight:'아카식 어센션',
+  booster_jackhammer:'아카식 조준',booster_hdrill:'아카식 호라이즌',booster_vweight:'아카식 어센션',
   verb_get:'모으기',verb_make:'만들기',verb_fire:'발동',verb_plant:'심기',verb_free:'구출',
   cap_collect:'수집',cap_plant:'심기',cap_free:'구출',
   qintro_title:'자격 레벨',qintro_msg:'노란 보석 12개를 맞추세요.<br>모든 파워업을 만들고 발동하세요.',
@@ -1077,7 +1108,7 @@ let selBrush={type:'gem',id:0};
 let selBase='inactive'; // Base brush: 'active' or 'inactive'(Hole) — click cells to SET this state
 // Editor Goals panel: the level's objectives, held in canonical JSON shape
 // ({type:'plant',obstacle:'clover',count} | {type:'collect',gem|item,count}).
-// This IS the serializer's objectives slice — see serializeObjectives().
+// serializeLevel() emits these directly (the objectives slice of the canonical object).
 let editorObjectives=[];
 let editorFlyover=null; // level's flyover spec, persisted across flyTeardown() so Save preserves it
 // Which gem indices spawn. Full set by default; levels narrow it via their
@@ -1085,6 +1116,12 @@ let editorFlyover=null; // level's flyover spec, persisted across flyTeardown() 
 let GEM_POOL=[0,1,2,3,4,5];
 const randGem=()=>GEM_POOL[~~(Math.random()*GEM_POOL.length)];
 let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null,choosingGrasshopper=null;
+// Architect's STICKY play/edit choice (Jed 2026-08-06): the mode is Architect-
+// directed, never a per-open gamble. Default PLAY — opening a saved level, the
+// impulse is to swap, not paint. togglePlay records the Architect's last choice;
+// openTemplate applies it so Play persists across level switches (New Level is
+// always Edit — you're building a blank board — and leaves this preference alone).
+let architectPlaying=true;
 let dragSwap=null; // active drag-swap gesture: {r,c,x,y,id,fired} from pointerdown on a cell in play mode
 let undoQ=[],redoQ=[],moves=0,cleared=0,flowMode='down';
 window.moveHistory=[];
@@ -1146,11 +1183,12 @@ function openEditor(){
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
   initBlankBoard();
+  fitEditorBoard(); // scale the grid to fill the viewport (device-independent)
   playing=false; // never inherit a stale play state — clicks must paint, not playTap
   buildGPal();buildPUPal();buildObsPal();
   editorObjectives=[];editorFlyover=null;renderObjectives(); // fresh board starts with no goals, no flyover
   setBase('inactive'); // New Level opens on the Base brush — lay the foundation first (also engages the Base layer + renders)
-  updUB();
+  updUB();updEditorFrame(); // a fresh board has no level# yet → HUD shows "—"
 }
 
 // ── Township templates — gift the free levels to Architects as starting points ──
@@ -1166,8 +1204,9 @@ async function openTemplate(n){
     json=await resp.json();
   }catch(e){alert('Template '+n+' is not available.');return;}
   loadLevelData(json,n); // board/flow/gem palette/objectives from the JSON
-  playerMode=false;playing=false;entranceMode=false;animating=false;CELL_SIZE=44;
+  playerMode=false;playing=false;entranceMode=false;animating=false;
   flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
+  fitEditorBoard(); // scale the grid to fill the viewport (device-independent), not a fixed 44px
   document.body.classList.remove('player-playing'); // editor styling (inactive ghost tiles)
   // fill gems for a ready-to-play board; pre-placed PUs stay as painted. SKIP
   // startEmpty (field.empty), items and crates — same guard as togglePlay. Was
@@ -1184,7 +1223,12 @@ async function openTemplate(n){
   document.getElementById('info-c').textContent=C;
   buildGPal();buildPUPal();buildObsPal();
   undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null;
-  render();updUB();
+  setBase('inactive'); // always open with the Left Palette on Base (Hole), never Tile — a stray click paints the foundation, not a gem (Jed 2026-08-06)
+  render();updUB();updEditorFrame(); // sync the play-frame HUD (Level#, goals, boosters)
+  // Architect-directed sticky mode: a saved level opens in the Architect's current
+  // mode (default PLAY — the impulse is to swap). It loaded in edit state above,
+  // so flip to Play when that's the standing choice; togglePlay runs the play setup.
+  if(architectPlaying) togglePlay();
 }
 
 function goHome(){
@@ -1211,8 +1255,9 @@ function bundleLevelCount(p){return MAX_BUILT_LEVEL;}
 function openProducts(){
   // Authorization: Their Products is for signed-in editors. If auth is live and
   // nobody's signed in, route through the magic-link modal first — the editor is
-  // the architect surface, and a product belongs to an account.
-  if(AUTH_ENABLED && window.AkashicAuth && !AkashicAuth.user){ AkashicAuth.open(); return; }
+  // the architect surface, and a product belongs to an account. LOCAL DEV skips
+  // this entirely (localhost never needs the magic-link — see isLocalDev).
+  if(AUTH_ENABLED && !isLocalDev() && window.AkashicAuth && !AkashicAuth.user){ AkashicAuth.open(); return; }
   renderProductsList();
   document.getElementById('products').classList.add('open');
 }
@@ -1254,7 +1299,7 @@ function editorToBundle(){
   const b=editorBundle;
   goHome();
   if(!b)return;
-  if(AUTH_ENABLED && window.AkashicAuth && !AkashicAuth.user){ AkashicAuth.open(); return; }
+  if(AUTH_ENABLED && !isLocalDev() && window.AkashicAuth && !AkashicAuth.user){ AkashicAuth.open(); return; }
   document.getElementById('products').classList.add('open');
   renderBundleLevels(b);
 }
@@ -1673,6 +1718,7 @@ function renderObjectives(){
     row.appendChild(del);
     box.appendChild(row);
   });
+  if(typeof updEditorFrame==='function')updEditorFrame(); // mirror goal edits onto the play-frame HUD
 }
 // Add a blank objective of the given kind (gem defaults yellow×15; the rest seed
 // their count from the board so a fresh add already reflects what's painted).
@@ -1694,24 +1740,9 @@ function recommendObjectives(){
   if(bc.acorn>0) ensure(o=>o.type==='collect'&&o.item==='acorn', ()=>({type:'collect',item:'acorn',count:bc.acorn}));
   renderObjectives();
 }
-// SERIALIZER SLICE #1 (objectives + moveLimit) — the export half the editor was
-// missing. Emits the exact shape loadLevelData reads back. Grows into the full
-// level serializer piece by piece as MVP-25 needs it (Jed, 2026-07-29).
-function serializeObjectives(){
-  const objs=editorObjectives.map(o=>{
-    if(o.type==='plant')return {type:'plant',obstacle:o.obstacle||'clover',count:o.count};
-    if(o.gem!=null)     return {type:'collect',gem:o.gem,count:o.count};
-    return {type:'collect',item:o.item,count:o.count};
-  });
-  return {moveLimit:parseInt(document.getElementById('mv').value)||20, objectives:objs};
-}
-function copyObjectivesJSON(){
-  const txt=JSON.stringify(serializeObjectives(),null,2);
-  const done=()=>{document.getElementById('sb3').textContent='Objectives JSON copied to clipboard';};
-  if(navigator.clipboard)navigator.clipboard.writeText(txt).then(done,()=>{document.getElementById('sb3').textContent='Copy blocked — see console';});
-  else document.getElementById('sb3').textContent='Copy blocked — see console';
-  console.log(txt);
-}
+// (Removed: serializeObjectives() + copyObjectivesJSON() — the old "Copy JSON"
+// slice #1, superseded by serializeLevel()/showSerialized() (the Central
+// Scrutinizer) and wired to no live button. Audit 2026-08-06.)
 
 // ══ THE CENTRAL SCRUTINIZER — serializer slice (Jed 2026-07-31) ════════════════
 // board → ONE canonical object per the LOCKED Painter Layer Model (7 layers,
@@ -2181,12 +2212,18 @@ function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].g
 function fillGrid(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++)board[r][c].active=true;render();}
 
 function togglePlay(){
-  playing=!playing;selCell=null;moves=0;cleared=0;animating=false;
+  // moves/cleared PERSIST across the play⇄edit toggle so an author can pause, edit
+  // the grid into a specific test condition, and resume the SAME run — 3 swaps then
+  // an edit then Play resumes on move #4 (Jed 2026-08-06). They reset only on a
+  // total reset: opening/reopening a level (openTemplate) or New Level.
+  playing=!playing;selCell=null;animating=false;
   document.getElementById('mbadge').textContent=playing?'Play':'Editor';
   document.getElementById('mbadge').className='mbadge'+(playing?' play':'');
   document.getElementById('playstats').style.display=playing?'block':'none';
   document.getElementById('history-sec').style.display=playing?'block':'none';
   document.getElementById('playbtn').innerHTML=playing?'⏹ Stop':'▶ Play';
+  architectPlaying=playing; // remember the Architect's explicit choice — sticky across level switches
+  updEditorFrame(); // refresh the frame HUD on every mode toggle (moves persist)
   if(playing){
     // startEmpty cells (field.empty in level JSONs — L8's sealed bottom and
     // clover donut) begin GEM-FREE; gravity fills them during play as the
@@ -3815,10 +3852,8 @@ function animateFall(fallMoves,onDone){
 }
 
 function updStats(){
-  document.getElementById('pm').textContent=moves;
-  document.getElementById('pc').textContent=cleared;
-  const s3v=+document.getElementById('s3').value||10,s2v=+document.getElementById('s2').value||15,s1v=+document.getElementById('s1').value||20;
-  document.getElementById('ps').textContent=moves<=s3v?'★★★':moves<=s2v?'★★':moves<=s1v?'★':'—';
+  const pc=document.getElementById('pc'); if(pc)pc.textContent=cleared; // gems cleared this test-play
+  const em=document.getElementById('ehud-moves'); if(em)em.textContent=moves; // live move count on the play-frame HUD
 }
 
 function find2x2(){
@@ -3946,7 +3981,7 @@ validateSetup();
 const GEMMAP={red:0,ruby:0,blue:1,sapphire:1,green:2,emerald:2,yellow:3,gold:3,topaz:3,purple:4,amethyst:4,white:5,pearl:5};
 
 // player state
-let playerMode=false, playerGoals=[], moveLimit=20, curLevelNum=1, pwinWon=false;
+let playerMode=false, playerGoals=[], curLevelNum=1, pwinWon=false;
 let entranceMode=false; // true while playing the Level 1 entrance/training level
 
 // Goal event: a power-up was formed by a match. Ticks 'create' goals and the
@@ -4003,7 +4038,18 @@ PlayerProgress.load();
 // gate BY ROLE (players gated so the current-level leaderboard axis is meaningful;
 // editors unrestricted so they can edit/test any level). Jed re-enabled 2026-07-29.
 function isArchitect(){
-  return location.hash==='#dev' || localStorage.getItem('akashicswaps-path')==='architect';
+  return location.hash==='#dev' || isLocalDev() || localStorage.getItem('akashicswaps-path')==='architect';
+}
+// LOCAL DEV bypass (Jed 2026-08-06, approved): on a developer's own machine the
+// magic-link auth is pure friction — sessions are per-origin, so every port and
+// every Incognito window looks like a new user and re-triggers the (rate-limited)
+// email. On localhost we treat the visitor as an Architect: no email, no
+// re-qualify, saved template levels load exactly as before. PRODUCTION is
+// untouched — akashictimes.com is not localhost, so the real auth gate still runs,
+// and the actual security boundary (Supabase server-side RLS) is not changed.
+function isLocalDev(){
+  const h=location.hostname;
+  return h==='localhost'||h==='127.0.0.1'||h==='[::1]'||h==='0.0.0.0';
 }
 // Bridge for auth.js (deferred module): expose the store so the module can mirror
 // stars to the cloud and fold cloud rows back in. classic-script const ≠ window prop.
@@ -4034,26 +4080,25 @@ function padlockSVG(s){
 }
 function boosterSVG(id,s){
   const open='<svg width="'+s+'" height="'+s+'" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">';
-  if(id==='jackhammer')return open
-    +'<rect x="14" y="4" width="12" height="5" rx="2" fill="#c8a050"/>'          // T-handle
-    +'<rect x="17" y="8" width="6" height="14" rx="2" fill="#8a97a8"/>'          // body
-    +'<rect x="15" y="21" width="10" height="6" rx="2" fill="#5a6678"/>'         // chuck
-    +'<path d="M18 27 h4 l-2 9 z" fill="#d8e0ea"/></svg>';                       // bit
+  if(id==='jackhammer')return open                                              // "Akashic Aim" — the red targeting reticle (same as an armed Grasshopper): tap a cell to send a Grasshopper there, clearing it with no flight animation
+    +'<circle cx="20" cy="20" r="13" fill="none" stroke="#ff3b30" stroke-width="2.4"/>'  // outer ring
+    +'<circle cx="20" cy="20" r="4.5" fill="none" stroke="#ff3b30" stroke-width="2"/>'   // inner ring
+    +'<path d="M20 2v7M20 31v7M2 20h7M31 20h7" stroke="#ff3b30" stroke-width="2.4" stroke-linecap="round"/></svg>'; // cross ticks
   if(id==='hdrill')return open
     +'<rect x="9" y="17" width="22" height="6" rx="3" fill="#8a97a8"/>'          // shaft
     +'<path d="M9 20 L2 20 L9 15 Z M9 20 L2 20 L9 25 Z" fill="#d8e0ea"/>'       // left tip
     +'<path d="M31 20 L38 20 L31 15 Z M31 20 L38 20 L31 25 Z" fill="#d8e0ea"/>' // right tip
     +'<rect x="16" y="14" width="8" height="12" rx="2" fill="#5a6678"/></svg>';  // collar
-  if(id==='vweight')return open
-    +'<circle cx="20" cy="8" r="3.4" fill="none" stroke="#8a97a8" stroke-width="2.6"/>' // ring
-    +'<rect x="18.4" y="11" width="3.2" height="18" rx="1.4" fill="#8a97a8"/>'   // shank
-    +'<rect x="13" y="15" width="14" height="3" rx="1.4" fill="#5a6678"/>'       // stock
-    +'<path d="M20 29 C 12 29 8 23 7 19 L 12 21 C 13 24 16 26 20 26 C 24 26 27 24 28 21 L 33 19 C 32 23 28 29 20 29 Z" fill="#d8e0ea"/></svg>'; // flukes
+  if(id==='vweight')return open                                                 // "Akashic Ascension" — the VERTICAL twin of Akashic Horizon (was an anchor); same double-arrow, transposed
+    +'<rect x="17" y="9" width="6" height="22" rx="3" fill="#8a97a8"/>'          // vertical shaft
+    +'<path d="M20 9 L20 2 L15 9 Z M20 9 L20 2 L25 9 Z" fill="#d8e0ea"/>'        // top tip
+    +'<path d="M20 31 L20 38 L15 31 Z M20 31 L20 38 L25 31 Z" fill="#d8e0ea"/>'  // bottom tip
+    +'<rect x="14" y="16" width="12" height="8" rx="2" fill="#5a6678"/></svg>';  // collar
   return padlockSVG(s);
 }
 
 function renderBoosterPanel(){
-  const p=document.getElementById('bpanel');if(!p)return;
+  const p=document.getElementById('bpanel');
   let html='<div class="bcap" style="margin-top:0;">'+TXT('boosters_cap')+'</div>';
   for(let i=0;i<curBoosterSlots;i++){
     const b=BOOSTERS[i];
@@ -4068,7 +4113,32 @@ function renderBoosterPanel(){
       html+='<div class="bslot locked" title="'+TXT('booster_locked')+'">'+padlockSVG(40)+'</div>';
     }
   }
-  p.innerHTML=html;
+  if(p)p.innerHTML=html;                                   // play mode's right column
+  const e=document.getElementById('eboost'); if(e)e.innerHTML=html; // editor play-frame mirror
+}
+
+// Refresh the editor play-frame HUD (Level#, live moves, goals, boosters) — the
+// centered tablet's Level#/moves column. Called on level open, mode toggle, goal
+// edits, and each play stat tick (Jed 2026-08-06).
+function updEditorFrame(){
+  // Lock the outer rails (paint + config) to the grid's exact height so all three
+  // columns match (Jed 2026-08-06). Measure the live grid, skip in play mode.
+  if(!document.body.classList.contains('player-playing')){
+    const bd=document.getElementById('board');
+    if(bd&&bd.offsetHeight)document.documentElement.style.setProperty('--grid-h',bd.offsetHeight+'px');
+  }
+  const lvl=document.getElementById('ehud-level');
+  if(lvl)lvl.textContent=(typeof curLevelNum==='number'&&curLevelNum)?TXT('lvl_prefix')+curLevelNum:'—';
+  const mv=document.getElementById('ehud-moves'); if(mv)mv.textContent=moves;
+  const g=document.getElementById('ehud-goal');
+  if(g){
+    g.innerHTML=(editorObjectives||[]).map(o=>{
+      const k=objKind(o);
+      const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='acorn'?acornIconSVG(44):gemSVG(GEMMAP[o.gem]??3,44);
+      return '<div class="ehud-goalrow"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(o.count||0)+'</div></div>';
+    }).join('');
+  }
+  renderBoosterPanel();
 }
 
 function armBooster(id){
@@ -4338,7 +4408,6 @@ function loadLevelData(json,num){
     applyPatterns(P); // paint clover/crate layers on top of any obstacles
   }
   curLevelNum=num;
-  moveLimit=json.moveLimit||20;
   curBoosterSlots=json.boosterSlots||3; // right-palette slot count (Township HUD)
   // Honor the level's gem palette: only its declared colors spawn (Township
   // L1–5 use 5 colors, no Amethyst). Fallback: full set.
@@ -4366,11 +4435,6 @@ function loadLevelData(json,num){
     return n;
   });
   renderObjectives();
-  // star thresholds (fewer moves = more stars)
-  document.getElementById('s3').value=Math.ceil(moveLimit/3);
-  document.getElementById('s2').value=Math.ceil(2*moveLimit/3);
-  document.getElementById('s1').value=moveLimit;
-  document.getElementById('mv').value=moveLimit;
 }
 
 async function startPlayerLevel(num){
@@ -4532,13 +4596,36 @@ function fitPlayBoard(){
   CELL_SIZE=Math.max(24,Math.min(96,Math.min(byH,byW)));
 }
 
+// Editor board scaling (Jed 2026-08-06): size cells so the grid FILLS the central
+// column on ANY monitor — the editor stretches U/D + L/R with no dead whitespace,
+// device-independently. Budgets out the fixed editor chrome (paint palette + config
+// rail + the two HUD columns + gaps horizontally; toolbar + status bar vertically),
+// then the grid takes the rest. Called on open + resize; #shell(flex:1) fills the
+// viewport, this fills that with board. Uses the level's true R×C so small boards
+// scale up too (clamped so cells never get absurd).
+function fitEditorBoard(){
+  const vw=window.innerWidth, vh=window.innerHeight;
+  const availW = vw - 120 /*paint rail*/ - 148 /*config rail*/ - 132 /*ehud*/ - 108 /*eboost*/ - 96 /*edge gaps + breathing*/;
+  const availH = vh - 40 /*toolbar*/ - 26 /*status bar*/ - 44 /*eframe padding + margin*/;
+  const byW=Math.floor((availW-(C-1)*CELL_GAP)/C);
+  const byH=Math.floor((availH-(R-1)*CELL_GAP)/R);
+  // min(byW,byH) already fits both dimensions; the 118 ceiling only keeps cells
+  // from getting cartoonish on very large monitors while still filling the frame.
+  CELL_SIZE=Math.max(26,Math.min(118,Math.min(byW,byH)));
+}
+
 // Refit on viewport changes (fullscreen entry, device rotation, window resize) —
 // debounced past the ~300ms animation window so a mid-fall redraw is unlikely.
 let refitTimer=null;
 window.addEventListener('resize',()=>{
-  if(!document.body.classList.contains('player-playing'))return;
   clearTimeout(refitTimer);
-  refitTimer=setTimeout(()=>{fitPlayBoard();flyWindow();flyGo(flyStop,0);render();},350); // flyover: re-size the window + re-anchor the camera at the new cell size
+  refitTimer=setTimeout(()=>{
+    if(document.body.classList.contains('player-playing')){
+      fitPlayBoard();flyWindow();flyGo(flyStop,0);render(); // flyover: re-size the window + re-anchor the camera at the new cell size
+    }else if(document.getElementById('editor').style.display!=='none'){
+      fitEditorBoard();render();updEditorFrame(); // editor: re-fill the viewport on window resize
+    }
+  },300);
 });
 
 // ── FULLSCREEN + LANDSCAPE LOCK (touch devices) ───────────────────────────────
@@ -4597,7 +4684,6 @@ function startEntrance(){
     }
   }
   curLevelNum=1;
-  moveLimit=999; // irrelevant in entrance — moves count UP, nothing counts down
   curBoosterSlots=3; // entrance shows the palette as three padlocks — a promise, not a tool
   // Each power-up goal is two-stage in ONE row: "Make" flips to "Fire" once made,
   // and checks off only after detonation. 5 visible goals, not 9.
@@ -4879,8 +4965,8 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
 // (or hold the #dev key) get past it. Qualification + chosen path persist in
 // localStorage (this device only — no server), so returning visitors skip the
 // entrance and land on their track. Replaying it requires clearing site data.
-if(location.hash==='#dev'){
-  localStorage.setItem('akashicswaps-qualified','1'); // dev/architect bypass
+if(location.hash==='#dev' || isLocalDev()){
+  localStorage.setItem('akashicswaps-qualified','1'); // dev/architect bypass — localhost never re-qualifies
 }else if(location.hash==='#play'||location.hash==='#player'){
   renderBundles();
 }else{
