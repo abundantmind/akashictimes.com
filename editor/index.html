@@ -2789,40 +2789,59 @@ function vfxLayer(){
   return L;
 }
 
-// SCARAB SMOKE — a round puff swells to cover the 3×3 it clears, then contracts
-// to nothing as the gems cascade in (imitates Township's scarab smoke circle).
-// Sized to the exact 3×3 (rad=1) / 5×5 (rad=2 combo) bounding box, centered on
-// the detonation cell. Runs independently of the clear/next timing.
-function scarabSmoke(r,c,rad){
-  const rr=rad||1;
+// CHARCOAL SMOKE CIRCLE — a round puff swells from (cx,cy) to `fullDiameter`,
+// holds, then contracts back to nothing as the gems cascade in (imitates
+// Township's detonation smoke). Shared by every smoke activation: scarabSmoke
+// (3×3 / 5×5) and ballBallSmoke (whole grid). Lives in the clipped vfxLayer, so
+// any part over a hole or past a board edge is masked. Durations divide by
+// playbackSpeed. Charcoal body = high contrast vs the light sand cells (Jed
+// 2026-08-07); the lighter rim keeps the "puff of smoke" read.
+function smokeCircle(cx,cy,fullDiameter,expandMs,holdMs,contractMs){
   const L=vfxLayer();
-  const center=cellPos(r,c);
-  const span=(2*rr+1)*CELL_SIZE+2*rr*CELL_GAP; // full diameter incl. inter-cell gaps
   const puff=document.createElement('div');
-  // Charcoal smoke — dark body for contrast against the light sand cells (Jed
-  // 2026-08-07: charcoal beats the pale white). A lighter smoky rim keeps the
-  // "puff of smoke" read; the fill stays dark so it pops.
   puff.style.cssText='position:absolute;pointer-events:none;border-radius:50%;filter:blur(2px);'
     +'background:radial-gradient(circle,rgba(38,38,44,0.86) 0%,rgba(58,58,68,0.62) 46%,rgba(120,120,132,0.2) 76%,rgba(140,140,152,0) 100%);'
-    +'left:'+center.x+'px;top:'+center.y+'px;width:0px;height:0px;transform:translate(-50%,-50%);opacity:0.95;';
+    +'left:'+cx+'px;top:'+cy+'px;width:0px;height:0px;transform:translate(-50%,-50%);opacity:0.95;';
   L.appendChild(puff);
-  const EXPAND=Math.round(150/playbackSpeed), HOLD=Math.round(70/playbackSpeed), CONTRACT=Math.round(200/playbackSpeed);
+  const EXPAND=Math.round(expandMs/playbackSpeed), HOLD=Math.round(holdMs/playbackSpeed), CONTRACT=Math.round(contractMs/playbackSpeed);
   const t0=performance.now();
   function expand(now){
     const t=Math.min((now-t0)/EXPAND,1), e=1-Math.pow(1-t,2); // ease-out
-    const d=span*e; puff.style.width=d+'px'; puff.style.height=d+'px';
+    const d=fullDiameter*e; puff.style.width=d+'px'; puff.style.height=d+'px';
     if(t<1){requestAnimationFrame(expand);return;}
     setTimeout(()=>{
       const t1=performance.now();
       (function contract(n){
         const t=Math.min((n-t1)/CONTRACT,1), e=t*t; // ease-in as gems fall back in
-        const d=span*(1-e); puff.style.width=d+'px'; puff.style.height=d+'px';
+        const d=fullDiameter*(1-e); puff.style.width=d+'px'; puff.style.height=d+'px';
         puff.style.opacity=String(0.95*(1-t));
         if(t<1)requestAnimationFrame(contract); else puff.remove();
       })(t1);
     },HOLD);
   }
   requestAnimationFrame(expand);
+}
+
+// SCARAB SMOKE — 3×3 (rad 1, solo Scarab + Hopper×Hopper origin blast) or 5×5
+// (rad 2, Scarab×Scarab combo) charcoal puff, sized to the exact blast box.
+function scarabSmoke(r,c,rad){
+  const rr=rad||1, p=cellPos(r,c);
+  const span=(2*rr+1)*CELL_SIZE+2*rr*CELL_GAP; // full diameter incl. inter-cell gaps
+  smokeCircle(p.x,p.y,span,150,70,200);
+}
+
+// BALL×BALL SMOKE (#10 combo) — one charcoal circle swells from the activation
+// point to encompass the WHOLE grid, then collapses back upon itself (Jed
+// 2026-08-07). Diameter = twice the distance to the farthest board corner (+1
+// cell) so it fully covers the board; the vfxLayer clip trims it to the active
+// shape. Slower + bigger than the scarab puff — it's a board-wide event.
+function ballBallSmoke(r,c){
+  const center=cellPos(r,c);
+  let maxR=0; // farthest board-corner distance in board-wrap pixel space
+  [[0,0],[0,C-1],[R-1,0],[R-1,C-1]].forEach(([cr,cc])=>{
+    const p=cellPos(cr,cc); maxR=Math.max(maxR,Math.hypot(p.x-center.x,p.y-center.y));
+  });
+  smokeCircle(center.x,center.y,2*(maxR+CELL_SIZE),320,90,360);
 }
 
 // GRASSHOPPER CROSS — the orthogonal blast reads as a growing PLUS: a vertical
@@ -3018,6 +3037,7 @@ function startPUCombo(dr,dc,sr,sc){
     render(); // vibe opens
   }else if(key==='ball+ball'){    // #10 — one hit point to the ENTIRE board
     consume(a);consume(b);
+    ballBallSmoke(dr,dc); // eye-candy: charcoal circle swells to cover the whole grid, then collapses (overlay only)
     // Obstacle HP decrement ships with obstacle break mechanics (not built yet);
     // gems-only version first, per spec. Any PU caught on board chains normally.
     const all=[];
