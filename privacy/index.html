@@ -57,6 +57,19 @@
     nav a { color: #0f0; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
     nav a:hover { opacity: 1; }
     nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+    /* ── Language picker (icon → scrollable dropdown) ── */
+    .langpick { position: relative; display: inline-flex; }
+    .langpick-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid #0a3a0a; border-radius: 3px; color: #0f0; opacity: 0.7; cursor: pointer; font-family: 'Courier New', monospace; font-size: 1em; letter-spacing: 0.1em; padding: 3px 8px; text-transform: uppercase; transition: opacity 0.2s; }
+    .langpick-btn:hover { opacity: 1; }
+    .langpick-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .langpick-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 168px; max-height: 200px; overflow-y: auto; list-style: none; margin: 0; padding: 4px; background: #001200; border: 1px solid #0a3a0a; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); display: none; z-index: 1000; text-transform: none; }
+    .langpick.open .langpick-menu { display: block; }
+    .langpick-menu li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; color: #0f0; opacity: 0.65; white-space: nowrap; letter-spacing: 0.04em; }
+    .langpick-menu li:hover { opacity: 1; background: #002800; }
+    .langpick-menu li[aria-selected="true"] { opacity: 1; background: #052f05; }
+    .lp-code { font-weight: bold; width: 2.2em; }
+    .lp-name { flex: 1; }
+    .lp-flag { font-size: 1.05em; }
 
     /* ── Content ── */
     main {
@@ -106,7 +119,13 @@
     <a href="/" data-i18n="nav_home">Home</a>
     <a href="/history/" data-i18n="nav_history">History</a>
     <a href="/privacy/" class="active" data-i18n="nav_privacy">Privacy</a>
-    <a href="#" id="lang-toggle">한국어</a>
+    <div class="langpick">
+      <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+        <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+        <span class="langpick-cur">EN</span>
+      </button>
+      <ul class="langpick-menu" role="listbox"></ul>
+    </div>
   </nav>
 
   <main id="main-en">
@@ -263,32 +282,140 @@
     </p>
   </main>
 
+  <!-- Español — full translation of the policy above; the picker swaps which <main> shows.
+       Neutral es-419; needs a native-speaker tone pass before public reliance. -->
+  <main id="main-es" style="display:none;">
+    <h1>POLÍTICA DE PRIVACIDAD</h1>
+    <div class="effective">En vigor desde el 8 de julio de 2026 · akashictimes.com</div>
+
+    <div class="tldr">
+      <strong>La versión corta:</strong> sin cuentas, sin anuncios, sin cookies
+      nuestras y nunca vendemos datos. El progreso de tu partida vive en tu propio
+      navegador. Las analíticas son anónimas. La única información personal que
+      recibimos es la que tú decides escribir en un formulario de comentarios.
+    </div>
+
+    <h2>Quiénes somos</h2>
+    <p>
+      Akashic Swaps es un proyecto de juego independiente — un juego de tipo
+      match-3 y un editor de niveles. Este sitio lo opera su desarrollador.
+      Preguntas sobre esta política:
+      <a href="mailto:akt.agent01@gmail.com">akt.agent01@gmail.com</a>.
+    </p>
+
+    <h2>Lo que permanece en tu dispositivo</h2>
+    <p>
+      El juego guarda tu progreso y tus preferencias (niveles completados,
+      estrellas, estado de clasificación, tamaño de letra, velocidad de
+      reproducción) usando el almacenamiento local de tu navegador. Estos datos
+      nunca salen de tu dispositivo, no se nos transmiten, y puedes borrarlos en
+      cualquier momento eliminando los datos del sitio akashictimes.com en tu
+      navegador.
+    </p>
+
+    <h2>Analíticas</h2>
+    <p>
+      Usamos servicios de analítica que priorizan la privacidad —
+      <a href="https://plausible.io" target="_blank" rel="noopener">Plausible</a>
+      y <a href="https://unmoatable.com" target="_blank" rel="noopener">Unmoatable Analytics</a> —
+      para contar visitas y ver qué páginas se usan. Ambos funcionan sin cookies
+      y no almacenan datos personales; ninguno te rastrea entre sitios. Vemos
+      cifras agregadas (visitas, páginas, países) — nunca quién eres.
+    </p>
+
+    <h2>Formularios que decides enviar</h2>
+    <p>
+      Los reportes de errores y las encuestas de jugadores se recogen a través de
+      Google Forms. Si envías uno, la información que escribes (y tu cuenta de
+      Google, si has iniciado sesión y el formulario la registra) es procesada por
+      Google conforme a la
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de Privacidad de Google</a>.
+      Usamos los envíos solo para corregir errores y mejorar el juego, y nunca los
+      compartimos ni los vendemos.
+    </p>
+
+    <h2>Alojamiento</h2>
+    <p>
+      Este sitio se sirve mediante GitHub Pages. Como la mayoría de los servicios
+      de alojamiento web, GitHub puede registrar datos técnicos básicos (como
+      direcciones IP) con fines de seguridad y operación, según se describe en la
+      <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Declaración de Privacidad de GitHub</a>.
+      Nosotros no recibimos ni almacenamos esos registros.
+    </p>
+
+    <h2>Enlaces externos</h2>
+    <p>
+      Las páginas de aquí pueden enlazar a servicios externos (por ejemplo,
+      Patreon). Esos sitios tienen sus propias políticas de privacidad; esta
+      termina en nuestra puerta.
+    </p>
+
+    <h2>Menores</h2>
+    <p>
+      El juego es apto para el público en general. No recopilamos a sabiendas
+      información personal de nadie, incluidos los menores — sencillamente no hay
+      ningún mecanismo en este sitio que la solicite, más allá de los formularios
+      opcionales mencionados arriba.
+    </p>
+
+    <h2>Cambios</h2>
+    <p>
+      Si el juego incorpora funciones que cambien qué datos se manejan (cuentas,
+      un mercado de niveles, pagos), esta política se actualizará antes de que
+      esas funciones se publiquen, mostrando la nueva fecha de entrada en vigor en
+      la parte superior.
+    </p>
+  </main>
+
   <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH</footer>
 
   <script>
     // ── i18n — EN + 한국어; same persisted key as the game and landing page ──
     (function(){
       var NAV={en:{nav_home:'Home',nav_history:'History',nav_privacy:'Privacy'},
-               ko:{nav_home:'홈',nav_history:'히스토리',nav_privacy:'개인정보'}};
+               ko:{nav_home:'홈',nav_history:'히스토리',nav_privacy:'개인정보'},
+               es:{nav_home:'Inicio',nav_history:'Historia',nav_privacy:'Privacidad'}};
+      var LANGS=[
+        {code:'en',label:'EN',name:'English',flag:'🇬🇧'},
+        {code:'ko',label:'KO',name:'한국어',flag:'🇰🇷'},
+        {code:'es',label:'ES',name:'Español',flag:'🇪🇸'}
+      ];
       var LANG;
       try{LANG=localStorage.getItem('akashicswaps-lang')
-        ||((navigator.language||'').indexOf('ko')===0?'ko':'en');}catch(e){LANG='en';}
+        ||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})();}catch(e){LANG='en';}
       function apply(){
         document.documentElement.lang=LANG;
-        document.getElementById('main-en').style.display=LANG==='ko'?'none':'';
+        // swap which policy body shows; en is the fallback for any unknown value
         document.getElementById('main-ko').style.display=LANG==='ko'?'':'none';
+        document.getElementById('main-es').style.display=LANG==='es'?'':'none';
+        document.getElementById('main-en').style.display=(LANG!=='ko'&&LANG!=='es')?'':'none';
         var d=NAV[LANG]||NAV.en;
         document.querySelectorAll('[data-i18n]').forEach(function(el){
           var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
         });
-        document.getElementById('lang-toggle').textContent=LANG==='en'?'한국어':'English';
+        refreshPickers();
       }
-      document.getElementById('lang-toggle').addEventListener('click',function(ev){
-        ev.preventDefault();
-        LANG=LANG==='en'?'ko':'en';
-        try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}
-        apply();
+      function menuHTML(){return LANGS.map(function(l){return '<li role="option" data-lang="'+l.code+'" tabindex="0">'
+        +'<span class="lp-code">'+l.label+'</span><span class="lp-name">'+l.name+'</span><span class="lp-flag">'+l.flag+'</span></li>';}).join('');}
+      function closeMenus(){var o=document.querySelectorAll('.langpick.open');for(var i=0;i<o.length;i++){o[i].classList.remove('open');o[i].querySelector('.langpick-btn').setAttribute('aria-expanded','false');}}
+      function refreshPickers(){
+        var cur=null;for(var i=0;i<LANGS.length;i++){if(LANGS[i].code===LANG)cur=LANGS[i];}if(!cur)cur=LANGS[0];
+        var picks=document.querySelectorAll('.langpick');
+        for(var j=0;j<picks.length;j++){
+          var lab=picks[j].querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;
+          var lis=picks[j].querySelectorAll('li[data-lang]');
+          for(var k=0;k<lis.length;k++){lis[k].setAttribute('aria-selected',lis[k].dataset.lang===LANG?'true':'false');}
+        }
+      }
+      function pick(code){LANG=code;try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}apply();}
+      document.querySelectorAll('.langpick').forEach(function(p){
+        var menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+        menu.innerHTML=menuHTML();
+        btn.addEventListener('click',function(ev){ev.stopPropagation();var open=p.classList.contains('open');closeMenus();if(!open){p.classList.add('open');btn.setAttribute('aria-expanded','true');}});
+        menu.addEventListener('click',function(ev){var li=ev.target.closest('li[data-lang]');if(!li)return;pick(li.dataset.lang);closeMenus();});
       });
+      document.addEventListener('click',closeMenus);
+      document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeMenus();});
       apply();
     })();
   </script>
