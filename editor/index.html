@@ -80,6 +80,21 @@ body.font-lg{--base-font:20px;}
 .navbtn{font-size:var(--fz-ui);padding:5px 12px;border:0.5px solid transparent;border-radius:4px;background:transparent;color:#887a9a;cursor:pointer;font-family:var(--font-sans);letter-spacing:0.03em;}
 .navbtn:hover{color:#c792ea;background:#1a1030;}
 .navbtn.active{color:#c792ea;border-color:#3d2060;background:#130a20;}
+/* ── Language picker (icon → scrollable dropdown; shared markup on nav + play topbar) ── */
+.langpick{position:relative;display:inline-flex;}
+.langpick-btn{display:inline-flex;align-items:center;gap:5px;font-size:var(--fz-ui);padding:5px 10px;border:0.5px solid #3d2060;border-radius:4px;background:transparent;color:#c792ea;cursor:pointer;font-family:var(--font-sans);}
+.langpick-btn:hover{background:#1a1030;}
+.langpick-ico{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.langpick-cur{letter-spacing:0.06em;}
+.langpick-menu{position:absolute;top:calc(100% + 6px);right:0;min-width:172px;max-height:220px;overflow-y:auto;list-style:none;margin:0;padding:4px;background:#130a20;border:0.5px solid #3d2060;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:none;z-index:1000;}
+.langpick.open .langpick-menu{display:block;}
+.langpick-menu li{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:4px;cursor:pointer;color:#c792ea;white-space:nowrap;}
+.langpick-menu li:hover{background:#1a1030;}
+.langpick-menu li[aria-selected="true"]{background:#1e1230;}
+.langpick-menu li[aria-selected="true"] .lp-code{color:#fff;}
+.lp-code{font-weight:600;letter-spacing:0.06em;width:2.2em;color:#a481c4;}
+.lp-name{flex:1;color:#c8bfe0;}
+.lp-flag{font-size:1.05em;}
 #topbar .user{display:flex;align-items:center;gap:8px;}
 .avatar{width:28px;height:28px;border-radius:50%;background:#2a1040;border:0.5px solid #3d2060;display:flex;align-items:center;justify-content:center;font-size:var(--fz-ui);font-weight:500;color:#c792ea;}
 .tier-badge{font-size:var(--fz-xs);padding:2px 7px;border-radius:10px;background:#1a1030;color:#c792ea;border:0.5px solid #3d2060;letter-spacing:0.06em;text-transform:uppercase;}
@@ -494,7 +509,13 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <button class="navbtn active" data-i18n="nav_home">Home</button>
       <button class="navbtn" data-i18n="nav_play" onclick="renderBundles()">Play</button>
       <button class="navbtn" data-i18n="nav_community" onclick="window.open('https://www.reddit.com/r/AkashicSwapsGame/','_blank','noopener')">Community</button>
-      <button class="navbtn langbtn" onclick="toggleLang()">한국어</button>
+      <div class="langpick">
+        <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+          <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+          <span class="langpick-cur">EN</span>
+        </button>
+        <ul class="langpick-menu" role="listbox"></ul>
+      </div>
     </div>
   </div>
   <div id="hero">
@@ -747,7 +768,13 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   <div id="ptopbar">
     <div><span class="wordmark">AkashicSwaps</span><span class="edition">Play</span></div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <button class="pback langbtn" onclick="toggleLang()">한국어</button>
+      <div class="langpick">
+        <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+          <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+          <span class="langpick-cur">EN</span>
+        </button>
+        <ul class="langpick-menu" role="listbox"></ul>
+      </div>
       <button class="pback" id="pback-top" data-i18n="pback_bundles" onclick="playerBack()" style="display:none;">← Bundles</button>
     </div>
   </div>
@@ -880,6 +907,7 @@ en:{
   lvl_qualifying:'Qualifying',lvl_prefix:'Level ',
   alert_na:n=>'Level '+n+' is not available yet.',
   toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
+  toast_shuffle:'No moves — reshuffling the board',
   win_title:'Well done!',lose_title:'Out of moves',
   win_msg:(n,m)=>'Level '+n+' complete — '+m+' moves',try_again:'Try again?',cont:'Continue',retry:'Retry',got_it:'Got it',
   bar_to_beat:(m)=>'Bar to beat: '+m+' moves',reset_level_btn:'Reset Level Stars',rec_moves:(m)=>'⚑'+m,
@@ -947,6 +975,7 @@ ko:{
   lvl_qualifying:'자격 레벨',lvl_prefix:'레벨 ',
   alert_na:n=>'레벨 '+n+' — 아직 준비되지 않았습니다.',
   toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
+  toast_shuffle:'움직임 없음 — 보드를 섞었어요',
   win_title:'잘했어요!',lose_title:'이동 횟수 소진',
   win_msg:(n,m)=>'레벨 '+n+' 완료 — 이동 '+m+'회',try_again:'다시 도전할까요?',cont:'계속',retry:'다시 시도',got_it:'알겠어요',
   bar_to_beat:(m)=>'목표 기준: '+m+'회',reset_level_btn:'레벨 별 초기화',rec_moves:(m)=>'⚑'+m,
@@ -994,10 +1023,85 @@ ko:{
     text:'열쇠는 아래로 떨어집니다. 열쇠 아래의 젬을 없애 길을 터 주면 열쇠가 떨어지고, 맨 아래에 닿는 순간 빠져나가 수집됩니다. 각 열쇠마다 바닥까지 길을 열어 주세요.'}),
   acornHelp:n=>({title:'도토리 '+n+'개 구출',
     text:'도토리는 나뭇잎 아래에 갇혀 있습니다. 나뭇잎 바로 옆에서 매치하거나 파워업 폭발로 맞추면 잎이 벗겨지고, 마지막 타격이 도토리를 구출해 수집합니다. 도토리가 없는 잎도 같은 방식으로 보석을 붙잡고 있습니다.'})
+},
+// ── Español (neutral / es-419) — player-facing only; mirrors every en key
+//    (functions as functions, gh/det nested). NEEDS A NATIVE-SPEAKER TONE PASS
+//    before we lean on it publicly (Jed's flag). "gema" is feminine, so gem
+//    color adjectives take feminine forms (amarilla/roja/blanca/morada).
+es:{
+  nav_home:'Inicio',nav_play:'Jugar',nav_community:'Comunidad',
+  hero_greet:'Buenos días, Arquitecto.',hero_sub:'Desarrollo en público · r/AkashicSwapsGame ya está activo',
+  quad_interact:'Interactuar',quad_create:'Crear',quad_publish:'Publicar',quad_boards:'Clasificaciones',
+  empty_interact:'Los niveles de la comunidad aparecerán aquí cuando se habilite la publicación.',
+  empty_publish:'Tus niveles publicados y sus estadísticas vivirán aquí.',
+  empty_boards:'Las clasificaciones se abrirán cuando lleguen las cuentas de jugador.',
+  btn_new_level:'+ Nuevo nivel',btn_new_level2:'+ Empezar un nuevo nivel',tmpl_label:'Empieza desde un clásico:',
+  products_label:'Sus productos:',products_btn:'Abre tus paquetes',
+  products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',
+  products_levels:'niveles',products_close:'Cerrar',
+  products_pick:'Elige un nivel para editar.',products_back:'← Paquetes',
+  pback_bundles:'← Paquetes',pback_levels:'← Niveles',
+  rotate_msg:'Gira tu dispositivo',
+  moves_cap:'Movimientos',goals_cap:'Objetivos',
+  bundle_title:'Déjate llevar',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
+  bundle_play:'Jugar',grid_sub:'Paquete 1 · 25 niveles',soon:'Pronto',
+  lvl_qualifying:'Clasificación',lvl_prefix:'Nivel ',
+  alert_na:n=>'El nivel '+n+' aún no está disponible.',
+  toast_new_version:'Nueva versión — toca para recargar',bug_btn:'🐛 Reportar un error',
+  toast_shuffle:'Sin movimientos — reorganizando el tablero',
+  win_title:'¡Bien hecho!',lose_title:'Sin movimientos',
+  win_msg:(n,m)=>'Nivel '+n+' completado — '+m+' movimientos',try_again:'¿Intentar de nuevo?',cont:'Continuar',retry:'Reintentar',got_it:'Entendido',
+  bar_to_beat:(m)=>'Marca a superar: '+m+' movimientos',reset_level_btn:'Reiniciar estrellas del nivel',rec_moves:(m)=>'⚑'+m,
+  splash_play:'Jugar',
+  star1_head:'Gana tu 1.ª estrella',
+  star1_body:'Completa los objetivos del nivel. Tu primera victoria otorga ★1 y fija tu récord de movimientos — la marca a superar.',
+  star2_head:'Gana tu 2.ª estrella',
+  star2_body:(rec)=>'Termina de nuevo en MENOS movimientos que tu récord (⚑'+(rec||'—')+'). Cualquier mejora otorga ★2.',
+  star3_head:'Gana tu 3.ª estrella',
+  star3_body:'Detona 3 potenciadores con UN SOLO intercambio. Crea 2 o más potenciadores en el tablero y luego intercambia para encadenarlos.',
+  star_mastered_head:'Nivel dominado',
+  star_mastered_body:'Has ganado las tres estrellas. Vuelve a jugar cuando quieras para mejorar tu récord.',
+  cele_head:(n)=>['','Una estrella','Dos estrellas','Tres estrellas'][n],cele_achieved:'¡Logrado!',
+  reset_btn:'Reiniciar todas las estrellas',
+  reset_confirm:'Esto borra TODAS las estrellas y récords de movimientos en este dispositivo.\nNo se puede deshacer.\n\n¿Reiniciar todo?',
+  boosters_cap:'Refuerzos',booster_locked:'Bloqueado',
+  booster_jackhammer:'Akashic Puntería',booster_hdrill:'Akashic Horizonte',booster_vweight:'Akashic Ascensión',
+  verb_get:'Consigue',verb_make:'Crea',verb_fire:'Dispara',verb_plant:'Planta',verb_free:'Libera',
+  cap_collect:'Recoge',cap_plant:'Planta',cap_free:'Libera',
+  qintro_title:'Nivel de clasificación',qintro_msg:'Combina 12 gemas amarillas.<br>Crea y dispara todos los potenciadores.',
+  qualify_title:'¡Clasificaste!',qualify_sub:'Has dominado los potenciadores. Elige tu camino:',
+  path_architect:'Arquitecto',path_arch_desc:'Crea niveles, publícalos y juega todo.',
+  path_explorer:'Explorador',path_exp_desc:'Juega los niveles y sigue el desarrollo en vivo.',
+  qsurvey_title:'Acabas de hacer algo que la mayoría de los jugadores no logra.',
+  qsurvey_msg:'¿Tienes 5 minutos? Una breve encuesta ayuda a decidir qué sigue.',
+  qs_yes:'Me apunto',qs_no:'Ahora no',
+  gh:{
+    helicopter:{title:'Crea un Saltamontes',text:'Forma un cuadrado de 2×2 del mismo color. El Saltamontes salta a un objetivo que elijas y lo despeja.'},
+    rocket:{title:'Crea una Libélula',text:'Alinea exactamente 4 del mismo color en fila o columna. La Libélula cruza el tablero como un cohete y despeja una línea entera.'},
+    bomb:{title:'Crea un Escarabajo',text:'Forma una L o una T — dos líneas de 3 o más que comparten una esquina, 5 gemas en total. El Escarabajo explota y despeja todo a su alrededor.'},
+    rainbow:{title:'Crea una Bola de Akasha',text:'Alinea 5 del mismo color en una sola fila o columna. La Bola de Akasha elimina del tablero todas las gemas de un color.'}
+  },
+  det:{
+    helicopter:{title:'Dispara el Saltamontes',text:'Toca tu Saltamontes dos veces (o intercámbialo con un vecino). Despeja las gemas a su alrededor y luego eliges cualquier casilla del tablero — vuela hasta ahí y la despeja.'},
+    rocket:{title:'Dispara la Libélula',text:'Toca tu Libélula dos veces (o intercámbiala con un vecino). Cruza el tablero como un cohete y despeja la fila o columna entera.'},
+    bomb:{title:'Dispara el Escarabajo',text:'Toca tu Escarabajo dos veces (o intercámbialo con un vecino). Explota y despeja todo en un radio de 3×3 a su alrededor.'},
+    rainbow:{title:'Dispara la Bola de Akasha',text:'Toca tu Bola de Akasha dos veces y luego elige cualquier gema — todas las gemas de ese color desaparecen del tablero. Si la intercambias con una gema, eliges ese color directamente.'}
+  },
+  // singular + plural feminine forms, so "gemas amarillas" (pl) AND "cada gema amarilla" (sg) both agree
+  gemAdjS:{yellow:'amarilla',red:'roja',green:'verde',blue:'azul',white:'blanca',purple:'morada'},
+  gemAdjP:{yellow:'amarillas',red:'rojas',green:'verdes',blue:'azules',white:'blancas',purple:'moradas'},
+  collectHelp:g=>{const s=(I18N.es.gemAdjS[g.name]||g.name),p=(I18N.es.gemAdjP[g.name]||g.name);return{title:'Recoge '+g.need+' gemas '+p,
+    text:'Intercambia dos gemas vecinas para alinear 3 o más gemas '+p+' en fila o columna. Cada gema '+s+' eliminada cuenta para el objetivo.'};},
+  plantHelp:n=>({title:'Planta '+n+' tréboles',
+    text:'Haz una combinación con una gema que esté sobre un trébol para plantar trébol bajo cada gema de la combinación. Las explosiones de potenciadores que tocan trébol plantan toda su área — y un Saltamontes planta donde aterrice. ¡Cubre el tablero!'}),
+  keyHelp:n=>({title:'Recoge '+n+' llaves',
+    text:'Las llaves caen en línea recta. Despeja las gemas bajo una llave para que caiga, y en cuanto llega al fondo sale y se recoge. Abre un camino limpio hasta el fondo para cada llave.'}),
+  acornHelp:n=>({title:'Libera '+n+' bellotas',
+    text:'Las bellotas están atrapadas bajo hojas. Combina justo al lado de una hoja (o golpéala con la explosión de un potenciador) para arrancarla — el último golpe libera la bellota y la recoge. Las hojas sin bellota retienen gemas de la misma forma.'})
 }
 };
 let LANG=localStorage.getItem('akashicswaps-lang')
-  ||((navigator.language||'').startsWith('ko')?'ko':'en'); // first visit: follow the browser
+  ||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})(); // first visit: follow the browser (en/ko/es)
 // Bridge for the deferred auth.js module: top-level const in a classic script is
 // NOT a window property, so expose I18N explicitly (auth.js splices its strings in).
 window.I18N=I18N;
@@ -1009,8 +1113,8 @@ function applyLang(){
     if(v===undefined)return;
     if(String(v).indexOf('<')>=0)el.innerHTML=v;else el.textContent=v;
   });
-  // toggle buttons advertise the OTHER language
-  document.querySelectorAll('.langbtn').forEach(b=>{b.textContent=LANG==='en'?'한국어':'English';});
+  // language pickers: refresh current-code label + active-row highlight
+  refreshLangPickers();
 }
 let lastPView=null; // 'bundles' | 'grid' — re-render the player screen on switch
 function setLang(l){
@@ -1025,8 +1129,45 @@ function setLang(l){
   }
   if(typeof playerMode!=='undefined'&&playerMode){updatePlayerHUD();renderBoosterPanel();} // live HUD + palette refresh mid-level
 }
-function toggleLang(){setLang(LANG==='en'?'ko':'en');}
-document.addEventListener('DOMContentLoaded',applyLang);
+// ── Language picker — icon → dropdown, scales to N languages ──────────────────
+// One array drives every menu; adding a language later = one row here + its I18N
+// block. Each row shows the 2-char code + native name + flag, so the flag is pure
+// decoration (Windows renders flag-emoji as letters — the code/name still read).
+const LANGS=[
+  {code:'en',label:'EN',name:'English',flag:'🇬🇧'},
+  {code:'ko',label:'KO',name:'한국어',flag:'🇰🇷'},
+  {code:'es',label:'ES',name:'Español',flag:'🇪🇸'}
+];
+function langMenuHTML(){
+  return LANGS.map(l=>'<li role="option" data-lang="'+l.code+'" tabindex="0">'
+    +'<span class="lp-code">'+l.label+'</span>'
+    +'<span class="lp-name">'+l.name+'</span>'
+    +'<span class="lp-flag">'+l.flag+'</span></li>').join('');
+}
+function buildLangPickers(){
+  document.querySelectorAll('.langpick').forEach(p=>{
+    const menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+    if(menu&&!menu.dataset.built){menu.innerHTML=langMenuHTML();menu.dataset.built='1';}
+    if(btn&&!btn.dataset.wired){
+      btn.dataset.wired='1';
+      btn.addEventListener('click',e=>{e.stopPropagation();toggleLangMenu(p);});
+      menu.addEventListener('click',e=>{const li=e.target.closest('li[data-lang]');if(!li)return;setLang(li.dataset.lang);closeLangMenus();});
+    }
+  });
+  refreshLangPickers();
+}
+function toggleLangMenu(p){const open=p.classList.contains('open');closeLangMenus();if(!open){p.classList.add('open');p.querySelector('.langpick-btn').setAttribute('aria-expanded','true');}}
+function closeLangMenus(){document.querySelectorAll('.langpick.open').forEach(p=>{p.classList.remove('open');p.querySelector('.langpick-btn').setAttribute('aria-expanded','false');});}
+function refreshLangPickers(){
+  const cur=LANGS.find(l=>l.code===LANG)||LANGS[0];
+  document.querySelectorAll('.langpick').forEach(p=>{
+    const lab=p.querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;
+    p.querySelectorAll('li[data-lang]').forEach(li=>li.setAttribute('aria-selected',li.dataset.lang===LANG?'true':'false'));
+  });
+}
+document.addEventListener('click',closeLangMenus);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLangMenus();});
+document.addEventListener('DOMContentLoaded',()=>{applyLang();buildLangPickers();});
 
 // ── Version watchdog — "New version — tap to reload" ─────────────────────────
 // Stale cached builds cost two debugging cycles on 2026-07-08. Zero-maintenance:
@@ -2622,8 +2763,7 @@ function maybeShuffle(silent){
   if(shuffleBoard()){
     render();
     if(!silent){
-      const ko=(localStorage.getItem('akashicswaps-lang')==='ko');
-      flashToast(ko?'움직임 없음 — 보드를 섞었어요':'No moves — reshuffling the board');
+      flashToast(TXT('toast_shuffle'));
     }
   }
 }

@@ -55,6 +55,22 @@ const AUTH_I18N = {
     auth_err:           '링크를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
     auth_merged:        '로그인 완료 — 별이 이제 클라우드에 저장됩니다. ☁',
     auth_syncing:       '진행 상황을 동기화하는 중…'
+  },
+  es: {
+    auth_signin:        '☁ Inicia sesión — guarda tus estrellas',
+    auth_signed_as:     e => 'Sesión iniciada · ' + e,
+    auth_signout:       'Cerrar sesión',
+    auth_title:         'Guarda tus estrellas',
+    auth_msg:           'Escribe tu correo y te enviaremos un enlace de acceso con un solo toque. Sin contraseñas, nunca. Tus estrellas, niveles y progreso te seguirán a cualquier dispositivo.',
+    auth_email_ph:      'tu@correo.com',
+    auth_send:          'Enviar enlace',
+    auth_cancel:        'Ahora no',
+    auth_sending:       'Enviando…',
+    auth_sent:          e => 'Enlace enviado a ' + e + '. Revisa tu bandeja de entrada y tócalo para terminar.',
+    auth_bad_email:     'Eso no parece una dirección de correo.',
+    auth_err:           'No se pudo enviar el enlace. Inténtalo de nuevo en un momento.',
+    auth_merged:        'Sesión iniciada — tus estrellas ahora están guardadas en la nube. ☁',
+    auth_syncing:       'Sincronizando tu progreso…'
   }
 };
 
@@ -63,6 +79,7 @@ function registerStrings(){
   if(!window.I18N) return;
   Object.assign(window.I18N.en, AUTH_I18N.en);
   Object.assign(window.I18N.ko, AUTH_I18N.ko);
+  Object.assign(window.I18N.es, AUTH_I18N.es);
 }
 
 // ── merge rules (db/README.md) ───────────────────────────────────────────────
