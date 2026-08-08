@@ -113,6 +113,38 @@
     nav a:hover { opacity: 1; }
     nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
 
+    /* ── Language picker (icon → scrollable dropdown) ── */
+    .langpick { position: relative; display: inline-flex; }
+    .langpick-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: transparent; border: 1px solid #0a3a0a; border-radius: 3px;
+      color: #0f0; opacity: 0.7; cursor: pointer;
+      font-family: 'Courier New', monospace; font-size: 1em;
+      letter-spacing: 0.1em; padding: 3px 8px; text-transform: uppercase;
+      transition: opacity 0.2s;
+    }
+    .langpick-btn:hover { opacity: 1; }
+    .langpick-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .langpick-menu {
+      position: absolute; top: calc(100% + 6px); right: 0;
+      min-width: 168px; max-height: 200px; overflow-y: auto;
+      list-style: none; margin: 0; padding: 4px;
+      background: #001200; border: 1px solid #0a3a0a; border-radius: 4px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6); display: none; z-index: 1000;
+      text-transform: none;
+    }
+    .langpick.open .langpick-menu { display: block; }
+    .langpick-menu li {
+      display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+      cursor: pointer; color: #0f0; opacity: 0.65; white-space: nowrap;
+      letter-spacing: 0.04em;
+    }
+    .langpick-menu li:hover { opacity: 1; background: #002800; }
+    .langpick-menu li[aria-selected="true"] { opacity: 1; background: #052f05; }
+    .lp-code { font-weight: bold; width: 2.2em; }
+    .lp-name { flex: 1; }
+    .lp-flag { font-size: 1.05em; }
+
     /* ── Hero ── */
     main {
       flex: 1;
@@ -207,7 +239,13 @@
     <a href="/" class="active" data-i18n="nav_home">Home</a>
     <a href="/history/" data-i18n="nav_history">History</a>
     <a href="https://docs.google.com/forms/d/e/1FAIpQLScgCSDp9VM766fnAswlI9hEUJ4YanJ_jBKLkcLrHCyUydqf5Q/viewform" target="_blank" rel="noopener" data-i18n="nav_bug">Bug Report</a>
-    <a href="#" id="lang-toggle">한국어</a>
+    <div class="langpick">
+      <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+        <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+        <span class="langpick-cur">EN</span>
+      </button>
+      <ul class="langpick-menu" role="listbox"></ul>
+    </div>
   </nav>
 
   <main>
@@ -242,7 +280,7 @@
   <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/" data-i18n="lnk_privacy">Privacy</a></footer>
 
   <script>
-    // ── i18n — EN + 한국어, shared with the game via localStorage (same origin) ──
+    // ── i18n — EN + 한국어 + Español, shared with the game via localStorage (same origin) ──
     (function(){
       var I18N={
         en:{nav_home:'Home',nav_history:'History',nav_bug:'Bug Report',
@@ -260,18 +298,33 @@
             cta:'자격이 있는지 확인해 보세요...',hi_arch:'안녕하세요, 설계자님',hi_exp:'안녕하세요, 탐험가님',hi_back:'다시 오신 것을 환영합니다',
             lnk_editor:'레벨 에디터',
             lnk_reddit:'r/AkashicSwapsGame — 개발 과정을 지켜보고 함께하세요',
-            lnk_patreon:'Patreon — 미래에 투자하세요',lnk_privacy:'개인정보처리방침'}
+            lnk_patreon:'Patreon — 미래에 투자하세요',lnk_privacy:'개인정보처리방침'},
+        // Español (neutral / es-419) — needs a native-speaker tone pass before public reliance
+        es:{nav_home:'Inicio',nav_history:'Historia',nav_bug:'Reportar error',
+            brand:'AKASHIC SWAPS',
+            tagline:'El Registro de la Acción del Creador',
+            v1:'Sé curioso.',v2:'Sé confiado.',v3:'Sé humilde.',
+            cta:'Descubre si calificas...',hi_arch:'Hola, Arquitecto',hi_exp:'Hola, Explorador',hi_back:'Bienvenido de nuevo',
+            lnk_editor:'Editor de Niveles',
+            lnk_reddit:'r/AkashicSwapsGame — Sigue el desarrollo, únete',
+            lnk_patreon:'Patreon — Financia el futuro',lnk_privacy:'Privacidad'}
       };
+      // ── shared language picker (icon → scrollable dropdown; scales to N langs) ──
+      var LANGS=[
+        {code:'en',label:'EN',name:'English',flag:'🇬🇧'},
+        {code:'ko',label:'KO',name:'한국어',flag:'🇰🇷'},
+        {code:'es',label:'ES',name:'Español',flag:'🇪🇸'}
+      ];
       var LANG;
       try{LANG=localStorage.getItem('akashicswaps-lang')
-        ||((navigator.language||'').indexOf('ko')===0?'ko':'en');}catch(e){LANG='en';}
+        ||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})();}catch(e){LANG='en';}
       function apply(){
         var d=I18N[LANG]||I18N.en;
         document.documentElement.lang=LANG;
         document.querySelectorAll('[data-i18n]').forEach(function(el){
           var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
         });
-        document.getElementById('lang-toggle').textContent=LANG==='en'?'한국어':'English';
+        refreshPickers();
         // CTA: qualified visitors get their earned greeting, in their language
         var cta=d.cta;
         try{
@@ -282,12 +335,27 @@
         }catch(e){/* storage blocked — keep the default CTA */}
         document.getElementById('cta-main').textContent=cta;
       }
-      document.getElementById('lang-toggle').addEventListener('click',function(ev){
-        ev.preventDefault();
-        LANG=LANG==='en'?'ko':'en';
-        try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}
-        apply();
+      function menuHTML(){return LANGS.map(function(l){return '<li role="option" data-lang="'+l.code+'" tabindex="0">'
+        +'<span class="lp-code">'+l.label+'</span><span class="lp-name">'+l.name+'</span><span class="lp-flag">'+l.flag+'</span></li>';}).join('');}
+      function closeMenus(){var o=document.querySelectorAll('.langpick.open');for(var i=0;i<o.length;i++){o[i].classList.remove('open');o[i].querySelector('.langpick-btn').setAttribute('aria-expanded','false');}}
+      function refreshPickers(){
+        var cur=null;for(var i=0;i<LANGS.length;i++){if(LANGS[i].code===LANG)cur=LANGS[i];}if(!cur)cur=LANGS[0];
+        var picks=document.querySelectorAll('.langpick');
+        for(var j=0;j<picks.length;j++){
+          var lab=picks[j].querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;
+          var lis=picks[j].querySelectorAll('li[data-lang]');
+          for(var k=0;k<lis.length;k++){lis[k].setAttribute('aria-selected',lis[k].dataset.lang===LANG?'true':'false');}
+        }
+      }
+      function pick(code){LANG=code;try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}apply();}
+      document.querySelectorAll('.langpick').forEach(function(p){
+        var menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+        menu.innerHTML=menuHTML();
+        btn.addEventListener('click',function(ev){ev.stopPropagation();var open=p.classList.contains('open');closeMenus();if(!open){p.classList.add('open');btn.setAttribute('aria-expanded','true');}});
+        menu.addEventListener('click',function(ev){var li=ev.target.closest('li[data-lang]');if(!li)return;pick(li.dataset.lang);closeMenus();});
       });
+      document.addEventListener('click',closeMenus);
+      document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeMenus();});
       apply();
     })();
   </script>
