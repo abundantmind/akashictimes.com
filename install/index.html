@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- NATIVE FEEL (Jed 2026-07-17): no pinch zoom, edge-to-edge behind notches -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>Install Akashic Swaps on Your Phone — iPhone & Android</title>
+
+  <!-- ── SEO — help mobile visitors turn the site into a home-screen app ── -->
+  <meta name="description" content="Add Akashic Swaps to your phone's home screen and play fullscreen — step-by-step for iPhone (Safari) and Android (Chrome). No app store, no download."/>
+  <link rel="canonical" href="https://akashictimes.com/install/"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="Akashic Swaps"/>
+  <meta property="og:title" content="Install Akashic Swaps on Your Phone"/>
+  <meta property="og:description" content="Add the match-3 you build yourself to your home screen — iPhone and Android, in a few taps."/>
+  <meta property="og:url" content="https://akashictimes.com/install/"/>
+  <meta property="og:image" content="https://akashictimes.com/og-image.jpg"/>
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:image" content="https://akashictimes.com/og-image.jpg"/>
+
+  <!-- Unmoatable Analytics — cookieless; no-ops on localhost -->
+  <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
+
+  <!-- Unpinchable on iOS Safari tabs: gesture events are Safari's only pinch hook -->
+  <script>['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();},{passive:false});});</script>
+
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Native-feel surface — selection stays ON, it's a document ── */
+    html { touch-action: pan-x pan-y; overscroll-behavior: none; }
+
+    /* ── Base — matches the landing terminal aesthetic ── */
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0f0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* Korean mode: Hangul-friendly type, no uppercase tricks */
+    html[lang="ko"] body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+    html[lang="ko"] nav { text-transform: none; letter-spacing: 0.05em; }
+    html[lang="ko"] h1 { text-transform: none; }
+
+    /* ── Nav ── */
+    nav {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      padding: 18px 24px;
+      border-bottom: 1px solid #0a3a0a;
+      font-size: 0.85em;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    nav a { color: #0f0; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+    /* ── Language picker (icon → scrollable dropdown) ── */
+    .langpick { position: relative; display: inline-flex; }
+    .langpick-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid #0a3a0a; border-radius: 3px; color: #0f0; opacity: 0.7; cursor: pointer; font-family: 'Courier New', monospace; font-size: 1em; letter-spacing: 0.1em; padding: 3px 8px; text-transform: uppercase; transition: opacity 0.2s; }
+    .langpick-btn:hover { opacity: 1; }
+    .langpick-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .langpick-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 168px; max-height: 200px; overflow-y: auto; list-style: none; margin: 0; padding: 4px; background: #001200; border: 1px solid #0a3a0a; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); display: none; z-index: 1000; text-transform: none; }
+    .langpick.open .langpick-menu { display: block; }
+    .langpick-menu li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; color: #0f0; opacity: 0.65; white-space: nowrap; letter-spacing: 0.04em; }
+    .langpick-menu li:hover { opacity: 1; background: #002800; }
+    .langpick-menu li[aria-selected="true"] { opacity: 1; background: #052f05; }
+    .lp-code { font-weight: bold; width: 2.2em; }
+    .lp-name { flex: 1; }
+    .lp-flag { font-size: 1.05em; }
+
+    /* ── Content ── */
+    main { flex: 1; width: 100%; max-width: 720px; padding: 56px 24px 80px; text-align: center; }
+    h1 { font-size: clamp(1.6em, 5.5vw, 2.6em); letter-spacing: 0.06em; margin-bottom: 12px; text-transform: uppercase; }
+    .sub { opacity: 0.55; margin-bottom: 40px; letter-spacing: 0.04em; line-height: 1.5; }
+
+    /* ── Rotation-lock callout — amber so it can't be missed (the #1 casual-user wall) ── */
+    .callout { border: 1px solid #6a5a0a; background: #14120a; color: #d8d24a; text-align: left; padding: 16px 20px; margin-bottom: 30px; font-size: 0.92em; line-height: 1.6; }
+    .callout .cl-title { display: block; font-weight: bold; letter-spacing: 0.03em; margin-bottom: 8px; color: #fff36a; }
+    .callout ul { list-style: none; margin: 8px 0; }
+    .callout li { padding: 3px 0 3px 16px; position: relative; }
+    .callout li::before { content: "•"; position: absolute; left: 0; opacity: 0.7; }
+    .callout strong { color: #fff36a; }
+
+    /* ── Platform cards ── */
+    .card { border: 1px solid #0a3a0a; padding: 24px 26px; margin-bottom: 22px; text-align: left; }
+    .card h2 { font-size: 1.15em; margin-bottom: 16px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 10px; }
+    .card .plat { font-size: 1.3em; }
+    .card ol { list-style: none; counter-reset: step; }
+    .card li { counter-increment: step; position: relative; padding: 8px 0 8px 40px; font-size: 0.95em; line-height: 1.55; opacity: 0.85; }
+    .card li::before {
+      content: counter(step);
+      position: absolute; left: 0; top: 7px;
+      width: 26px; height: 26px; border: 1px solid #0f0; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8em; opacity: 0.8;
+    }
+    .card li strong { color: #6fff6f; font-weight: bold; }
+    .tip { opacity: 0.5; font-size: 0.9em; letter-spacing: 0.03em; margin-top: 6px; line-height: 1.5; }
+
+    footer { padding: 20px 24px; font-size: 0.75em; opacity: 0.35; letter-spacing: 0.1em; border-top: 1px solid #0a3a0a; width: 100%; text-align: center; }
+    footer a { color: #0f0; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" data-i18n="nav_home">Home</a>
+    <a href="/history/" data-i18n="nav_history">History</a>
+    <a href="/install/" class="active" data-i18n="nav_install">Install</a>
+    <div class="langpick">
+      <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+        <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+        <span class="langpick-cur">EN</span>
+      </button>
+      <ul class="langpick-menu" role="listbox"></ul>
+    </div>
+  </nav>
+
+  <!-- English -->
+  <main id="body-en">
+    <h1>Play on Your Phone</h1>
+    <p class="sub">Add Akashic Swaps to your home screen and it launches fullscreen, like a native app — no app store, no download.</p>
+
+    <div class="callout">
+      <span class="cl-title">⤢ First, turn off Rotation Lock — the game plays in landscape</span>
+      Your phone has to be allowed to rotate, or the game stays stuck showing "Rotate your device":
+      <ul>
+        <li><strong>iPhone:</strong> open Control Center (swipe down from the top-right corner) and tap the rotation-lock button — a 🔒 with a circular arrow — so it turns off.</li>
+        <li><strong>Android:</strong> swipe down from the top and turn on <strong>Auto-rotate</strong>.</li>
+      </ul>
+      Then just turn your phone sideways to play.
+    </div>
+
+    <div class="card">
+      <h2><span class="plat">📱</span> iPhone &amp; iPad — Safari</h2>
+      <ol>
+        <li>Open <strong>akashictimes.com</strong> in <strong>Safari</strong> (not Chrome — Apple only allows this from Safari).</li>
+        <li>Tap the <strong>Share</strong> button — the square with an ↑ arrow.</li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+        <li>Tap <strong>Add</strong>. The Akashic Swaps icon lands on your home screen — open it and the game runs fullscreen.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2><span class="plat">🤖</span> Android — Chrome</h2>
+      <ol>
+        <li>Open <strong>akashictimes.com</strong> in <strong>Chrome</strong>.</li>
+        <li>Tap the <strong>⋮</strong> menu (top right).</li>
+        <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>, if it's shown).</li>
+        <li>Tap <strong>Add</strong> / <strong>Install</strong>. The icon lands on your home screen — open it and the game runs fullscreen.</li>
+      </ol>
+    </div>
+
+    <p class="tip">Tip: if the game isn't in your language, tap the 🗣 icon at the top and pick it.</p>
+  </main>
+
+  <!-- Español (neutral / es-419) — needs a native-speaker tone pass before public reliance -->
+  <main id="body-es" style="display:none;">
+    <h1>Juega en tu teléfono</h1>
+    <p class="sub">Añade Akashic Swaps a tu pantalla principal y se abrirá a pantalla completa, como una app — sin tienda de apps, sin descargas.</p>
+
+    <div class="callout">
+      <span class="cl-title">⤢ Primero, desactiva el bloqueo de rotación — el juego es horizontal</span>
+      Tu teléfono debe poder girar, o el juego se queda mostrando "Gira tu dispositivo":
+      <ul>
+        <li><strong>iPhone:</strong> abre el Centro de Control (desliza desde la esquina superior derecha) y toca el botón de bloqueo de rotación — un 🔒 con una flecha circular — para desactivarlo.</li>
+        <li><strong>Android:</strong> desliza desde arriba y activa la <strong>Rotación automática</strong>.</li>
+      </ul>
+      Luego solo gira tu teléfono de lado para jugar.
+    </div>
+
+    <div class="card">
+      <h2><span class="plat">📱</span> iPhone y iPad — Safari</h2>
+      <ol>
+        <li>Abre <strong>akashictimes.com</strong> en <strong>Safari</strong> (no en Chrome — Apple solo lo permite desde Safari).</li>
+        <li>Toca el botón <strong>Compartir</strong> — el cuadro con una flecha ↑.</li>
+        <li>Desplázate hacia abajo y toca <strong>Añadir a pantalla de inicio</strong>.</li>
+        <li>Toca <strong>Añadir</strong>. El ícono de Akashic Swaps aparecerá en tu pantalla principal — ábrelo y el juego se abre a pantalla completa.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2><span class="plat">🤖</span> Android — Chrome</h2>
+      <ol>
+        <li>Abre <strong>akashictimes.com</strong> en <strong>Chrome</strong>.</li>
+        <li>Toca el menú <strong>⋮</strong> (arriba a la derecha).</li>
+        <li>Toca <strong>Añadir a la pantalla principal</strong> (o <strong>Instalar aplicación</strong>, si aparece).</li>
+        <li>Toca <strong>Añadir</strong> / <strong>Instalar</strong>. El ícono aparecerá en tu pantalla principal — ábrelo y el juego se abre a pantalla completa.</li>
+      </ol>
+    </div>
+
+    <p class="tip">Consejo: si el juego no está en tu idioma, toca el ícono 🗣 arriba y elígelo.</p>
+  </main>
+
+  <!-- 한국어 — needs a native-speaker tone pass before public reliance -->
+  <main id="body-ko" style="display:none;">
+    <h1>휴대폰에서 플레이하기</h1>
+    <p class="sub">아카식 스왑스를 홈 화면에 추가하면 앱처럼 전체 화면으로 실행됩니다 — 앱스토어도, 다운로드도 필요 없습니다.</p>
+
+    <div class="callout">
+      <span class="cl-title">⤢ 먼저 회전 잠금을 끄세요 — 게임은 가로 모드입니다</span>
+      화면이 회전할 수 있어야 합니다. 그렇지 않으면 게임이 "기기를 가로로 돌려주세요" 화면에서 멈춰 있습니다:
+      <ul>
+        <li><strong>아이폰:</strong> 제어 센터를 열고(오른쪽 위 모서리에서 아래로 쓸어내리기) 회전 잠금 버튼(🔒 원형 화살표)을 눌러 끄세요.</li>
+        <li><strong>안드로이드:</strong> 위에서 아래로 쓸어내려 <strong>자동 회전</strong>을 켜세요.</li>
+      </ul>
+      그런 다음 휴대폰을 옆으로 돌려 플레이하세요.
+    </div>
+
+    <div class="card">
+      <h2><span class="plat">📱</span> 아이폰 &amp; 아이패드 — Safari</h2>
+      <ol>
+        <li><strong>Safari</strong>에서 <strong>akashictimes.com</strong>을 여세요 (크롬 아님 — 애플은 Safari에서만 허용합니다).</li>
+        <li><strong>공유</strong> 버튼(↑ 화살표가 있는 사각형)을 누르세요.</li>
+        <li>아래로 스크롤해 <strong>홈 화면에 추가</strong>를 누르세요.</li>
+        <li><strong>추가</strong>를 누르세요. 홈 화면에 아카식 스왑스 아이콘이 나타납니다 — 열면 전체 화면으로 실행됩니다.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2><span class="plat">🤖</span> 안드로이드 — Chrome</h2>
+      <ol>
+        <li><strong>Chrome</strong>에서 <strong>akashictimes.com</strong>을 여세요.</li>
+        <li>오른쪽 위 <strong>⋮</strong> 메뉴를 누르세요.</li>
+        <li><strong>홈 화면에 추가</strong>(또는 표시되면 <strong>앱 설치</strong>)를 누르세요.</li>
+        <li><strong>추가</strong> / <strong>설치</strong>를 누르세요. 홈 화면에 아이콘이 나타납니다 — 열면 전체 화면으로 실행됩니다.</li>
+      </ol>
+    </div>
+
+    <p class="tip">팁: 게임이 사용하는 언어로 표시되지 않으면 상단의 🗣 아이콘을 눌러 선택하세요.</p>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/" data-i18n="lnk_privacy">Privacy</a></footer>
+
+  <script>
+    // ── i18n — EN + 한국어 + Español; same persisted key as the rest of the site.
+    //    Nav strings via data-i18n; the instruction body swaps whole <main> blocks. ──
+    (function(){
+      var NAV={
+        en:{nav_home:'Home',nav_history:'History',nav_install:'Install',lnk_privacy:'Privacy'},
+        ko:{nav_home:'홈',nav_history:'히스토리',nav_install:'설치',lnk_privacy:'개인정보처리방침'},
+        es:{nav_home:'Inicio',nav_history:'Historia',nav_install:'Instalar',lnk_privacy:'Privacidad'}
+      };
+      var LANGS=[
+        {code:'en',label:'EN',name:'English',flag:'🇬🇧'},
+        {code:'ko',label:'KO',name:'한국어',flag:'🇰🇷'},
+        {code:'es',label:'ES',name:'Español',flag:'🇪🇸'}
+      ];
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')
+        ||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})();}catch(e){LANG='en';}
+      function apply(){
+        document.documentElement.lang=LANG;
+        // swap which instruction body shows; en is the fallback for any unknown value
+        document.getElementById('body-ko').style.display=LANG==='ko'?'':'none';
+        document.getElementById('body-es').style.display=LANG==='es'?'':'none';
+        document.getElementById('body-en').style.display=(LANG!=='ko'&&LANG!=='es')?'':'none';
+        var d=NAV[LANG]||NAV.en;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
+        });
+        refreshPickers();
+      }
+      function menuHTML(){return LANGS.map(function(l){return '<li role="option" data-lang="'+l.code+'" tabindex="0">'
+        +'<span class="lp-code">'+l.label+'</span><span class="lp-name">'+l.name+'</span><span class="lp-flag">'+l.flag+'</span></li>';}).join('');}
+      function closeMenus(){var o=document.querySelectorAll('.langpick.open');for(var i=0;i<o.length;i++){o[i].classList.remove('open');o[i].querySelector('.langpick-btn').setAttribute('aria-expanded','false');}}
+      function refreshPickers(){
+        var cur=null;for(var i=0;i<LANGS.length;i++){if(LANGS[i].code===LANG)cur=LANGS[i];}if(!cur)cur=LANGS[0];
+        var picks=document.querySelectorAll('.langpick');
+        for(var j=0;j<picks.length;j++){
+          var lab=picks[j].querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;
+          var lis=picks[j].querySelectorAll('li[data-lang]');
+          for(var k=0;k<lis.length;k++){lis[k].setAttribute('aria-selected',lis[k].dataset.lang===LANG?'true':'false');}
+        }
+      }
+      function pick(code){LANG=code;try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}apply();}
+      document.querySelectorAll('.langpick').forEach(function(p){
+        var menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+        menu.innerHTML=menuHTML();
+        btn.addEventListener('click',function(ev){ev.stopPropagation();var open=p.classList.contains('open');closeMenus();if(!open){p.classList.add('open');btn.setAttribute('aria-expanded','true');}});
+        menu.addEventListener('click',function(ev){var li=ev.target.closest('li[data-lang]');if(!li)return;pick(li.dataset.lang);closeMenus();});
+      });
+      document.addEventListener('click',closeMenus);
+      document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeMenus();});
+      apply();
+    })();
+  </script>
+</body>
+</html>
