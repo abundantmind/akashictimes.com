@@ -4765,7 +4765,7 @@ function updEditorFrame(){
   if(g){
     g.innerHTML=(editorObjectives||[]).map(o=>{
       const k=objKind(o);
-      const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='acorn'?acornIconSVG(44):gemSVG(GEMMAP[o.gem]??3,44);
+      const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='acorn'?acornIconSVG(44):k==='crate'?crateIconSVG(44):gemSVG(GEMMAP[o.gem]??3,44);
       return '<div class="ehud-goalrow"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(o.count||0)+'</div></div>';
     }).join('');
   }
