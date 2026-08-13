@@ -75,6 +75,10 @@ body.font-lg{--base-font:20px;}
 #topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:#0a0810;border-bottom:0.5px solid #1e1830;flex-shrink:0;}
 #topbar .brand{display:flex;align-items:baseline;gap:10px;}
 #topbar .wordmark{font-size:var(--fz-xl);font-weight:500;color:#c792ea;letter-spacing:-0.01em;}
+/* Brand is a click-through to the landing page (both home + play top bars). */
+.brand{cursor:pointer;user-select:none;border-radius:6px;outline:none;}
+.brand:hover .wordmark,.brand:focus-visible .wordmark{color:#d8a8ff;}
+.brand:focus-visible{box-shadow:0 0 0 2px #6a4aaa;}
 #topbar .edition{font-size:var(--fz-sm);color:#554470;letter-spacing:0.12em;text-transform:uppercase;}
 #topbar .nav{display:flex;align-items:center;gap:6px;}
 .navbtn{font-size:var(--fz-ui);padding:5px 12px;border:0.5px solid transparent;border-radius:4px;background:transparent;color:#887a9a;cursor:pointer;font-family:var(--font-sans);letter-spacing:0.03em;}
@@ -519,7 +523,11 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 <!-- HOME SCREEN -->
 <div id="home">
   <div id="topbar">
-    <div class="brand">
+    <!-- Brand = click-through to the landing page (Jed 2026-08-13), the universal
+         top-left "escape hatch" home. -->
+    <div class="brand" role="link" tabindex="0" title="Back to landing"
+         onclick="location.href='/'"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.href='/';}">
       <span class="wordmark">AkashicSwaps</span>
       <span class="edition">Level Editor</span>
     </div>
@@ -768,7 +776,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 <!-- PLAYER (bundle select + level grid; gameplay reuses #editor board in Play mode) -->
 <div id="player">
   <div id="ptopbar">
-    <div><span class="wordmark">AkashicSwaps</span><span class="edition">Play</span></div>
+    <div class="brand" role="link" tabindex="0" title="Back to landing"
+         onclick="location.href='/'"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.href='/';}"><span class="wordmark">AkashicSwaps</span><span class="edition">Play</span></div>
     <div style="display:flex;gap:8px;align-items:center;">
       <div class="langpick">
         <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
