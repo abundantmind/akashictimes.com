@@ -250,6 +250,9 @@ function refreshUI(){
   if(document.getElementById('pgrid-title') && typeof renderGrid === 'function'){
     renderGrid();
   }
+  // Once a session resolves, the username override may have changed — repaint the
+  // editor home so "Welcome back, {name}" + the bundle labels reflect it.
+  if(typeof window.updateHome === 'function') window.updateHome();
 }
 
 // ── wire-up on load ──────────────────────────────────────────────────────────

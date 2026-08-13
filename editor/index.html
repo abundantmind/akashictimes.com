@@ -105,7 +105,14 @@ body.font-lg{--base-font:20px;}
 .hstat{text-align:right;}
 .hstat .n{font-size:var(--fz-2xl);font-weight:500;color:#c792ea;}
 .hstat .l{font-size:var(--fz-sm);color:#554470;text-transform:uppercase;letter-spacing:0.08em;}
-#grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:12px;padding:16px 20px 20px;flex:1;}
+#grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 20px 20px;flex:1;align-content:start;}
+@media(max-width:640px){#grid{grid-template-columns:1fr;}}
+.home-sub{font-size:var(--fz-sm);color:#887a9a;padding:2px 0 8px;}
+.home-bundles-label{font-size:var(--fz-ui);color:#9a86b8;text-transform:uppercase;letter-spacing:0.06em;margin:2px 0 8px;}
+.home-bundle-card{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#160f24;border:0.5px solid #2d2040;border-radius:var(--border-radius,8px);padding:12px 14px;cursor:pointer;margin-bottom:8px;}
+.home-bundle-card:hover{border-color:#c792ea;background:#1a1030;}
+.hb-name{color:#d8c8ee;font-weight:500;}
+.hb-stars{color:#f0c040;font-size:var(--fz-sm);white-space:nowrap;}
 .quad{background:#110d1a;border:0.5px solid #1e1830;border-radius:var(--border-radius-lg);padding:16px;display:flex;flex-direction:column;gap:10px;min-height:200px;}
 .quad:hover{border-color:#2d2040;}
 .quad-header{display:flex;align-items:center;justify-content:space-between;}
@@ -520,44 +527,35 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   </div>
   <div id="hero">
     <div>
-      <h1 data-i18n="hero_greet">Good morning, Architect.</h1>
+      <!-- Personalized greeting — set by updateHome() to "Welcome back, {name}"
+           using the persistent identity (AkashicID). Static text is a fallback. -->
+      <h1 id="home-greet" data-i18n="hi_back">Welcome back</h1>
       <p data-i18n="hero_sub">Built in public · r/AkashicSwapsGame is live</p>
     </div>
   </div>
+  <!-- Two authorized paths (Jed 2026-08-12): after "Welcome back, {name}" the
+       visitor chooses CREATE (author + edit their bundles) or EXPLORE (play their
+       bundles, chase stars). Both are keyed to the unique ID. Replaces the old
+       4-quadrant home (Interact/Create/Publish/Leaderboards). -->
   <div id="grid">
-    <div class="quad">
-      <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-interact">▦</div><span class="quad-name" data-i18n="quad_interact">Interact</span></div>
-      </div>
-      <!-- honest empty state: community rows return when real published levels exist (Supabase) -->
-      <div class="draft-meta" style="padding:14px 0;" data-i18n="empty_interact">Community levels will appear here once publishing opens.</div>
-    </div>
+    <!-- CREATE — author + edit the visitor's own bundles -->
     <div class="quad">
       <div class="quad-header">
         <div class="quad-title"><div class="quad-icon qi-create">✏</div><span class="quad-name" data-i18n="quad_create">Create</span></div>
         <button class="quad-action primary" id="btn-new-level" data-i18n="btn_new_level">+ New level</button>
       </div>
-      <button class="new-btn" id="btn-new-level2" data-i18n="btn_new_level2">+ Start a new level</button>
-      <!-- Their Products: a signed-in editor opens any bundle they own and edits
-           its levels (bundle-centric reframe, Jed 2026-07-30). Supersedes the old
-           L1-L5 "classic template" row — openTemplate(n) now reaches all 25. -->
-      <div class="tmpl-row"><span data-i18n="products_label">Their Products:</span>
-        <button class="tmpl-btn" onclick="openProducts()" data-i18n="products_btn">Open your Bundles</button>
-      </div>
+      <div class="home-sub" data-i18n="create_sub">Build levels and edit any bundle you own.</div>
+      <!-- "{name}'s Bundles" — the label text is filled by updateHome(). -->
+      <button class="new-btn" onclick="openProducts()"><span id="home-create-bundles"></span></button>
     </div>
+    <!-- EXPLORE — play the visitor's bundles, with stars earned on each -->
     <div class="quad">
       <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-publish">↗</div><span class="quad-name" data-i18n="quad_publish">Publish</span></div>
+        <div class="quad-title"><div class="quad-icon qi-interact">▦</div><span class="quad-name" data-i18n="quad_explore">Explore</span></div>
       </div>
-      <!-- honest empty state: publish stats return when levels + accounts are real (Supabase) -->
-      <div class="draft-meta" style="padding:14px 0;" data-i18n="empty_publish">Your published levels and their stats will live here.</div>
-    </div>
-    <div class="quad">
-      <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-board">★</div><span class="quad-name" data-i18n="quad_boards">Leaderboards</span></div>
-      </div>
-      <!-- honest empty state: leaderboards need accounts (Supabase) -->
-      <div class="draft-meta" style="padding:14px 0;" data-i18n="empty_boards">Leaderboards open when player accounts arrive.</div>
+      <div class="home-sub" data-i18n="explore_sub">Play your bundles and chase stars.</div>
+      <!-- "{name}'s Bundles" + a card per bundle with its star total; filled by updateHome(). -->
+      <div id="home-explore"></div>
     </div>
   </div>
 </div>
@@ -896,10 +894,11 @@ const I18N={
 en:{
   nav_home:'Home',nav_play:'Play',nav_community:'Community',
   hero_greet:'Good morning, Architect.',hero_sub:'Built in public · r/AkashicSwapsGame is live',
-  quad_interact:'Interact',quad_create:'Create',quad_publish:'Publish',quad_boards:'Leaderboards',
-  empty_interact:'Community levels will appear here once publishing opens.',
-  empty_publish:'Your published levels and their stats will live here.',
-  empty_boards:'Leaderboards open when player accounts arrive.',
+  hi_back:'Welcome back',
+  quad_create:'Create',quad_explore:'Explore',
+  create_sub:'Build levels and edit any bundle you own.',
+  explore_sub:'Play your bundles and chase stars.',
+  poss_bundles:n=>n+'’s Bundles', bundles_generic:'Your Bundles',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
   products_label:'Their Products:',products_btn:'Open your Bundles',
   products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',
@@ -966,10 +965,11 @@ en:{
 ko:{
   nav_home:'홈',nav_play:'플레이',nav_community:'커뮤니티',
   hero_greet:'좋은 아침입니다, 설계자님.',hero_sub:'공개 개발 중 · r/AkashicSwapsGame 운영 중',
-  quad_interact:'교류',quad_create:'제작',quad_publish:'공개',quad_boards:'리더보드',
-  empty_interact:'레벨 공개 기능이 열리면 커뮤니티 레벨이 여기에 표시됩니다.',
-  empty_publish:'공개한 레벨과 그 통계가 여기에 표시됩니다.',
-  empty_boards:'리더보드는 플레이어 계정 도입과 함께 열립니다.',
+  hi_back:'다시 오신 것을 환영합니다',
+  quad_create:'제작',quad_explore:'탐험',
+  create_sub:'레벨을 만들고 소유한 번들을 편집하세요.',
+  explore_sub:'번들을 플레이하고 별을 모으세요.',
+  poss_bundles:n=>n+'님의 번들', bundles_generic:'내 번들',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
   products_label:'내 제품:',products_btn:'번들 열기',
   products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',
@@ -1041,10 +1041,11 @@ ko:{
 es:{
   nav_home:'Inicio',nav_play:'Jugar',nav_community:'Comunidad',
   hero_greet:'Buenos días, Arquitecto.',hero_sub:'Desarrollo en público · r/AkashicSwapsGame ya está activo',
-  quad_interact:'Interactuar',quad_create:'Crear',quad_publish:'Publicar',quad_boards:'Clasificaciones',
-  empty_interact:'Los niveles de la comunidad aparecerán aquí cuando se habilite la publicación.',
-  empty_publish:'Tus niveles publicados y sus estadísticas vivirán aquí.',
-  empty_boards:'Las clasificaciones se abrirán cuando lleguen las cuentas de jugador.',
+  hi_back:'Bienvenido de nuevo',
+  quad_create:'Crear',quad_explore:'Explora',
+  create_sub:'Crea niveles y edita cualquier paquete que tengas.',
+  explore_sub:'Juega tus paquetes y consigue estrellas.',
+  poss_bundles:n=>'Paquetes de '+n, bundles_generic:'Tus paquetes',
   btn_new_level:'+ Nuevo nivel',btn_new_level2:'+ Empezar un nuevo nivel',tmpl_label:'Empieza desde un clásico:',
   products_label:'Sus productos:',products_btn:'Abre tus paquetes',
   products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',
@@ -1127,6 +1128,7 @@ function applyLang(){
   });
   // language pickers: refresh current-code label + active-row highlight
   refreshLangPickers();
+  if(typeof updateHome==='function')updateHome(); // personalized greeting + bundle labels are dynamic, not data-i18n
 }
 let lastPView=null; // 'bundles' | 'grid' — re-render the player screen on switch
 function setLang(l){
@@ -1378,7 +1380,7 @@ document.getElementById('setup-confirm').addEventListener('click',()=>{
   openEditor();
 });
 
-['btn-new-level','btn-new-level2'].forEach(id=>{
+['btn-new-level'].forEach(id=>{
   document.getElementById(id).addEventListener('click',()=>{
     document.getElementById('inp-r').value=9;
     document.getElementById('inp-c').value=11;
@@ -1452,6 +1454,34 @@ function goHome(){
   GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
   editorBundle=null; // left the editor — no origin bundle to go back to
   saveTargetBundle=null; bundleEditNum=null; updateBundleSaveBtn(); // clear any bundle save-target
+  updateHome(); // repaint the personalized greeting + Create/Explore labels
+}
+
+// ── Personalized home (Jed 2026-08-12) ───────────────────────────────────────
+// The visitor's display name (signed-in username, else generated handle) drives
+// the greeting AND the "{name}'s Bundles" labels on both Create and Explore.
+function myName(){ return (window.AkashicID?AkashicID.name():'')||''; }
+// "{name}'s Bundles" in the active language (falls back to a generic label pre-ID).
+function possBundles(){ const n=myName(); return n?TXT('poss_bundles')(n):TXT('bundles_generic'); }
+// Stars earned across the built bundle (Bundle 1 = MVP-25): {have, max}.
+function bundleStarTotals(){ let have=0; for(let i=1;i<=MAX_BUILT_LEVEL;i++) have+=PlayerProgress.stars(i); return {have, max:MAX_BUILT_LEVEL*3}; }
+// Repaint the home greeting + the Create/Explore bundle labels. Safe to call any
+// time (no-ops when the home DOM isn't present); runs on load, language switch,
+// sign-in/out, and every return to home.
+function updateHome(){
+  const h=document.getElementById('home-greet');
+  if(h){ const n=myName(); h.textContent = n ? (LANG==='ko' ? (n+'님, '+TXT('hi_back')) : (TXT('hi_back')+', '+n)) : TXT('hi_back'); }
+  const cb=document.getElementById('home-create-bundles');
+  if(cb) cb.textContent='▸ '+possBundles();
+  const ex=document.getElementById('home-explore');
+  if(ex){
+    const t=bundleStarTotals();
+    ex.innerHTML='<div class="home-bundles-label">'+escHtml(possBundles())+'</div>'+
+      '<div class="home-bundle-card" onclick="renderBundles()">'+
+        '<span class="hb-name">'+TXT('bundle_title')+'</span>'+
+        '<span class="hb-stars">★ '+t.have+' / '+t.max+'</span>'+
+      '</div>';
+  }
 }
 
 // ── Their Products — a signed-in editor's owned bundles, each level openable ───
@@ -1480,7 +1510,7 @@ function closeProducts(){document.getElementById('products').classList.remove('o
 
 // Step 1 — list the editor's bundles.
 function renderProductsList(){
-  let html='<h2>'+TXT('products_title')+'</h2><div class="pmsg">'+TXT('products_msg')+'</div>';
+  let html='<h2>'+escHtml(possBundles())+'</h2><div class="pmsg">'+TXT('products_msg')+'</div>';
   PRODUCTS.forEach(p=>{
     html+='<div class="prod-card" onclick="renderBundleLevels(\''+p.id+'\')">'+
       '<div><div class="pc-name">'+TXT(p.nameKey)+'</div>'+
@@ -4815,11 +4845,15 @@ function renderBundles(){
   showPlayerShell();
   lastPView='bundles'; // language switch re-renders this screen
   document.getElementById('pback-top').style.display='none';
+  // "{name}'s Bundles" + the star total earned on each (Jed 2026-08-12: Explore
+  // shows the visitor's bundles with the stars on each).
+  const t=bundleStarTotals();
   document.getElementById('pbody').innerHTML=
+    '<div id="pgrid-title">'+escHtml(possBundles())+'</div>'+
     '<div class="bundle-card" onclick="renderGrid()">'+
       '<h2>'+TXT('bundle_title')+'</h2>'+
       '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
-      '<div class="bcount">'+TXT('bundle_n')+'</div>'+
+      '<div class="bcount">'+TXT('bundle_n')+' · ★ '+t.have+' / '+t.max+'</div>'+
       '<div class="bplay">'+TXT('bundle_play')+'</div>'+
     '</div>';
 }
