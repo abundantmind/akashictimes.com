@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- NATIVE FEEL (Jed 2026-07-17): no pinch zoom, edge-to-edge behind notches -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>About — Why Akashic Swaps Feels Different</title>
+
+  <!-- ── SEO — shareable manifesto page (Jed 2026-08-13, social push) ── -->
+  <meta name="description" content="Why Akashic Swaps feels different: every level is winnable, your first win is guaranteed, no timers, no energy, no pay-to-progress. Compete on pure skill; build and sell levels if you want."/>
+  <link rel="canonical" href="https://akashictimes.com/about/"/>
+  <meta property="og:title" content="Why Akashic Swaps Feels Different"/>
+  <meta property="og:description" content="Every level is winnable. No timers, no energy, no pay-to-progress. Beat your own score, then race the world on pure skill."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://akashictimes.com/about/"/>
+  <meta property="og:image" content="https://akashictimes.com/og-image.jpg"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+
+  <!-- Unmoatable Analytics — cookieless; no-ops on localhost. (Plausible tag intentionally
+       omitted here — it was never activated site-wide; new pages don't carry the dead tag.) -->
+  <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
+
+  <!-- Unpinchable on iOS Safari tabs: gesture events are Safari's only pinch hook -->
+  <script>['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();},{passive:false});});</script>
+
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Native-feel surface — selection stays ON, it's a document ── */
+    html { touch-action: pan-x pan-y; overscroll-behavior: none; }
+
+    /* ── Base — matches the landing page + privacy terminal aesthetic ── */
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0f0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Nav ── */
+    nav {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      padding: 18px 24px;
+      border-bottom: 1px solid #0a3a0a;
+      font-size: 0.85em;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    nav a { color: #0f0; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+    /* ── Language picker (icon → scrollable dropdown) ── */
+    .langpick { position: relative; display: inline-flex; }
+    .langpick-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid #0a3a0a; border-radius: 3px; color: #0f0; opacity: 0.7; cursor: pointer; font-family: 'Courier New', monospace; font-size: 1em; letter-spacing: 0.1em; padding: 3px 8px; text-transform: uppercase; transition: opacity 0.2s; }
+    .langpick-btn:hover { opacity: 1; }
+    .langpick-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .langpick-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 168px; max-height: 200px; overflow-y: auto; list-style: none; margin: 0; padding: 4px; background: #001200; border: 1px solid #0a3a0a; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); display: none; z-index: 1000; text-transform: none; }
+    .langpick.open .langpick-menu { display: block; }
+    .langpick-menu li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; color: #0f0; opacity: 0.65; white-space: nowrap; letter-spacing: 0.04em; }
+    .langpick-menu li:hover { opacity: 1; background: #002800; }
+    .langpick-menu li[aria-selected="true"] { opacity: 1; background: #052f05; }
+    .lp-code { font-weight: bold; width: 2.2em; }
+    .lp-name { flex: 1; }
+    .lp-flag { font-size: 1.05em; }
+
+    /* ── Content ── */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 720px;
+      padding: 48px 24px 80px;
+      line-height: 1.7;
+    }
+    h1 {
+      font-size: clamp(1.6em, 5vw, 2.4em);
+      letter-spacing: 0.06em;
+      margin-bottom: 32px;
+    }
+    p { opacity: 0.88; margin-bottom: 18px; }
+    /* the beat before the payoff — a lone line that lands */
+    .beat { opacity: 1; color: #6f6; letter-spacing: 0.04em; margin: 26px 0; }
+    .lede { opacity: 0.95; }
+    .sig { opacity: 0.55; margin-top: 28px; font-size: 0.9em; }
+    a { color: #0f0; }
+    /* ── CTA ── */
+    .cta {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 14px 30px;
+      background: #0f0;
+      color: #000;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      border-radius: 3px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .cta:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,255,0,0.25); color: #000; }
+
+    footer {
+      width: 100%;
+      padding: 18px 24px;
+      border-top: 1px solid #0a3a0a;
+      text-align: center;
+      font-size: 0.8em;
+      opacity: 0.5;
+      letter-spacing: 0.08em;
+    }
+    footer a { color: #0f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" data-i18n="nav_home">Home</a>
+    <a href="/about/" class="active" data-i18n="nav_about">About</a>
+    <a href="/history/" data-i18n="nav_history">History</a>
+    <a href="/privacy/" data-i18n="nav_privacy">Privacy</a>
+    <div class="langpick">
+      <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+        <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+        <span class="langpick-cur">EN</span>
+      </button>
+      <ul class="langpick-menu" role="listbox"></ul>
+    </div>
+  </nav>
+
+  <!-- ENGLISH — Jed's copy, verbatim (written by Haiku, kept word-for-word). -->
+  <main id="main-en">
+    <h1>Why Akashic Swaps Feels Different</h1>
+
+    <p class="lede">I built this because I got tired of match-3 games that feel like they're working against me.</p>
+
+    <p>You know the ones: you hit a level that's just... not winnable with the moves you're given. So you buy boosters. Or you wait for timers. Or you quit.</p>
+
+    <p>Here's what Akashic Swaps does instead:</p>
+
+    <p>Every level has a path to victory. Full stop. Your first win is guaranteed — no timers, no "you ran out of moves" traps. We just count how many moves it took you.</p>
+
+    <p>Then, if you want to get better, we give you something to chase: beat your own score. Get that second star. Then the third. It's you vs. you, not you vs. a paywall.</p>
+
+    <p class="beat">And then it gets fun.</p>
+
+    <p>Once you've mastered a bundle, you can reset it and play it all over again — but now you're racing against players worldwide. There are leaderboards for each level, each bundle. Pure skill. No spending required to compete.</p>
+
+    <p>The Marketplace part is optional: if you want to make levels instead of just playing them, you can. Build a bundle, publish it, earn money from players who buy it. Or just play levels other Architects created. Either way, you're not paying a subscription to play — only if you're building and want to sell.</p>
+
+    <p>No ads. No energy timers. No "buy this to progress."</p>
+
+    <p>Come try a level and see what I mean.</p>
+
+    <a class="cta" href="/editor/#enter" data-i18n="cta">Try a level →</a>
+  </main>
+
+  <!-- 한국어 — DRAFT translation; needs a native tone pass (Jed's daughter) before public reliance.
+       Voice: first-person builder, warm, plain. Keep "Akashic Swaps" / "Architect" as-is. -->
+  <main id="main-ko" style="display:none;">
+    <h1>아카식 스왑스가 다른 이유</h1>
+
+    <p class="lede">저를 상대로 싸우는 것 같은 매치-3 게임에 지쳐서 이걸 만들었습니다.</p>
+
+    <p>다들 아시죠: 주어진 이동 수로는 도저히 깰 수 없는 레벨에 막힙니다. 그래서 부스터를 삽니다. 아니면 타이머를 기다립니다. 아니면 그만둡니다.</p>
+
+    <p>아카식 스왑스는 대신 이렇게 합니다:</p>
+
+    <p>모든 레벨에는 승리로 가는 길이 있습니다. 예외 없이. 첫 승리는 보장됩니다 — 타이머도, "이동 수를 다 썼습니다" 같은 함정도 없습니다. 저희는 그저 몇 번 만에 깼는지 세어드릴 뿐입니다.</p>
+
+    <p>그다음, 더 잘하고 싶다면 도전할 목표를 드립니다: 자신의 기록을 깨세요. 두 번째 별을 얻으세요. 그리고 세 번째까지. 유료 장벽이 아니라, 나 자신과의 대결입니다.</p>
+
+    <p class="beat">그리고 여기서부터 재미있어집니다.</p>
+
+    <p>번들을 마스터하고 나면, 초기화해서 처음부터 다시 플레이할 수 있습니다 — 이번엔 전 세계 플레이어들과 겨루면서요. 레벨마다, 번들마다 리더보드가 있습니다. 순수한 실력. 경쟁하는 데 돈 쓸 필요 없습니다.</p>
+
+    <p>마켓플레이스는 선택입니다: 그냥 플레이하는 대신 레벨을 만들고 싶다면, 만들 수 있습니다. 번들을 짓고, 공개하고, 그것을 사는 플레이어들에게서 수익을 얻으세요. 아니면 다른 아키텍트가 만든 레벨을 그냥 플레이하세요. 어느 쪽이든, 플레이하는 데 구독료를 내지 않습니다 — 만들어서 팔고 싶을 때만 관계됩니다.</p>
+
+    <p>광고 없음. 에너지 타이머 없음. "진행하려면 구매하세요" 없음.</p>
+
+    <p>레벨 하나 해보시면 무슨 말인지 아실 겁니다.</p>
+
+    <a class="cta" href="/editor/#enter" data-i18n="cta">레벨 해보기 →</a>
+  </main>
+
+  <!-- Español — DRAFT (neutral es-419); needs a native tone pass (Venezuelan friend) before public reliance.
+       Voice: first-person builder, warm, plain. Keep "Akashic Swaps" / "Architect(s)" as-is. -->
+  <main id="main-es" style="display:none;">
+    <h1>Por qué Akashic Swaps se siente diferente</h1>
+
+    <p class="lede">Construí esto porque me cansé de los juegos match-3 que se sienten como si jugaran en mi contra.</p>
+
+    <p>Ya sabes cuáles: llegas a un nivel que simplemente... no se puede ganar con los movimientos que te dan. Entonces compras potenciadores. O esperas temporizadores. O lo dejas.</p>
+
+    <p>Esto es lo que Akashic Swaps hace en cambio:</p>
+
+    <p>Cada nivel tiene un camino a la victoria. Punto. Tu primera victoria está garantizada — sin temporizadores, sin trampas de "te quedaste sin movimientos". Solo contamos cuántos movimientos te tomó.</p>
+
+    <p>Luego, si quieres mejorar, te damos algo que perseguir: supera tu propia puntuación. Consigue esa segunda estrella. Después la tercera. Eres tú contra ti, no tú contra un muro de pago.</p>
+
+    <p class="beat">Y ahí es cuando se pone divertido.</p>
+
+    <p>Una vez que dominas un paquete, puedes reiniciarlo y jugarlo de nuevo — pero ahora compites contra jugadores de todo el mundo. Hay clasificaciones para cada nivel y cada paquete. Pura habilidad. No hace falta gastar para competir.</p>
+
+    <p>La parte del Mercado es opcional: si quieres crear niveles en vez de solo jugarlos, puedes. Arma un paquete, publícalo, gana dinero de los jugadores que lo compren. O simplemente juega niveles que crearon otros Architects. De cualquier forma, no pagas una suscripción por jugar — solo si estás creando y quieres vender.</p>
+
+    <p>Sin anuncios. Sin temporizadores de energía. Sin "compra esto para avanzar".</p>
+
+    <p>Ven, prueba un nivel y verás a qué me refiero.</p>
+
+    <a class="cta" href="/editor/#enter" data-i18n="cta">Prueba un nivel →</a>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/">Privacy</a></footer>
+
+  <script>
+    // ── i18n — EN + 한국어 + Español; same persisted key as the game/landing/privacy ──
+    (function(){
+      var NAV={en:{nav_home:'Home',nav_about:'About',nav_history:'History',nav_privacy:'Privacy',cta:'Try a level →'},
+               ko:{nav_home:'홈',nav_about:'소개',nav_history:'히스토리',nav_privacy:'개인정보',cta:'레벨 해보기 →'},
+               es:{nav_home:'Inicio',nav_about:'Acerca de',nav_history:'Historia',nav_privacy:'Privacidad',cta:'Prueba un nivel →'}};
+      var LANGS=[
+        {code:'en',label:'EN',name:'English',flag:'🇬🇧'},
+        {code:'ko',label:'KO',name:'한국어',flag:'🇰🇷'},
+        {code:'es',label:'ES',name:'Español',flag:'🇪🇸'}
+      ];
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')
+        ||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})();}catch(e){LANG='en';}
+      function apply(){
+        document.documentElement.lang=LANG;
+        // swap which manifesto body shows; en is the fallback for any unknown value
+        document.getElementById('main-ko').style.display=LANG==='ko'?'':'none';
+        document.getElementById('main-es').style.display=LANG==='es'?'':'none';
+        document.getElementById('main-en').style.display=(LANG!=='ko'&&LANG!=='es')?'':'none';
+        var d=NAV[LANG]||NAV.en;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
+        });
+        refreshPickers();
+      }
+      function menuHTML(){return LANGS.map(function(l){return '<li role="option" data-lang="'+l.code+'" tabindex="0">'
+        +'<span class="lp-code">'+l.label+'</span><span class="lp-name">'+l.name+'</span><span class="lp-flag">'+l.flag+'</span></li>';}).join('');}
+      function closeMenus(){var o=document.querySelectorAll('.langpick.open');for(var i=0;i<o.length;i++){o[i].classList.remove('open');o[i].querySelector('.langpick-btn').setAttribute('aria-expanded','false');}}
+      function refreshPickers(){
+        var cur=null;for(var i=0;i<LANGS.length;i++){if(LANGS[i].code===LANG)cur=LANGS[i];}if(!cur)cur=LANGS[0];
+        var picks=document.querySelectorAll('.langpick');
+        for(var j=0;j<picks.length;j++){
+          var lab=picks[j].querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;
+          var lis=picks[j].querySelectorAll('li[data-lang]');
+          for(var k=0;k<lis.length;k++){lis[k].setAttribute('aria-selected',lis[k].dataset.lang===LANG?'true':'false');}
+        }
+      }
+      function pick(code){LANG=code;try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}apply();}
+      document.querySelectorAll('.langpick').forEach(function(p){
+        var menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+        menu.innerHTML=menuHTML();
+        btn.addEventListener('click',function(ev){ev.stopPropagation();var open=p.classList.contains('open');closeMenus();if(!open){p.classList.add('open');btn.setAttribute('aria-expanded','true');}});
+        menu.addEventListener('click',function(ev){var li=ev.target.closest('li[data-lang]');if(!li)return;pick(li.dataset.lang);closeMenus();});
+      });
+      document.addEventListener('click',closeMenus);
+      document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeMenus();});
+      apply();
+    })();
+  </script>
+</body>
+</html>
