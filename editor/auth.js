@@ -251,8 +251,10 @@ function refreshUI(){
     renderGrid();
   }
   // Once a session resolves, the username override may have changed — repaint the
-  // editor home so "Welcome back, {name}" + the bundle labels reflect it.
+  // editor home + Profile menu so "Welcome back, {name}", the bundle labels, and
+  // the profile name/sign-in state all reflect it.
   if(typeof window.updateHome === 'function') window.updateHome();
+  if(typeof window.updateProfile === 'function') window.updateProfile();
 }
 
 // ── wire-up on load ──────────────────────────────────────────────────────────

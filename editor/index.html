@@ -96,6 +96,42 @@ body.font-lg{--base-font:20px;}
 .langpick-menu li:hover{background:#1a1030;}
 .langpick-menu li[aria-selected="true"]{background:#1e1230;}
 .langpick-menu li[aria-selected="true"] .lp-code{color:#fff;}
+/* ── Profile menu (Jed 2026-08-13): replaces the standalone language picker;
+   language + Settings + sign-in/out live inside it. ── */
+.profilemenu{position:relative;display:inline-flex;}
+.profile-btn{display:inline-flex;align-items:center;gap:7px;font-size:var(--fz-ui);padding:5px 10px;border:0.5px solid #3d2060;border-radius:4px;background:transparent;color:#c792ea;cursor:pointer;font-family:var(--font-sans);max-width:180px;}
+.profile-btn:hover{background:#1a1030;}
+.profile-ico{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+.profile-name{letter-spacing:0.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.profile-drop{position:absolute;top:calc(100% + 6px);right:0;min-width:230px;padding:8px;background:#130a20;border:0.5px solid #3d2060;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:none;z-index:1000;}
+.profilemenu.open .profile-drop{display:block;}
+.profile-head{padding:6px 10px 10px;border-bottom:0.5px solid #2d2040;margin-bottom:6px;text-align:left;}
+.profile-head .ph-name{color:#d8c8ee;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.profile-head .ph-sub{font-size:var(--fz-xs);color:#887a9a;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.profile-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 10px;border:0;border-radius:5px;background:transparent;color:#c8b8e0;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
+.profile-item:hover{background:#1a1030;color:#e0d0ff;}
+.pi-ico{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+.profile-langlabel{font-size:var(--fz-xs);color:#887a9a;text-transform:uppercase;letter-spacing:0.06em;padding:10px 10px 4px;text-align:left;}
+.profile-langrow{display:flex;gap:6px;padding:2px 6px 4px;}
+.profile-langrow button{flex:1;padding:6px 4px;border:0.5px solid #3d2060;border-radius:5px;background:transparent;color:#c792ea;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-xs);}
+.profile-langrow button:hover{background:#1a1030;}
+.profile-langrow button.active{background:#1e1230;border-color:#6a4aaa;color:#fff;}
+/* Settings modal */
+#settings{position:fixed;inset:0;background:rgba(13,10,20,.94);display:none;align-items:center;justify-content:center;z-index:230;padding:24px;}
+#settings.open{display:flex;}
+#settings .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:28px 32px;max-width:440px;width:calc(100% - 48px);text-align:left;}
+#settings h2{color:#c792ea;font-weight:500;margin-bottom:6px;}
+.set-sub{font-size:var(--fz-sm);color:#887a9a;margin-bottom:22px;}
+.set-label{display:block;font-size:var(--fz-sm);color:#c8b8e0;margin-bottom:6px;}
+#settings-name{width:100%;padding:10px 12px;background:#0d0a14;border:0.5px solid #3d2060;border-radius:6px;color:#e0d0ff;font-family:var(--font-sans);font-size:var(--fz-base);}
+#settings-name:focus{outline:none;border-color:#6a4aaa;}
+.set-hint{font-size:var(--fz-xs);color:#776a8a;margin-top:8px;line-height:1.45;}
+.set-linkbtn{background:transparent;border:0;color:#9a86b8;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-xs);text-decoration:underline;padding:0;margin-top:10px;}
+.set-linkbtn:hover{color:#c792ea;}
+.set-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;}
+.set-actions button{padding:9px 20px;border-radius:6px;border:0.5px solid #3d2060;background:transparent;color:#c8b8e0;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
+.set-actions .set-save{background:#2a1d48;border-color:#6a4aaa;color:#e0d0ff;}
+.set-actions button:hover{border-color:#c792ea;}
 .lp-code{font-weight:600;letter-spacing:0.06em;width:2.2em;color:#a481c4;}
 .lp-name{flex:1;color:#c8bfe0;}
 .lp-flag{font-size:1.05em;}
@@ -535,12 +571,25 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <button class="navbtn active" data-i18n="nav_home">Home</button>
       <button class="navbtn" data-i18n="nav_play" onclick="renderBundles()">Play</button>
       <button class="navbtn" data-i18n="nav_community" onclick="window.open('https://www.reddit.com/r/AkashicSwapsGame/','_blank','noopener')">Community</button>
-      <div class="langpick">
-        <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
-          <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
-          <span class="langpick-cur">EN</span>
+      <a class="navbtn" href="/about/" data-i18n="nav_about">About</a>
+      <!-- Profile menu (Jed 2026-08-13): replaces the language picker; language,
+           Settings, sign-in/out live inside it. -->
+      <div class="profilemenu">
+        <button class="profile-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Profile" onclick="toggleProfile(this)">
+          <svg class="profile-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4.2 3.5-6.6 7.5-6.6s7.5 2.4 7.5 6.6"/></svg>
+          <span class="profile-name"></span>
         </button>
-        <ul class="langpick-menu" role="listbox"></ul>
+        <div class="profile-drop">
+          <div class="profile-head"><div class="ph-name"></div><div class="ph-sub"></div></div>
+          <button class="profile-item" onclick="openSettings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg><span data-i18n="settings">Settings</span></button>
+          <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
+          <div class="profile-langlabel" data-i18n="language">Language</div>
+          <div class="profile-langrow">
+            <button data-lang="en" onclick="setLang('en')">EN</button>
+            <button data-lang="ko" onclick="setLang('ko')">KO</button>
+            <button data-lang="es" onclick="setLang('es')">ES</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -780,14 +829,26 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
          onclick="location.href='/'"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.href='/';}"><span class="wordmark">AkashicSwaps</span><span class="edition">Play</span></div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <div class="langpick">
-        <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
-          <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
-          <span class="langpick-cur">EN</span>
-        </button>
-        <ul class="langpick-menu" role="listbox"></ul>
-      </div>
       <button class="pback" id="pback-top" data-i18n="pback_bundles" onclick="playerBack()" style="display:none;">← Bundles</button>
+      <a class="navbtn" href="/about/" data-i18n="nav_about">About</a>
+      <!-- Profile menu — same component as the home topbar. -->
+      <div class="profilemenu">
+        <button class="profile-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Profile" onclick="toggleProfile(this)">
+          <svg class="profile-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4.2 3.5-6.6 7.5-6.6s7.5 2.4 7.5 6.6"/></svg>
+          <span class="profile-name"></span>
+        </button>
+        <div class="profile-drop">
+          <div class="profile-head"><div class="ph-name"></div><div class="ph-sub"></div></div>
+          <button class="profile-item" onclick="openSettings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg><span data-i18n="settings">Settings</span></button>
+          <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
+          <div class="profile-langlabel" data-i18n="language">Language</div>
+          <div class="profile-langrow">
+            <button data-lang="en" onclick="setLang('en')">EN</button>
+            <button data-lang="ko" onclick="setLang('ko')">KO</button>
+            <button data-lang="es" onclick="setLang('es')">ES</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <div id="pbody"><!-- bundle or grid rendered here --></div>
@@ -856,6 +917,21 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
      .wbox by renderProductsList()/renderBundleLevels(): products → levels → edit. -->
 <div id="products"><div class="wbox"></div></div>
 
+<!-- Settings — edit your display name (the username override on top of the
+     generated handle). Opened from the Profile menu (Jed 2026-08-13). -->
+<div id="settings"><div class="wbox">
+  <h2 data-i18n="settings_title">Settings</h2>
+  <div class="set-sub" data-i18n="settings_sub">Your name and preferences.</div>
+  <label class="set-label" for="settings-name" data-i18n="settings_name">Display name</label>
+  <input id="settings-name" type="text" maxlength="24" autocomplete="off" spellcheck="false" />
+  <div class="set-hint" data-i18n="settings_name_hint">This is how you appear in greetings and on leaderboards. Leave blank to use your generated name.</div>
+  <button class="set-linkbtn" onclick="resetNameToHandle()" data-i18n="settings_reset">Use my generated name instead</button>
+  <div class="set-actions">
+    <button class="set-cancel" onclick="closeSettings()" data-i18n="settings_close">Close</button>
+    <button class="set-save" onclick="saveSettings()" data-i18n="settings_save">Save</button>
+  </div>
+</div></div>
+
 <!-- Qualifying Level intro — brief timed popup at entrance start -->
 <div id="qintro" onclick="dismissQIntro()">
   <div class="wbox">
@@ -913,6 +989,10 @@ en:{
   poss_bundles:n=>n+'’s Bundles', bundles_generic:'Your Bundles',
   back_landing:'← Back to landing',
   edition_editor:'Level Editor',edition_market:'Match 3 Marketplace',
+  nav_about:'About',settings:'Settings',language:'Language',profile_anon:'Not signed in',
+  settings_title:'Settings',settings_sub:'Your name and preferences.',settings_name:'Display name',
+  settings_name_hint:'This is how you appear in greetings and on leaderboards. Leave blank to use your generated name.',
+  settings_reset:'Use my generated name instead',settings_close:'Close',settings_save:'Save',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
   products_label:'Their Products:',products_btn:'Open your Bundles',
   products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',
@@ -986,6 +1066,10 @@ ko:{
   poss_bundles:n=>n+'님의 번들', bundles_generic:'내 번들',
   back_landing:'← 랜딩으로 돌아가기',
   edition_editor:'레벨 에디터',edition_market:'매치 3 마켓플레이스',
+  nav_about:'소개',settings:'설정',language:'언어',profile_anon:'로그인 안 됨',
+  settings_title:'설정',settings_sub:'이름과 환경 설정.',settings_name:'표시 이름',
+  settings_name_hint:'인사말과 리더보드에 표시되는 이름입니다. 비워 두면 자동 생성된 이름이 사용됩니다.',
+  settings_reset:'자동 생성된 이름 사용',settings_close:'닫기',settings_save:'저장',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
   products_label:'내 제품:',products_btn:'번들 열기',
   products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',
@@ -1064,6 +1148,10 @@ es:{
   poss_bundles:n=>'Paquetes de '+n, bundles_generic:'Tus paquetes',
   back_landing:'← Volver al inicio',
   edition_editor:'Editor de Niveles',edition_market:'Mercado Match 3',
+  nav_about:'Acerca de',settings:'Ajustes',language:'Idioma',profile_anon:'Sin sesión',
+  settings_title:'Ajustes',settings_sub:'Tu nombre y preferencias.',settings_name:'Nombre visible',
+  settings_name_hint:'Así apareces en los saludos y en las clasificaciones. Déjalo en blanco para usar tu nombre generado.',
+  settings_reset:'Usar mi nombre generado',settings_close:'Cerrar',settings_save:'Guardar',
   btn_new_level:'+ Nuevo nivel',btn_new_level2:'+ Empezar un nuevo nivel',tmpl_label:'Empieza desde un clásico:',
   products_label:'Sus productos:',products_btn:'Abre tus paquetes',
   products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',
@@ -1148,11 +1236,61 @@ function applyLang(){
   refreshLangPickers();
   if(typeof updateHome==='function')updateHome(); // personalized greeting + bundle labels are dynamic, not data-i18n
   if(typeof applyEdition==='function')applyEdition(); // edition subtitle is path-driven, not data-i18n
+  if(typeof updateProfile==='function')updateProfile(); // profile name + active-language highlight
 }
 // The topbar edition subtitle reflects WHO the visitor is (Jed 2026-08-13):
 // Architect path → "Level Editor"; everyone else → "Match 3 Marketplace".
 function editionText(){ return isArchitect()?TXT('edition_editor'):TXT('edition_market'); }
 function applyEdition(){ document.querySelectorAll('.edition').forEach(e=>e.textContent=editionText()); }
+
+// ── Profile menu + Settings (Jed 2026-08-13) ─────────────────────────────────
+// Profile replaces the language picker (language now lives inside it). Settings
+// edits the display name — the username override on top of the generated handle
+// (identity.js). One Profile component appears in both the home + player topbars.
+function closeProfileMenus(){ document.querySelectorAll('.profilemenu.open').forEach(m=>{m.classList.remove('open');const b=m.querySelector('.profile-btn');if(b)b.setAttribute('aria-expanded','false');}); }
+function toggleProfile(btn){
+  const m=btn.closest('.profilemenu'); const wasOpen=m.classList.contains('open');
+  closeProfileMenus();
+  if(!wasOpen){ m.classList.add('open'); btn.setAttribute('aria-expanded','true'); }
+}
+document.addEventListener('click',e=>{ if(!e.target.closest('.profilemenu')) closeProfileMenus(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeProfileMenus(); closeSettings(); } });
+// Reflect current identity + language into EVERY Profile menu instance.
+function updateProfile(){
+  const nm=(window.AkashicID?AkashicID.name():'')||'';
+  document.querySelectorAll('.profile-name,.profile-head .ph-name').forEach(e=>e.textContent=nm);
+  const signedIn=!!(window.AkashicAuth&&AkashicAuth.user);
+  document.querySelectorAll('.profile-head .ph-sub').forEach(e=>e.textContent=signedIn?(AkashicAuth.user.email||''):TXT('profile_anon'));
+  document.querySelectorAll('.profile-auth-label').forEach(e=>e.textContent=signedIn?TXT('auth_signout'):TXT('auth_signin'));
+  // hide the auth row entirely if the auth module isn't present
+  document.querySelectorAll('.profile-auth').forEach(e=>e.style.display=(window.AkashicAuth?'':'none'));
+  document.querySelectorAll('.profile-langrow button').forEach(b=>b.classList.toggle('active',b.dataset.lang===LANG));
+}
+function profileAuth(){ closeProfileMenus(); if(!window.AkashicAuth)return; if(AkashicAuth.user)AkashicAuth.signOut(); else AkashicAuth.open(); }
+// The generated handle, prettified (title-cased) — shown as the Settings placeholder.
+function genNamePretty(){ const h=window.AkashicID?AkashicID.rawHandle():''; return h?h.split('-').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '):''; }
+function openSettings(){
+  closeProfileMenus();
+  const inp=document.getElementById('settings-name');
+  if(inp){ inp.value=(window.AkashicID?AkashicID.username():'')||''; inp.placeholder=genNamePretty(); }
+  document.getElementById('settings').classList.add('open');
+  if(inp) setTimeout(()=>inp.focus(),30);
+}
+function closeSettings(){ const s=document.getElementById('settings'); if(s)s.classList.remove('open'); }
+function saveSettings(){
+  const inp=document.getElementById('settings-name'); if(!inp)return;
+  const v=inp.value.trim();
+  if(window.AkashicID){ v?AkashicID.setUsername(v):AkashicID.clearUsername(); } // blank = revert to generated handle
+  closeSettings(); refreshIdentityUI();
+}
+function resetNameToHandle(){ const inp=document.getElementById('settings-name'); if(inp){ inp.value=''; inp.focus(); } } // blank + Save = use the generated name
+// Repaint everything that shows the name after an identity change.
+function refreshIdentityUI(){
+  if(typeof updateHome==='function')updateHome();
+  if(typeof updateProfile==='function')updateProfile();
+  if(typeof applyEdition==='function')applyEdition();
+  const p=document.getElementById('products'); if(p&&p.classList.contains('open')&&typeof renderProductsList==='function'&&!productsView)renderProductsList();
+}
 let lastPView=null; // 'bundles' | 'grid' — re-render the player screen on switch
 function setLang(l){
   LANG=l;localStorage.setItem('akashicswaps-lang',l);
