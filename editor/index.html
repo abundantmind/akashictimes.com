@@ -883,6 +883,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   <div class="celewrap" id="cele-wrap"></div>
 </div>
 
+<!-- Persistent visitor identity (generated handle / signed-in username) — loaded
+     before the game script so AkashicID is ready; shared same-origin with landing. -->
+<script src="/identity.js"></script>
 <script>
 // ── i18n — English + 한국어 ────────────────────────────────────────────────────
 // Player-facing strings only; the editor tooling (palette, toolbar, status bar)
@@ -5466,7 +5469,8 @@ function showEntranceChoice(){
   // Jed's call — entrance spec settled). No server/database: clearing site data
   // (or a different browser/device) re-qualifies. #dev remains the instant bypass.
   localStorage.setItem('akashicswaps-qualified','1');
-  qlog('qualified — persisted to localStorage');
+  if(window.AkashicID)AkashicID.ensure(); // mint the persistent handle NOW, so the "Welcome back, {name}" greeting has a name whichever path they pick next
+  qlog('qualified — persisted to localStorage; identity ensured: '+(window.AkashicID?AkashicID.rawHandle():'n/a'));
   if(QUALIFY_SURVEY_URL){
     qlog('survey modal shown');
     document.getElementById('qsurvey').classList.add('open');

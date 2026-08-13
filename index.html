@@ -279,6 +279,9 @@
 
   <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/" data-i18n="lnk_privacy">Privacy</a></footer>
 
+  <!-- Persistent visitor identity (generated handle / signed-in username) — shared
+       same-origin with the game so the ID minted in-game is the one we greet here. -->
+  <script src="/identity.js"></script>
   <script>
     // ── i18n — EN + 한국어 + Español, shared with the game via localStorage (same origin) ──
     (function(){
@@ -325,12 +328,15 @@
           var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
         });
         refreshPickers();
-        // CTA: qualified visitors get their earned greeting, in their language
+        // CTA: qualified visitors get greeted BY NAME, in their language — the
+        // persistent identity (signed-in username, else generated handle) survives
+        // whichever path they took (Jed 2026-08-12). Unqualified → the qualify CTA.
         var cta=d.cta;
         try{
           if(localStorage.getItem('akashicswaps-qualified')==='1'){
-            var path=localStorage.getItem('akashicswaps-path');
-            cta=path==='architect'?d.hi_arch:path==='explorer'?d.hi_exp:d.hi_back;
+            var who=window.AkashicID?AkashicID.name():'';
+            // KO puts the name first with the 님 honorific; EN/ES append after a comma.
+            cta=who?(LANG==='ko'?(who+'님, '+d.hi_back):(d.hi_back+', '+who)):d.hi_back;
           }
         }catch(e){/* storage blocked — keep the default CTA */}
         document.getElementById('cta-main').textContent=cta;

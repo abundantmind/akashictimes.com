@@ -21,6 +21,21 @@ const LS = {
   lang:     'akashicswaps-lang'       // 'en' | 'ko'
 };
 
+// ── USERNAME BRIDGE (temporary, Jed 2026-08-12 "handle now, username later") ──
+// There is no username column on profiles yet — that folds into the held db/002
+// migration. Until then, a signed-in visitor's chosen display name lives in the
+// same localStorage override AkashicID reads, seeded here from a small known-account
+// map so editor #1 is greeted "Welcome back, AbundantMind". When db/002 adds the
+// real field, replace this map with a profiles.username select in reconcile().
+const SEED_USERNAMES = {
+  'jed.mitchener@gmail.com': 'AbundantMind'
+};
+function seedUsername(user){
+  if(!window.AkashicID || !user) return;
+  const u = SEED_USERNAMES[(user.email || '').toLowerCase()];
+  if(u) AkashicID.setUsername(u); // overrides the generated handle in the greeting
+}
+
 // ── i18n for auth strings (EN + KR) — the game's I18N table is player-facing;
 // we register our keys into it so TXT() and setLang() pick them up for free.
 const AUTH_I18N = {
@@ -254,9 +269,13 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   AkashicAuth.user = session ? session.user : null;
   if(event === 'SIGNED_IN' && AkashicAuth.user){
     AkashicAuth.close();
+    seedUsername(AkashicAuth.user); // bridge: greet known accounts by their real name
     const status = document.getElementById('auth-status');
     if(status) status.textContent = TXT('auth_syncing');
     try { await reconcile(AkashicAuth.user.id); } catch(e){ console.warn('[auth] reconcile failed', e); }
+  }
+  if(event === 'SIGNED_OUT' && window.AkashicID){
+    AkashicID.clearUsername(); // drop the real-name override; the generated handle stays as the anon identity
   }
   refreshUI();
 });
@@ -266,6 +285,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 (async () => {
   const { data } = await supabase.auth.getSession();
   AkashicAuth.user = data.session ? data.session.user : null;
+  seedUsername(AkashicAuth.user); // returning signed-in visitor → seed their name for the greeting
   AkashicAuth.ready = true;
   refreshUI();
 })();
