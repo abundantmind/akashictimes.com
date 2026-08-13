@@ -912,6 +912,7 @@ en:{
   explore_sub:'Play your bundles and chase stars.',
   poss_bundles:n=>n+'’s Bundles', bundles_generic:'Your Bundles',
   back_landing:'← Back to landing',
+  edition_editor:'Level Editor',edition_market:'Match 3 Marketplace',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
   products_label:'Their Products:',products_btn:'Open your Bundles',
   products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',
@@ -984,6 +985,7 @@ ko:{
   explore_sub:'번들을 플레이하고 별을 모으세요.',
   poss_bundles:n=>n+'님의 번들', bundles_generic:'내 번들',
   back_landing:'← 랜딩으로 돌아가기',
+  edition_editor:'레벨 에디터',edition_market:'매치 3 마켓플레이스',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
   products_label:'내 제품:',products_btn:'번들 열기',
   products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',
@@ -1061,6 +1063,7 @@ es:{
   explore_sub:'Juega tus paquetes y consigue estrellas.',
   poss_bundles:n=>'Paquetes de '+n, bundles_generic:'Tus paquetes',
   back_landing:'← Volver al inicio',
+  edition_editor:'Editor de Niveles',edition_market:'Mercado Match 3',
   btn_new_level:'+ Nuevo nivel',btn_new_level2:'+ Empezar un nuevo nivel',tmpl_label:'Empieza desde un clásico:',
   products_label:'Sus productos:',products_btn:'Abre tus paquetes',
   products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',
@@ -1144,7 +1147,12 @@ function applyLang(){
   // language pickers: refresh current-code label + active-row highlight
   refreshLangPickers();
   if(typeof updateHome==='function')updateHome(); // personalized greeting + bundle labels are dynamic, not data-i18n
+  if(typeof applyEdition==='function')applyEdition(); // edition subtitle is path-driven, not data-i18n
 }
+// The topbar edition subtitle reflects WHO the visitor is (Jed 2026-08-13):
+// Architect path → "Level Editor"; everyone else → "Match 3 Marketplace".
+function editionText(){ return isArchitect()?TXT('edition_editor'):TXT('edition_market'); }
+function applyEdition(){ document.querySelectorAll('.edition').forEach(e=>e.textContent=editionText()); }
 let lastPView=null; // 'bundles' | 'grid' — re-render the player screen on switch
 function setLang(l){
   LANG=l;localStorage.setItem('akashicswaps-lang',l);
