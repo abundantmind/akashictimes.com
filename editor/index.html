@@ -105,8 +105,19 @@ body.font-lg{--base-font:20px;}
 .hstat{text-align:right;}
 .hstat .n{font-size:var(--fz-2xl);font-weight:500;color:#c792ea;}
 .hstat .l{font-size:var(--fz-sm);color:#554470;text-transform:uppercase;letter-spacing:0.08em;}
-/* Two authorized paths stacked VERTICALLY (Jed 2026-08-13) — Create above Explore. */
-#grid{display:grid;grid-template-columns:1fr;gap:16px;padding:16px 20px 20px;flex:1;align-content:start;}
+/* Centered home menu (Jed 2026-08-13): two well-sized buttons stacked in the
+   middle of the screen, + a back-to-landing button. */
+#home-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:24px;}
+#home-center #hero{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:0;margin:0;}
+.home-choices{display:flex;flex-direction:column;gap:16px;width:100%;max-width:440px;}
+.home-choice{display:flex;align-items:center;gap:16px;text-align:left;background:#130a20;border:0.5px solid #3d2060;border-radius:var(--border-radius-lg,12px);padding:22px 24px;cursor:pointer;transition:border-color .2s,transform .2s;font-family:inherit;}
+.home-choice:hover{border-color:#c792ea;transform:translateY(-2px);}
+.hc-icon{font-size:26px;width:46px;height:46px;flex:none;display:flex;align-items:center;justify-content:center;background:#1a1030;border-radius:10px;color:#c792ea;}
+.hc-text{display:flex;flex-direction:column;gap:3px;}
+.hc-title{font-size:var(--fz-xl);color:#d8c8ee;font-weight:500;}
+.hc-sub{font-size:var(--fz-sm);color:#887a9a;line-height:1.35;}
+.home-back{background:transparent;border:0.5px solid #2d2040;border-radius:8px;color:#887a9a;padding:9px 22px;cursor:pointer;font-family:inherit;font-size:var(--fz-sm);}
+.home-back:hover{border-color:#c792ea;color:#c792ea;}
 .home-sub{font-size:var(--fz-sm);color:#887a9a;padding:2px 0 8px;}
 .home-bundles-label{font-size:var(--fz-ui);color:#9a86b8;text-transform:uppercase;letter-spacing:0.06em;margin:2px 0 8px;}
 .home-bundle-card{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#160f24;border:0.5px solid #2d2040;border-radius:var(--border-radius,8px);padding:12px 14px;cursor:pointer;margin-bottom:8px;}
@@ -525,38 +536,29 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       </div>
     </div>
   </div>
-  <div id="hero">
-    <div>
+  <!-- Centered home menu (Jed 2026-08-13): "Welcome back, {name}" then two
+       well-sized buttons stacked — CREATE (author + edit their bundles) and
+       EXPLORE (play their bundles, chase stars) — plus a back-to-landing button.
+       Both paths are keyed to the unique ID; the "{name}'s Bundles" labels live
+       in the destinations (picker + play view). Replaces the old 4-quad home. -->
+  <div id="home-center">
+    <div id="hero">
       <!-- Personalized greeting — set by updateHome() to "Welcome back, {name}"
            using the persistent identity (AkashicID). Static text is a fallback. -->
       <h1 id="home-greet" data-i18n="hi_back">Welcome back</h1>
       <p data-i18n="hero_sub">Built in public · r/AkashicSwapsGame is live</p>
     </div>
-  </div>
-  <!-- Two authorized paths (Jed 2026-08-12): after "Welcome back, {name}" the
-       visitor chooses CREATE (author + edit their bundles) or EXPLORE (play their
-       bundles, chase stars). Both are keyed to the unique ID. Replaces the old
-       4-quadrant home (Interact/Create/Publish/Leaderboards). -->
-  <div id="grid">
-    <!-- CREATE — author + edit the visitor's own bundles -->
-    <div class="quad">
-      <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-create">✏</div><span class="quad-name" data-i18n="quad_create">Create</span></div>
-        <button class="quad-action primary" id="btn-new-level" data-i18n="btn_new_level">+ New level</button>
-      </div>
-      <div class="home-sub" data-i18n="create_sub">Build levels and edit any bundle you own.</div>
-      <!-- "{name}'s Bundles" — the label text is filled by updateHome(). -->
-      <button class="new-btn" onclick="openProducts()"><span id="home-create-bundles"></span></button>
+    <div class="home-choices">
+      <button class="home-choice" onclick="openProducts()">
+        <span class="hc-icon">✏</span>
+        <span class="hc-text"><span class="hc-title" data-i18n="quad_create">Create</span><span class="hc-sub" data-i18n="create_sub">Build levels and edit any bundle you own.</span></span>
+      </button>
+      <button class="home-choice" onclick="renderBundles()">
+        <span class="hc-icon">▦</span>
+        <span class="hc-text"><span class="hc-title" data-i18n="quad_explore">Explore</span><span class="hc-sub" data-i18n="explore_sub">Play your bundles and chase stars.</span></span>
+      </button>
     </div>
-    <!-- EXPLORE — play the visitor's bundles, with stars earned on each -->
-    <div class="quad">
-      <div class="quad-header">
-        <div class="quad-title"><div class="quad-icon qi-interact">▦</div><span class="quad-name" data-i18n="quad_explore">Explore</span></div>
-      </div>
-      <div class="home-sub" data-i18n="explore_sub">Play your bundles and chase stars.</div>
-      <!-- "{name}'s Bundles" + a card per bundle with its star total; filled by updateHome(). -->
-      <div id="home-explore"></div>
-    </div>
+    <button class="home-back" onclick="location.href='/'" data-i18n="back_landing">← Back to landing</button>
   </div>
 </div>
 
@@ -899,6 +901,7 @@ en:{
   create_sub:'Build levels and edit any bundle you own.',
   explore_sub:'Play your bundles and chase stars.',
   poss_bundles:n=>n+'’s Bundles', bundles_generic:'Your Bundles',
+  back_landing:'← Back to landing',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
   products_label:'Their Products:',products_btn:'Open your Bundles',
   products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',
@@ -970,6 +973,7 @@ ko:{
   create_sub:'레벨을 만들고 소유한 번들을 편집하세요.',
   explore_sub:'번들을 플레이하고 별을 모으세요.',
   poss_bundles:n=>n+'님의 번들', bundles_generic:'내 번들',
+  back_landing:'← 랜딩으로 돌아가기',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
   products_label:'내 제품:',products_btn:'번들 열기',
   products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',
@@ -1046,6 +1050,7 @@ es:{
   create_sub:'Crea niveles y edita cualquier paquete que tengas.',
   explore_sub:'Juega tus paquetes y consigue estrellas.',
   poss_bundles:n=>'Paquetes de '+n, bundles_generic:'Tus paquetes',
+  back_landing:'← Volver al inicio',
   btn_new_level:'+ Nuevo nivel',btn_new_level2:'+ Empezar un nuevo nivel',tmpl_label:'Empieza desde un clásico:',
   products_label:'Sus productos:',products_btn:'Abre tus paquetes',
   products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',
@@ -1380,16 +1385,16 @@ document.getElementById('setup-confirm').addEventListener('click',()=>{
   openEditor();
 });
 
-['btn-new-level'].forEach(id=>{
-  document.getElementById(id).addEventListener('click',()=>{
-    document.getElementById('inp-r').value=9;
-    document.getElementById('inp-c').value=11;
-    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('selected'));
-    document.getElementById('pre-township').classList.add('selected');
-    validateSetup();
-    document.getElementById('setup-wrap').classList.add('open');
-  });
-});
+// Open the grid-size setup modal for a fresh blank level (Township 9×11 default).
+// Reached from the bundle picker's "+ New level" now that the home is button-only.
+function openNewLevel(){
+  document.getElementById('inp-r').value=9;
+  document.getElementById('inp-c').value=11;
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('pre-township').classList.add('selected');
+  validateSetup();
+  document.getElementById('setup-wrap').classList.add('open');
+}
 
 function openEditor(){
   document.getElementById('setup-wrap').classList.remove('open');
@@ -1525,6 +1530,7 @@ function renderProductsList(){
       '<div class="pc-arrow">→</div></div>';
   });
   html+='<button class="prod-close" style="background:#2a1d48;color:#c8a8ff;border-color:#6a4aaa;margin-bottom:8px;" onclick="createBundle()">+ New bundle</button>';
+  html+='<button class="prod-close" style="margin-bottom:8px;" onclick="closeProducts();openNewLevel()">'+TXT('btn_new_level')+'</button>';
   html+='<button class="prod-close" onclick="closeProducts()">'+TXT('products_close')+'</button>';
   document.querySelector('#products .wbox').innerHTML=html;
 }
