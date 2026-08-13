@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>How to Play — Akashic Swaps</title>
+
+  <meta name="description" content="How to play Akashic Swaps: make each power-up (Grasshopper, Dragonfly, Scarab, Akasha Ball) and combine any two into 10 different blasts."/>
+  <link rel="canonical" href="https://akashictimes.com/how-to-play/"/>
+  <meta property="og:title" content="How to Play — Akashic Swaps"/>
+  <meta property="og:description" content="Make four power-ups, then combine any two into ten different blasts. Diagrams for every match and every combo."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://akashictimes.com/how-to-play/"/>
+  <meta property="og:image" content="https://akashictimes.com/og-image.jpg"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+
+  <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
+  <script>['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();},{passive:false});});</script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { touch-action: pan-x pan-y; overscroll-behavior: none; }
+    body {
+      font-family: 'Courier New', monospace; background: #000; color: #0f0;
+      min-height: 100vh; min-height: 100dvh; overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      display: flex; flex-direction: column; align-items: center;
+    }
+    nav { width: 100%; display: flex; justify-content: center; gap: 28px; padding: 18px 24px; border-bottom: 1px solid #0a3a0a; font-size: 0.82em; letter-spacing: 0.1em; text-transform: uppercase; flex-wrap: wrap; }
+    nav a { color: #0f0; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+    .langpick { position: relative; display: inline-flex; }
+    .langpick-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid #0a3a0a; border-radius: 3px; color: #0f0; opacity: 0.7; cursor: pointer; font-family: 'Courier New', monospace; font-size: 1em; letter-spacing: 0.1em; padding: 3px 8px; text-transform: uppercase; transition: opacity 0.2s; }
+    .langpick-btn:hover { opacity: 1; }
+    .langpick-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .langpick-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 168px; max-height: 200px; overflow-y: auto; list-style: none; margin: 0; padding: 4px; background: #001200; border: 1px solid #0a3a0a; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); display: none; z-index: 1000; text-transform: none; }
+    .langpick.open .langpick-menu { display: block; }
+    .langpick-menu li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; color: #0f0; opacity: 0.65; white-space: nowrap; letter-spacing: 0.04em; }
+    .langpick-menu li:hover { opacity: 1; background: #002800; }
+    .langpick-menu li[aria-selected="true"] { opacity: 1; background: #052f05; }
+    .lp-code { font-weight: bold; width: 2.2em; }
+    .lp-name { flex: 1; }
+
+    main { flex: 1; width: 100%; max-width: 820px; padding: 44px 24px 90px; line-height: 1.6; }
+    h1 { font-size: clamp(1.6em, 5vw, 2.4em); letter-spacing: 0.06em; margin-bottom: 10px; }
+    .intro { opacity: 0.8; margin-bottom: 12px; max-width: 640px; }
+    h2 { font-size: 1.15em; letter-spacing: 0.08em; text-transform: uppercase; margin: 46px 0 6px; }
+    h2::before { content: "◆ "; font-size: 0.7em; vertical-align: middle; }
+    .section-sub { opacity: 0.6; font-size: 0.9em; margin-bottom: 22px; }
+
+    /* Power-up cards */
+    .pu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .pu-card { border: 1px solid #0a3a0a; border-radius: 6px; padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .pu-diagram { display: flex; justify-content: center; padding: 6px 0 4px; }
+    .pu-name { font-weight: bold; letter-spacing: 0.05em; font-size: 1.05em; }
+    .pu-make { opacity: 0.65; font-size: 0.86em; }
+    .pu-make b { color: #6f6; font-weight: bold; }
+    .pu-effect { opacity: 0.9; font-size: 0.92em; }
+
+    /* Combo list */
+    .combo-list { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .combo { display: grid; grid-template-columns: 200px 1fr; gap: 14px; align-items: baseline; border: 1px solid #072607; border-radius: 5px; padding: 12px 16px; }
+    .combo-pair { color: #6f6; font-weight: bold; letter-spacing: 0.02em; }
+    .combo-fx { opacity: 0.88; font-size: 0.94em; }
+    .combo.fav { border-color: #0f6; }
+    .combo.fav .combo-pair::after { content: " ★"; color: #ff6; }
+    @media (max-width: 560px) { .combo { grid-template-columns: 1fr; gap: 4px; } }
+
+    .note { border-left: 2px solid #0a3a0a; padding: 6px 0 6px 14px; opacity: 0.7; font-size: 0.86em; margin-top: 26px; }
+
+    .cta { display: inline-block; margin-top: 36px; padding: 14px 30px; background: #0f0; color: #000; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; border-radius: 3px; transition: transform 0.15s, box-shadow 0.15s; }
+    .cta:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,255,0,0.25); color: #000; }
+
+    footer { width: 100%; padding: 18px 24px; border-top: 1px solid #0a3a0a; text-align: center; font-size: 0.8em; opacity: 0.5; letter-spacing: 0.08em; }
+    footer a { color: #0f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" data-i18n="nav_home">Home</a>
+    <a href="/about/" data-i18n="nav_about">About</a>
+    <a href="/how-to-play/" class="active" data-i18n="nav_htp">How to Play</a>
+    <a href="/history/" data-i18n="nav_history">History</a>
+    <a href="/privacy/" data-i18n="nav_privacy">Privacy</a>
+    <div class="langpick">
+      <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+        <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+        <span class="langpick-cur">EN</span>
+      </button>
+      <ul class="langpick-menu" role="listbox"></ul>
+    </div>
+  </nav>
+
+  <main>
+    <h1 id="htp-title">How to Play</h1>
+    <p class="intro" id="htp-intro"></p>
+    <p class="intro" id="htp-basics"></p>
+
+    <h2 id="make-h"></h2>
+    <div class="section-sub" id="make-sub"></div>
+    <div class="pu-grid" id="pu-grid"></div>
+
+    <h2 id="combo-h"></h2>
+    <div class="section-sub" id="combo-sub"></div>
+    <div class="combo-list" id="combo-list"></div>
+    <div class="note" id="combo-note"></div>
+
+    <a class="cta" id="htp-cta" href="/editor/#enter">Try a level →</a>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/">Privacy</a></footer>
+
+  <script>
+  // ── Data-driven guide: one content model, rendered per language. Documents the
+  //    LIVE (Engine #1) behavior — solo Scarab is 3×3 here (the Township 5×5 is an
+  //    Engine #2 target, not shipped). KO/ES are drafts pending native tone-check. ──
+  (function(){
+    // Match-shape diagram: dark cells, bright-green gems on the highlighted cells.
+    function diagram(rows, cols, hi){
+      var cs=24, gap=4, W=cols*(cs+gap)-gap, H=rows*(cs+gap)-gap;
+      var hiSet={}; hi.forEach(function(p){hiSet[p[0]+','+p[1]]=1;});
+      var out='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">';
+      for(var r=0;r<rows;r++)for(var c=0;c<cols;c++){
+        var x=c*(cs+gap), y=r*(cs+gap);
+        out+='<rect x="'+x+'" y="'+y+'" width="'+cs+'" height="'+cs+'" rx="4" fill="#06210a" stroke="#0a3a0a"/>';
+        if(hiSet[r+','+c]){
+          var mx=x+cs/2, my=y+cs/2, h=cs*0.36;
+          out+='<polygon points="'+mx+','+(my-h)+' '+(mx+h)+','+my+' '+mx+','+(my+h)+' '+(mx-h)+','+my+'" fill="#0f0" stroke="#063" stroke-width="1"/>';
+        }
+      }
+      return out+'</svg>';
+    }
+    var L=diagram(3,3,[[0,0],[1,0],[2,0],[2,1],[2,2]]);
+    var Tsh=diagram(3,3,[[0,0],[0,1],[0,2],[1,1],[2,1]]);
+
+    // Power-ups — how to make + what they do (fired solo).
+    var PUS=[
+      { shape:diagram(2,2,[[0,0],[0,1],[1,0],[1,1]]),
+        name:{en:'Grasshopper',ko:'메뚜기',es:'Saltamontes'},
+        make:{en:'Match a <b>2×2 square</b> of one color.',ko:'같은 색 <b>2×2 정사각형</b>을 맞추세요.',es:'Combina un <b>cuadrado 2×2</b> del mismo color.'},
+        effect:{en:'Clears the gems around it, then hops to any cell you pick and clears that too.',ko:'주변 보석을 없앤 뒤, 직접 고른 칸으로 뛰어가 그곳도 없앱니다.',es:'Despeja las gemas a su alrededor y luego salta a la casilla que elijas y la despeja también.'} },
+      { shape:diagram(1,4,[[0,0],[0,1],[0,2],[0,3]]),
+        name:{en:'Dragonfly',ko:'잠자리',es:'Libélula'},
+        make:{en:'Line up exactly <b>4 in a row or column</b>.',ko:'같은 색 <b>4개를 가로나 세로로</b> 정확히 맞추세요.',es:'Alinea exactamente <b>4 en fila o columna</b>.'},
+        effect:{en:'Rockets across the board, clearing a full row or column (across the match).',ko:'보드를 가로질러 날며 한 줄(행 또는 열) 전체를 없앱니다.',es:'Cruza el tablero y despeja una fila o columna entera (perpendicular a la combinación).'} },
+      { shape:'<span style="display:inline-flex;gap:14px;">'+L+Tsh+'</span>',
+        name:{en:'Scarab',ko:'스카라브',es:'Escarabajo'},
+        make:{en:'Make an <b>L or T</b> — two lines of 3+ sharing a corner (5 gems).',ko:'<b>L자나 T자</b>를 만드세요 — 3개 이상 두 줄이 한 모서리를 공유(총 5개).',es:'Forma una <b>L o T</b> — dos líneas de 3+ que comparten una esquina (5 gemas).'},
+        effect:{en:'Explodes in a <b>3×3</b> blast around it.',ko:'주변 <b>3×3</b> 범위를 폭발로 없앱니다.',es:'Explota en un estallido <b>3×3</b> a su alrededor.'} },
+      { shape:diagram(1,5,[[0,0],[0,1],[0,2],[0,3],[0,4]]),
+        name:{en:'Akasha Ball',ko:'아카샤 볼',es:'Bola de Akasha'},
+        make:{en:'Line up <b>5 in a row or column</b>.',ko:'같은 색 <b>5개를 한 줄로</b> 맞추세요.',es:'Alinea <b>5 en fila o columna</b>.'},
+        effect:{en:'Pick any gem — every gem of that color is cleared from the board.',ko:'아무 보석이나 고르면 그 색의 모든 보석이 보드에서 사라집니다.',es:'Elige una gema — todas las gemas de ese color se despejan del tablero.'} }
+    ];
+
+    // The 10 combos — swap two power-ups. Behavior is Engine #1 (live).
+    var G='Grasshopper', D='Dragonfly', S='Scarab', B='Akasha Ball';
+    var Gk='메뚜기',Dk='잠자리',Sk='스카라브',Bk='아카샤 볼';
+    var Gs='Saltamontes',Ds='Libélula',Ss='Escarabajo',Bs='Bola de Akasha';
+    var COMBOS=[
+      { pair:{en:G+' + '+G,ko:Gk+' + '+Gk,es:Gs+' + '+Gs},
+        fx:{en:'A 3×3 blast at the swap point, plus three grasshoppers that hop to auto-picked targets.',ko:'교환 지점에 3×3 폭발, 그리고 자동으로 목표를 정한 메뚜기 셋이 뛰어갑니다.',es:'Un estallido 3×3 en el punto del intercambio, más tres saltamontes que saltan a objetivos automáticos.'} },
+      { pair:{en:G+' + '+D,ko:Gk+' + '+Dk,es:Gs+' + '+Ds},
+        fx:{en:'The grasshopper hops to a cell you pick, then a full line clears from where it lands.',ko:'메뚜기가 고른 칸으로 뛴 뒤, 착지한 지점에서 한 줄 전체가 지워집니다.',es:'El saltamontes salta a una casilla que elijas y luego se despeja una línea entera desde donde aterriza.'} },
+      { pair:{en:G+' + '+S,ko:Gk+' + '+Sk,es:Gs+' + '+Ss},
+        fx:{en:'The grasshopper hops to a cell you pick, then a 3×3 blast goes off at the landing cell.',ko:'메뚜기가 고른 칸으로 뛴 뒤, 착지 칸에서 3×3 폭발이 일어납니다.',es:'El saltamontes salta a una casilla que elijas y luego estalla un 3×3 en la casilla de aterrizaje.'} },
+      { pair:{en:G+' + '+B,ko:Gk+' + '+Bk,es:Gs+' + '+Bs}, fav:true,
+        fx:{en:'Pick a color — every gem of it becomes a grasshopper and hops to an auto-picked target.',ko:'색을 고르면 그 색의 모든 보석이 메뚜기가 되어 자동 목표로 뛰어갑니다.',es:'Elige un color — cada gema de ese color se vuelve un saltamontes y salta a un objetivo automático.'} },
+      { pair:{en:D+' + '+D,ko:Dk+' + '+Dk,es:Ds+' + '+Ds},
+        fx:{en:'A full cross — the entire row AND column from the swap point.',ko:'완전한 십자 — 교환 지점의 행과 열 전체.',es:'Una cruz completa — toda la fila Y la columna desde el punto del intercambio.'} },
+      { pair:{en:D+' + '+S,ko:Dk+' + '+Sk,es:Ds+' + '+Ss},
+        fx:{en:'A fat line — 3 rows or 3 columns cleared at once.',ko:'두꺼운 줄 — 3개 행 또는 3개 열을 한 번에 없앱니다.',es:'Una línea gruesa — 3 filas o 3 columnas despejadas de una vez.'} },
+      { pair:{en:D+' + '+B,ko:Dk+' + '+Bk,es:Ds+' + '+Bs},
+        fx:{en:'Pick a color — every gem of it becomes a dragonfly and fires.',ko:'색을 고르면 그 색의 모든 보석이 잠자리가 되어 발사됩니다.',es:'Elige un color — cada gema de ese color se vuelve una libélula y dispara.'} },
+      { pair:{en:S+' + '+S,ko:Sk+' + '+Sk,es:Ss+' + '+Ss},
+        fx:{en:'One bigger blast — 5×5 at the swap point.',ko:'더 큰 폭발 하나 — 교환 지점에서 5×5.',es:'Un estallido más grande — 5×5 en el punto del intercambio.'} },
+      { pair:{en:S+' + '+B,ko:Sk+' + '+Bk,es:Ss+' + '+Bs},
+        fx:{en:'Pick a color — every gem of it becomes a scarab and explodes (3×3 each).',ko:'색을 고르면 그 색의 모든 보석이 스카라브가 되어 폭발합니다(각 3×3).',es:'Elige un color — cada gema de ese color se vuelve un escarabajo y explota (3×3 cada uno).'} },
+      { pair:{en:B+' + '+B,ko:Bk+' + '+Bk,es:Bs+' + '+Bs},
+        fx:{en:'Clears the whole board of gems, and cracks every obstacle once.',ko:'보드의 모든 보석을 없애고, 모든 장애물에 금을 한 번씩 냅니다.',es:'Despeja todo el tablero de gemas y agrieta cada obstáculo una vez.'} }
+    ];
+
+    var T={
+      en:{ nav_home:'Home',nav_about:'About',nav_htp:'How to Play',nav_history:'History',nav_privacy:'Privacy',
+        title:'How to Play',
+        intro:'Swap two neighboring gems to line up 3 or more of a color. Bigger and smarter matches build power-ups.',
+        basics:'No timers. No move limit. Every level has a path to victory — power-ups are how you get there faster and chase a better score.',
+        make_h:'Making Power-Ups',make_sub:'The shape of your match decides which power-up you get.',
+        combo_h:'Combining Power-Ups',combo_sub:'Swap two power-ups next to each other to fuse them. Any pair works — ten combos in all.',
+        combo_note:'Combos are earned — they stay locked in the Qualifying level and open up in the bundles. Behavior shown is the live game.',
+        cta:'Try a level →' },
+      ko:{ nav_home:'홈',nav_about:'소개',nav_htp:'플레이 방법',nav_history:'히스토리',nav_privacy:'개인정보',
+        title:'플레이 방법',
+        intro:'이웃한 두 보석을 바꿔 같은 색 3개 이상을 맞추세요. 더 크고 영리한 매치는 파워업을 만듭니다.',
+        basics:'타이머 없음. 이동 제한 없음. 모든 레벨에는 승리로 가는 길이 있습니다 — 파워업은 그 길을 더 빠르게 가고 더 좋은 기록에 도전하는 방법입니다.',
+        make_h:'파워업 만들기',make_sub:'매치의 모양이 어떤 파워업을 얻을지 결정합니다.',
+        combo_h:'파워업 조합하기',combo_sub:'파워업 두 개를 나란히 바꿔 합치세요. 어떤 조합이든 가능 — 총 열 가지.',
+        combo_note:'조합은 획득해서 여는 기능입니다 — 자격 레벨에서는 잠겨 있고 번들에서 열립니다. 표시된 동작은 실제 게임 기준입니다.',
+        cta:'레벨 해보기 →' },
+      es:{ nav_home:'Inicio',nav_about:'Acerca de',nav_htp:'Cómo jugar',nav_history:'Historia',nav_privacy:'Privacidad',
+        title:'Cómo jugar',
+        intro:'Intercambia dos gemas vecinas para alinear 3 o más de un color. Las combinaciones más grandes e ingeniosas crean potenciadores.',
+        basics:'Sin temporizadores. Sin límite de movimientos. Cada nivel tiene un camino a la victoria — los potenciadores son cómo llegas más rápido y buscas mejor puntuación.',
+        make_h:'Crear potenciadores',make_sub:'La forma de tu combinación decide qué potenciador obtienes.',
+        combo_h:'Combinar potenciadores',combo_sub:'Intercambia dos potenciadores adyacentes para fusionarlos. Cualquier par sirve — diez combos en total.',
+        combo_note:'Los combos se ganan — están bloqueados en el nivel de clasificación y se abren en los paquetes. El comportamiento mostrado es el del juego real.',
+        cta:'Prueba un nivel →' }
+    };
+
+    var LANGS=[{code:'en',label:'EN',name:'English'},{code:'ko',label:'KO',name:'한국어'},{code:'es',label:'ES',name:'Español'}];
+    var LANG;
+    try{LANG=localStorage.getItem('akashicswaps-lang')||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})();}catch(e){LANG='en';}
+    if(!T[LANG])LANG='en';
+
+    function render(){
+      var d=T[LANG];
+      document.documentElement.lang=LANG;
+      document.querySelectorAll('[data-i18n]').forEach(function(el){var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;});
+      document.getElementById('htp-title').textContent=d.title;
+      document.getElementById('htp-intro').textContent=d.intro;
+      document.getElementById('htp-basics').textContent=d.basics;
+      document.getElementById('make-h').textContent=d.make_h;
+      document.getElementById('make-sub').textContent=d.make_sub;
+      document.getElementById('combo-h').textContent=d.combo_h;
+      document.getElementById('combo-sub').textContent=d.combo_sub;
+      document.getElementById('combo-note').textContent=d.combo_note;
+      document.getElementById('htp-cta').textContent=d.cta;
+      document.getElementById('pu-grid').innerHTML=PUS.map(function(p){
+        return '<div class="pu-card">'
+          +'<div class="pu-diagram">'+p.shape+'</div>'
+          +'<div class="pu-name">'+p.name[LANG]+'</div>'
+          +'<div class="pu-make">'+p.make[LANG]+'</div>'
+          +'<div class="pu-effect">'+p.effect[LANG]+'</div>'
+          +'</div>';
+      }).join('');
+      document.getElementById('combo-list').innerHTML=COMBOS.map(function(c){
+        return '<div class="combo'+(c.fav?' fav':'')+'"><div class="combo-pair">'+c.pair[LANG]+'</div><div class="combo-fx">'+c.fx[LANG]+'</div></div>';
+      }).join('');
+      refreshPickers();
+    }
+    function menuHTML(){return LANGS.map(function(l){return '<li role="option" data-lang="'+l.code+'" tabindex="0"><span class="lp-code">'+l.label+'</span><span class="lp-name">'+l.name+'</span></li>';}).join('');}
+    function closeMenus(){document.querySelectorAll('.langpick.open').forEach(function(o){o.classList.remove('open');o.querySelector('.langpick-btn').setAttribute('aria-expanded','false');});}
+    function refreshPickers(){
+      var cur=LANGS.filter(function(l){return l.code===LANG;})[0]||LANGS[0];
+      document.querySelectorAll('.langpick').forEach(function(p){
+        var lab=p.querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;
+        p.querySelectorAll('li[data-lang]').forEach(function(li){li.setAttribute('aria-selected',li.dataset.lang===LANG?'true':'false');});
+      });
+    }
+    function pick(code){LANG=code;try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}render();}
+    document.querySelectorAll('.langpick').forEach(function(p){
+      var menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+      menu.innerHTML=menuHTML();
+      btn.addEventListener('click',function(ev){ev.stopPropagation();var open=p.classList.contains('open');closeMenus();if(!open){p.classList.add('open');btn.setAttribute('aria-expanded','true');}});
+      menu.addEventListener('click',function(ev){var li=ev.target.closest('li[data-lang]');if(!li)return;pick(li.dataset.lang);closeMenus();});
+    });
+    document.addEventListener('click',closeMenus);
+    document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeMenus();});
+    render();
+  })();
+  </script>
+</body>
+</html>
