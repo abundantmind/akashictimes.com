@@ -199,12 +199,30 @@
       text-decoration: none;
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
-      margin-bottom: 56px;
+      margin-bottom: 18px;
     }
     .cta:hover {
       background: #000;
       color: #0f0;
     }
+    /* Secondary "How to Play" button — outline, sits under the primary CTA. */
+    .cta-ghost {
+      display: inline-block;
+      padding: 13px 34px;
+      border: 1.5px solid #0a5a0a;
+      color: #0f0;
+      background: transparent;
+      font-family: 'Courier New', monospace;
+      font-size: 0.95em;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 56px;
+    }
+    .cta-ghost:hover { border-color: #0f0; background: #001400; }
 
     /* ── Links ── */
     .links {
@@ -269,9 +287,11 @@
       See if you qualify...
     </a>
 
+    <!-- How to Play — its own button under the primary CTA (Jed 2026-08-14). -->
+    <a class="cta-ghost" href="/how-to-play/" data-i18n="lnk_htp">How to Play</a>
+
     <!-- Secondary links -->
     <div class="links">
-      <a href="/how-to-play/" data-i18n="lnk_htp">How to Play</a>
       <a href="/about/" data-i18n="lnk_about">About</a>
       <a href="./editor/index.html" target="_blank" rel="noopener" data-i18n="lnk_editor">Level Editor</a>
       <a href="https://www.reddit.com/r/AkashicSwapsGame/" target="_blank" rel="noopener" data-i18n="lnk_reddit">r/AkashicSwapsGame — Follow the Build, Join In</a>
