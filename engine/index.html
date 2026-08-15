@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- NATIVE FEEL (Jed 2026-07-17): no pinch zoom, edge-to-edge behind notches -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>The Engine — What Powers Akashic Swaps</title>
+
+  <!-- ── SEO — build-in-public explainer, shareable (Jed 2026-08-15) ── -->
+  <meta name="description" content="What a game 'engine' is, why Akashic Swaps runs two, and the promise behind it: every level is pinned to the engine it was tested on, so nothing you build or play ever breaks."/>
+  <link rel="canonical" href="https://akashictimes.com/engine/"/>
+  <meta property="og:title" content="What's a game 'engine' — and why Akashic Swaps has two"/>
+  <meta property="og:description" content="Engine 1 is live. Engine 2 is coming — more alive, bigger power-ups. And every level you build is locked to the engine it was tested on, so nothing ever breaks."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://akashictimes.com/engine/"/>
+  <meta property="og:image" content="https://akashictimes.com/og-image.jpg"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+
+  <!-- Unmoatable Analytics — cookieless; no-ops on localhost. -->
+  <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
+
+  <!-- Unpinchable on iOS Safari tabs: gesture events are Safari's only pinch hook -->
+  <script>['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();},{passive:false});});</script>
+
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Native-feel surface — selection stays ON, it's a document ── */
+    html { touch-action: pan-x pan-y; overscroll-behavior: none; }
+
+    /* ── Base — matches the landing page + privacy terminal aesthetic ── */
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0f0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Nav ── */
+    nav {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      padding: 18px 24px;
+      border-bottom: 1px solid #0a3a0a;
+      font-size: 0.85em;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    nav a { color: #0f0; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+    /* ── Language picker (icon → scrollable dropdown) ── */
+    .langpick { position: relative; display: inline-flex; }
+    .langpick-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid #0a3a0a; border-radius: 3px; color: #0f0; opacity: 0.7; cursor: pointer; font-family: 'Courier New', monospace; font-size: 1em; letter-spacing: 0.1em; padding: 3px 8px; text-transform: uppercase; transition: opacity 0.2s; }
+    .langpick-btn:hover { opacity: 1; }
+    .langpick-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .langpick-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 168px; max-height: 200px; overflow-y: auto; list-style: none; margin: 0; padding: 4px; background: #001200; border: 1px solid #0a3a0a; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); display: none; z-index: 1000; text-transform: none; }
+    .langpick.open .langpick-menu { display: block; }
+    .langpick-menu li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; color: #0f0; opacity: 0.65; white-space: nowrap; letter-spacing: 0.04em; }
+    .langpick-menu li:hover { opacity: 1; background: #002800; }
+    .langpick-menu li[aria-selected="true"] { opacity: 1; background: #052f05; }
+    .lp-code { font-weight: bold; width: 2.2em; }
+    .lp-name { flex: 1; }
+    .lp-flag { font-size: 1.05em; }
+
+    /* ── Content ── */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 720px;
+      padding: 48px 24px 80px;
+      line-height: 1.7;
+    }
+    h1 {
+      font-size: clamp(1.6em, 5vw, 2.4em);
+      letter-spacing: 0.06em;
+      margin-bottom: 32px;
+    }
+    p { opacity: 0.88; margin-bottom: 18px; }
+    /* the beat before the payoff — a lone line that lands */
+    .beat { opacity: 1; color: #6f6; letter-spacing: 0.04em; margin: 26px 0; }
+    .lede { opacity: 0.95; }
+    /* engine label — the two named engines as lead-in lines */
+    .eng { opacity: 1; color: #6f6; font-weight: bold; letter-spacing: 0.05em; margin: 30px 0 10px; }
+    .sig { opacity: 0.6; margin-top: 48px; text-align: right; line-height: 1.6; font-style: italic; letter-spacing: 0.03em; }
+    .sig .aka { display: block; opacity: 0.75; font-size: 0.88em; font-style: normal; }
+    a { color: #0f0; }
+    /* ── CTA ── */
+    .cta {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 14px 30px;
+      background: #0f0;
+      color: #000;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      border-radius: 3px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .cta:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,255,0,0.25); color: #000; }
+
+    footer {
+      width: 100%;
+      padding: 18px 24px;
+      border-top: 1px solid #0a3a0a;
+      text-align: center;
+      font-size: 0.8em;
+      opacity: 0.5;
+      letter-spacing: 0.08em;
+    }
+    footer a { color: #0f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" data-i18n="nav_home">Home</a>
+    <a href="/about/" data-i18n="nav_about">About</a>
+    <a href="/how-to-play/" data-i18n="nav_htp">How to Play</a>
+    <a href="/engine/" class="active" data-i18n="nav_engine">Engine</a>
+    <a href="/history/" data-i18n="nav_history">History</a>
+    <a href="/privacy/" data-i18n="nav_privacy">Privacy</a>
+    <div class="langpick">
+      <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+        <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+        <span class="langpick-cur">EN</span>
+      </button>
+      <ul class="langpick-menu" role="listbox"></ul>
+    </div>
+  </nav>
+
+  <!-- ENGLISH — Jed's build-in-public engine explainer. Warm, plain, first-person builder. -->
+  <main id="main-en">
+    <h1>What's an "engine" — and why we have two</h1>
+
+    <p class="lede">Every match-3 game runs on an engine. You never see it — but you feel it in every swap.</p>
+
+    <p>The engine is the invisible rulebook: how gems fall, when they match, how a power-up detonates, how the whole board comes back to life after a big clear. It's the difference between a board that feels alive and one that feels like a spreadsheet.</p>
+
+    <p class="eng">Engine 1 — live right now.</p>
+    <p>It's what you're playing today. Solid, fast, and it runs every level in the game. Rock-steady ground to build on.</p>
+
+    <p class="eng">Engine 2 — in the works.</p>
+    <p>A second engine that gets closer to the games that never stop moving. The board refills before the last explosion finishes. You keep swapping while things are still cascading. Power-ups hit bigger, and combine into bigger shapes. More alive. More juice.</p>
+
+    <p class="beat">And here's the part that matters to you.</p>
+
+    <p>Nothing you build or play ever breaks. Every level is locked to the engine it was made and tested on. When Engine 2 arrives, your old levels play exactly the way they always did — and new ones can opt into the new feel. We version the engine <em>on purpose</em>, so the ground never shifts under your creations.</p>
+
+    <p>We're building Akashic Swaps in the open. You get to watch the engine evolve — and everything you make is safe the whole way through.</p>
+
+    <a class="cta" href="/editor/#enter" data-i18n="cta">Try a level →</a>
+
+    <div class="sig">~ AbundantMind<span class="aka">(aka The Architect)</span></div>
+  </main>
+
+  <!-- 한국어 — DRAFT translation; needs a native tone pass (Jed's daughter) before public reliance.
+       Keep "Akashic Swaps" / "Engine 1·2" / "Architect" recognizable. -->
+  <main id="main-ko" style="display:none;">
+    <h1>'엔진'이란 무엇이고, 왜 둘인가</h1>
+
+    <p class="lede">모든 매치-3 게임은 엔진 위에서 돌아갑니다. 눈에는 보이지 않지만 — 스왑할 때마다 느껴집니다.</p>
+
+    <p>엔진은 보이지 않는 규칙서입니다: 젬이 어떻게 떨어지는지, 언제 매치되는지, 파워업이 어떻게 터지는지, 큰 폭발 뒤에 보드가 어떻게 다시 살아나는지. 살아 있는 것처럼 느껴지는 보드와 스프레드시트처럼 느껴지는 보드의 차이가 바로 여기서 갈립니다.</p>
+
+    <p class="eng">Engine 1 — 지금 라이브.</p>
+    <p>지금 여러분이 플레이하는 엔진입니다. 튼튼하고, 빠르고, 게임의 모든 레벨을 돌립니다. 그 위에 지어 올릴 든든한 바닥입니다.</p>
+
+    <p class="eng">Engine 2 — 개발 중.</p>
+    <p>멈추지 않고 흐르는 게임에 더 가까워지는 두 번째 엔진입니다. 마지막 폭발이 끝나기 전에 보드가 다시 채워집니다. 아직 연쇄가 이어지는 중에도 계속 스왑할 수 있습니다. 파워업은 더 크게 터지고, 더 큰 모양으로 결합됩니다. 더 살아 있고. 더 짜릿하게.</p>
+
+    <p class="beat">그리고 여기서부터가 여러분에게 중요합니다.</p>
+
+    <p>여러분이 만들거나 플레이하는 것은 절대 깨지지 않습니다. 모든 레벨은 그것이 만들어지고 테스트된 엔진에 고정됩니다. Engine 2가 도착해도, 예전 레벨은 늘 그랬던 그대로 플레이되고 — 새 레벨은 새 감각을 선택할 수 있습니다. 저희는 <em>일부러</em> 엔진에 버전을 매깁니다. 여러분의 창작물 아래 바닥이 결코 흔들리지 않도록.</p>
+
+    <p>저희는 아카식 스왑스를 공개적으로 만들고 있습니다. 엔진이 진화하는 과정을 지켜보실 수 있고 — 그 내내 여러분이 만든 것은 안전합니다.</p>
+
+    <a class="cta" href="/editor/#enter" data-i18n="cta">레벨 해보기 →</a>
+
+    <div class="sig">~ AbundantMind<span class="aka">(일명 The Architect)</span></div>
+  </main>
+
+  <!-- Español — DRAFT (neutral es-419); needs a native tone pass (Venezuelan friend) before public reliance. -->
+  <main id="main-es" style="display:none;">
+    <h1>Qué es un "motor" — y por qué tenemos dos</h1>
+
+    <p class="lede">Todo juego match-3 funciona sobre un motor. Nunca lo ves — pero lo sientes en cada movimiento.</p>
+
+    <p>El motor es el reglamento invisible: cómo caen las gemas, cuándo hacen match, cómo detona un potenciador, cómo vuelve a la vida el tablero después de un gran despeje. Es la diferencia entre un tablero que se siente vivo y uno que se siente como una hoja de cálculo.</p>
+
+    <p class="eng">Motor 1 — en vivo ahora mismo.</p>
+    <p>Es lo que juegas hoy. Sólido, rápido, y corre todos los niveles del juego. Terreno firme sobre el cual construir.</p>
+
+    <p class="eng">Motor 2 — en desarrollo.</p>
+    <p>Un segundo motor que se acerca más a los juegos que nunca dejan de moverse. El tablero se rellena antes de que termine la última explosión. Sigues moviendo mientras las cascadas aún caen. Los potenciadores golpean más fuerte y se combinan en formas más grandes. Más vivo. Más jugoso.</p>
+
+    <p class="beat">Y aquí está la parte que te importa.</p>
+
+    <p>Nada de lo que construyas o juegues se rompe jamás. Cada nivel queda fijado al motor en el que fue creado y probado. Cuando llegue el Motor 2, tus niveles viejos se juegan exactamente como siempre — y los nuevos pueden optar por la nueva sensación. Versionamos el motor <em>a propósito</em>, para que el suelo nunca se mueva bajo tus creaciones.</p>
+
+    <p>Estamos construyendo Akashic Swaps a la vista de todos. Puedes ver cómo evoluciona el motor — y todo lo que haces está a salvo durante todo el camino.</p>
+
+    <a class="cta" href="/editor/#enter" data-i18n="cta">Prueba un nivel →</a>
+
+    <div class="sig">~ AbundantMind<span class="aka">(alias The Architect)</span></div>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/">Privacy</a></footer>
+
+  <script>
+    // ── i18n — EN + 한국어 + Español; same persisted key as the game/landing/privacy ──
+    (function(){
+      var NAV={en:{nav_home:'Home',nav_about:'About',nav_htp:'How to Play',nav_engine:'Engine',nav_history:'History',nav_privacy:'Privacy',cta:'Try a level →'},
+               ko:{nav_home:'홈',nav_about:'소개',nav_htp:'플레이 방법',nav_engine:'엔진',nav_history:'히스토리',nav_privacy:'개인정보',cta:'레벨 해보기 →'},
+               es:{nav_home:'Inicio',nav_about:'Acerca de',nav_htp:'Cómo jugar',nav_engine:'Motor',nav_history:'Historia',nav_privacy:'Privacidad',cta:'Prueba un nivel →'}};
+      var LANGS=[
+        {code:'en',label:'EN',name:'English',flag:'🇬🇧'},
+        {code:'ko',label:'KO',name:'한국어',flag:'🇰🇷'},
+        {code:'es',label:'ES',name:'Español',flag:'🇪🇸'}
+      ];
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')
+        ||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})();}catch(e){LANG='en';}
+      function apply(){
+        document.documentElement.lang=LANG;
+        // swap which body shows; en is the fallback for any unknown value
+        document.getElementById('main-ko').style.display=LANG==='ko'?'':'none';
+        document.getElementById('main-es').style.display=LANG==='es'?'':'none';
+        document.getElementById('main-en').style.display=(LANG!=='ko'&&LANG!=='es')?'':'none';
+        var d=NAV[LANG]||NAV.en;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;
+        });
+        refreshPickers();
+      }
+      function menuHTML(){return LANGS.map(function(l){return '<li role="option" data-lang="'+l.code+'" tabindex="0">'
+        +'<span class="lp-code">'+l.label+'</span><span class="lp-name">'+l.name+'</span><span class="lp-flag">'+l.flag+'</span></li>';}).join('');}
+      function closeMenus(){var o=document.querySelectorAll('.langpick.open');for(var i=0;i<o.length;i++){o[i].classList.remove('open');o[i].querySelector('.langpick-btn').setAttribute('aria-expanded','false');}}
+      function refreshPickers(){
+        var cur=null;for(var i=0;i<LANGS.length;i++){if(LANGS[i].code===LANG)cur=LANGS[i];}if(!cur)cur=LANGS[0];
+        var picks=document.querySelectorAll('.langpick');
+        for(var j=0;j<picks.length;j++){
+          var lab=picks[j].querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;
+          var lis=picks[j].querySelectorAll('li[data-lang]');
+          for(var k=0;k<lis.length;k++){lis[k].setAttribute('aria-selected',lis[k].dataset.lang===LANG?'true':'false');}
+        }
+      }
+      function pick(code){LANG=code;try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}apply();}
+      document.querySelectorAll('.langpick').forEach(function(p){
+        var menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+        menu.innerHTML=menuHTML();
+        btn.addEventListener('click',function(ev){ev.stopPropagation();var open=p.classList.contains('open');closeMenus();if(!open){p.classList.add('open');btn.setAttribute('aria-expanded','true');}});
+        menu.addEventListener('click',function(ev){var li=ev.target.closest('li[data-lang]');if(!li)return;pick(li.dataset.lang);closeMenus();});
+      });
+      document.addEventListener('click',closeMenus);
+      document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeMenus();});
+      apply();
+    })();
+  </script>
+</body>
+</html>
