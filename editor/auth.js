@@ -21,19 +21,50 @@ const LS = {
   lang:     'akashicswaps-lang'       // 'en' | 'ko'
 };
 
-// ── USERNAME BRIDGE (temporary, Jed 2026-08-12 "handle now, username later") ──
-// There is no username column on profiles yet — that folds into the held db/002
-// migration. Until then, a signed-in visitor's chosen display name lives in the
-// same localStorage override AkashicID reads, seeded here from a small known-account
-// map so editor #1 is greeted "Welcome back, AbundantMind". When db/002 adds the
-// real field, replace this map with a profiles.username select in reconcile().
-const SEED_USERNAMES = {
-  'jed.mitchener@gmail.com': 'AbundantMind'
-};
-function seedUsername(user){
-  if(!window.AkashicID || !user) return;
-  const u = SEED_USERNAMES[(user.email || '').toLowerCase()];
-  if(u) AkashicID.setUsername(u); // overrides the generated handle in the greeting
+// ── DURABLE IDENTITY (Jed 2026-08-15 — db/002 shipped the real columns) ──────
+// The old SEED_USERNAMES bridge is GONE. profiles now carries the real columns:
+//   • handle   — the generated anon handle (identity.js), server copy, NON-unique
+//   • username — the chosen display override, UNIQUE
+// syncIdentity() is the read side (server-wins on load, migrate a local name up
+// once); pushUsername() is the write side (Settings edits flow to the DB).
+// `applyingRemote` guards the write-hook from echoing a server-applied value back.
+let applyingRemote = false;
+
+// Read side: reconcile this device's identity with the server for a signed-in
+// user (anonymous or permanent). A durable server username wins if present;
+// otherwise a name already chosen locally (e.g. an older localStorage override)
+// is migrated up once. The generated handle fills the server handle column the
+// first time so an opted-in anon player shows their handle on the leaderboard.
+async function syncIdentity(userId){
+  if(!window.AkashicID) return;
+  const { data: prof } = await supabase
+    .from('profiles').select('username,handle').eq('id', userId).maybeSingle();
+  if(!prof) return;
+  const localName   = AkashicID.username();   // chosen override in localStorage ('' if none)
+  const localHandle = AkashicID.ensure();     // generated handle (mints if somehow absent)
+  const patch = {};
+  if(prof.username){
+    applyingRemote = true;                     // adopt the durable name WITHOUT re-pushing it
+    AkashicID.setUsername(prof.username);
+    applyingRemote = false;
+  } else if(localName){
+    patch.username = localName;                // migrate a pre-existing local name to durable storage
+  }
+  if(!prof.handle && localHandle) patch.handle = localHandle; // seed the server handle once
+  if(Object.keys(patch).length){
+    const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+    if(error) console.warn('[auth] identity sync failed', error.message); // unique clash etc. — non-fatal
+  }
+}
+
+// Write side: a Settings edit to the display name (AkashicID.setUsername/clear)
+// is mirrored to profiles.username for the signed-in user. Hooked at wire-up.
+async function pushUsername(name){
+  if(applyingRemote) return;                   // don't echo a server-applied value back up
+  const u = AkashicAuth.user; if(!u) return;
+  const { error } = await supabase.from('profiles')
+    .update({ username: name || null }).eq('id', u.id);
+  if(error) console.warn('[auth] username push failed', error.message);
 }
 
 // ── i18n for auth strings (EN + KR) — the game's I18N table is player-facing;
@@ -157,6 +188,9 @@ async function reconcile(userId){
     // onConflict on the (user_id, level) PK — one authoritative row per level.
     await supabase.from('progress').upsert(union, { onConflict: 'user_id,level' });
   }
+
+  // 3. identity — durable handle + username (server-wins, migrate a local name up once)
+  await syncIdentity(userId);
 }
 
 // Push a single level's living state after it changes mid-play (star earned).
@@ -269,12 +303,23 @@ registerStrings();
   P.set = function(n, s, rec){ origSet(n, s, rec); pushLevel(n); };
 })();
 
+// Mirror Settings edits to the display name into profiles.username for a signed-in
+// user. Wraps AkashicID so index.html's Settings UI needs NO changes (same pattern
+// as the PlayerProgress.set hook above). syncIdentity's own setUsername is guarded
+// by applyingRemote, so adopting the server name never bounces back up.
+(function hookIdentity(){
+  if(!window.AkashicID) return;
+  const origSet = AkashicID.setUsername.bind(AkashicID);
+  AkashicID.setUsername = function(u){ origSet(u); pushUsername(u); };
+  const origClear = AkashicID.clearUsername.bind(AkashicID);
+  AkashicID.clearUsername = function(){ origClear(); pushUsername(null); };
+})();
+
 // React to sign-in / sign-out for the whole session lifecycle.
 supabase.auth.onAuthStateChange(async (event, session) => {
   AkashicAuth.user = session ? session.user : null;
   if(event === 'SIGNED_IN' && AkashicAuth.user){
     AkashicAuth.close();
-    seedUsername(AkashicAuth.user); // bridge: greet known accounts by their real name
     const status = document.getElementById('auth-status');
     if(status) status.textContent = TXT('auth_syncing');
     try { await reconcile(AkashicAuth.user.id); } catch(e){ console.warn('[auth] reconcile failed', e); }
@@ -288,9 +333,24 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 // Resolve the initial session (returning signed-in visitor, or a fresh
 // magic-link redirect that the client auto-detected from the URL).
 (async () => {
-  const { data } = await supabase.auth.getSession();
+  let { data } = await supabase.auth.getSession();
+  let freshAnon = false;
+  if(!data.session){
+    // No session at all → mint an ANONYMOUS one so every visitor has a real
+    // server identity (auth.uid()) that can hold progress + a leaderboard seat
+    // WITHOUT an email (Jed 2026-08-15). Requires Auth → Anonymous sign-ins ON.
+    const { data: anon, error } = await supabase.auth.signInAnonymously();
+    if(error){ console.warn('[auth] anonymous sign-in failed', error.message); }
+    else if(anon && anon.session){ data = { session: anon.session }; freshAnon = true; }
+    // the SIGNED_IN event fires for the fresh anon user → reconcile()+syncIdentity run there
+  }
   AkashicAuth.user = data.session ? data.session.user : null;
-  seedUsername(AkashicAuth.user); // returning signed-in visitor → seed their name for the greeting
+  // A RESTORED session (returning anon or permanent) does NOT fire SIGNED_IN, so
+  // reconcile won't run — pull the durable identity here so "Welcome back, {name}"
+  // reflects the server on every load. (freshAnon is already covered via SIGNED_IN.)
+  if(AkashicAuth.user && !freshAnon){
+    try { await syncIdentity(AkashicAuth.user.id); } catch(e){ console.warn('[auth] identity sync failed', e); }
+  }
   AkashicAuth.ready = true;
   refreshUI();
 })();
