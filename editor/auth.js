@@ -238,6 +238,34 @@ const AkashicAuth = {
     // user cleared via onAuthStateChange; localStorage stars stay put (base tier)
   },
 
+  // ── Leaderboard layer (db/002: standings() + profiles.stars_public) ──────────
+  // The board is the ONE global ranking: opted-in players by total stars, then
+  // reach (current level). standings() is a SECURITY DEFINER read, open to all so
+  // the board can be previewed; appearing on it is the player's own opt-in below.
+  async standings(){
+    const { data, error } = await supabase.rpc('standings');
+    if(error){ console.warn('[auth] standings failed', error.message); return []; }
+    return data || [];
+  },
+  // Read the signed-in player's board visibility (default private). No user (auth
+  // not ready / disabled) → treat as private.
+  async getStarsPublic(){
+    const u = this.user; if(!u) return false;
+    const { data, error } = await supabase.from('profiles')
+      .select('stars_public').eq('id', u.id).maybeSingle();
+    if(error){ console.warn('[auth] stars_public read failed', error.message); return false; }
+    return !!(data && data.stars_public);
+  },
+  // Flip the opt-in. RLS ("update own profile") scopes this to the caller's row.
+  // Returns true on success so the UI can revert the checkbox if the write fails.
+  async setStarsPublic(on){
+    const u = this.user; if(!u) return false;
+    const { error } = await supabase.from('profiles')
+      .update({ stars_public: !!on }).eq('id', u.id);
+    if(error){ console.warn('[auth] stars_public write failed', error.message); return false; }
+    return true;
+  },
+
   // Called from renderGrid() to paint the sign-in strip in the right state.
   stripHTML(){
     if(this.user){
