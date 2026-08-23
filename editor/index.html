@@ -132,6 +132,39 @@ body.font-lg{--base-font:20px;}
 .set-actions button{padding:9px 20px;border-radius:6px;border:0.5px solid #3d2060;background:transparent;color:#c8b8e0;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
 .set-actions .set-save{background:#2a1d48;border-color:#6a4aaa;color:#e0d0ff;}
 .set-actions button:hover{border-color:#c792ea;}
+/* ── Settings: leaderboard opt-in toggle ─────────────────────────────────── */
+.set-toggle-wrap{margin-top:20px;padding-top:18px;border-top:0.5px solid #241a38;}
+.set-toggle{display:flex;align-items:center;gap:11px;cursor:pointer;}
+.set-toggle input{position:absolute;opacity:0;width:0;height:0;}
+.set-switch{flex:none;width:40px;height:22px;border-radius:11px;background:#241a38;border:0.5px solid #3d2060;position:relative;transition:background .18s,border-color .18s;}
+.set-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#776a8a;transition:transform .18s,background .18s;}
+.set-toggle input:checked+.set-switch{background:#2a1d48;border-color:#6a4aaa;}
+.set-toggle input:checked+.set-switch .set-knob{transform:translateX(18px);background:#c792ea;}
+.set-toggle input:disabled+.set-switch{opacity:.5;}
+.set-toggle:has(input:disabled){cursor:default;}
+.set-toggle-label{font-size:var(--fz-sm);color:#c8b8e0;}
+/* ── Leaderboard modal (clones #products; scrollable board table) ─────────── */
+#leaderboard{position:fixed;inset:0;background:rgba(13,10,20,.94);display:none;align-items:center;justify-content:center;z-index:232;padding:24px;}
+#leaderboard.open{display:flex;}
+#leaderboard .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:26px 30px;text-align:left;max-width:520px;width:calc(100% - 48px);max-height:calc(100vh - 48px);overflow:auto;}
+#leaderboard h2{color:#c792ea;font-weight:500;margin-bottom:4px;}
+.lb-sub{font-size:var(--fz-sm);color:#887a9a;margin-bottom:18px;}
+.lb-table{width:100%;border-collapse:collapse;font-size:var(--fz-sm);}
+.lb-table th{text-align:left;color:#776a8a;font-weight:500;font-size:var(--fz-xs);text-transform:uppercase;letter-spacing:.05em;padding:0 8px 8px;border-bottom:0.5px solid #241a38;}
+.lb-table td{padding:9px 8px;border-bottom:0.5px solid #1c1430;color:#c8b8e0;}
+.lb-table th.lb-num,.lb-table td.lb-num{text-align:right;width:1%;white-space:nowrap;}
+.lb-rank{color:#8a7aa8;width:1%;white-space:nowrap;}
+.lb-name{color:#e0d0ff;}
+.lb-star{color:#e8c860;}
+.lb-row-you{background:#1c1236;}
+.lb-row-you .lb-name{color:#c792ea;font-weight:600;}
+.lb-you-tag{font-size:var(--fz-xs);color:#a481c4;margin-left:6px;}
+.lb-empty{color:#887a9a;font-size:var(--fz-sm);text-align:center;padding:24px 0;line-height:1.5;}
+.lb-foot{margin-top:18px;padding-top:16px;border-top:0.5px solid #241a38;font-size:var(--fz-sm);color:#a89ac0;line-height:1.5;}
+.lb-foot .lb-cta{background:transparent;border:0;color:#c792ea;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);text-decoration:underline;padding:0;}
+.lb-actions{display:flex;justify-content:flex-end;margin-top:20px;}
+.lb-actions button{padding:9px 20px;border-radius:6px;border:0.5px solid #3d2060;background:transparent;color:#c8b8e0;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
+.lb-actions button:hover{border-color:#c792ea;}
 .lp-code{font-weight:600;letter-spacing:0.06em;width:2.2em;color:#a481c4;}
 .lp-name{flex:1;color:#c8bfe0;}
 .lp-flag{font-size:1.05em;}
@@ -571,6 +604,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <button class="navbtn active" data-i18n="nav_home">Home</button>
       <button class="navbtn" data-i18n="nav_play" onclick="renderBundles()">Play</button>
       <button class="navbtn" data-i18n="nav_community" onclick="window.open('https://www.reddit.com/r/AkashicSwapsGame/','_blank','noopener')">Community</button>
+      <button class="navbtn" data-i18n="nav_board" onclick="openLeaderboard()">Leaderboard</button>
       <a class="navbtn" href="/about/" data-i18n="nav_about">About</a>
       <!-- Profile menu (Jed 2026-08-13): replaces the language picker; language,
            Settings, sign-in/out live inside it. -->
@@ -830,6 +864,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.href='/';}"><span class="wordmark">AkashicSwaps</span><span class="edition">Play</span></div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="pback" id="pback-top" data-i18n="pback_bundles" onclick="playerBack()" style="display:none;">← Bundles</button>
+      <button class="navbtn" data-i18n="nav_board" onclick="openLeaderboard()">Leaderboard</button>
       <a class="navbtn" href="/about/" data-i18n="nav_about">About</a>
       <!-- Profile menu — same component as the home topbar. -->
       <div class="profilemenu">
@@ -926,11 +961,26 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   <input id="settings-name" type="text" maxlength="24" autocomplete="off" spellcheck="false" />
   <div class="set-hint" data-i18n="settings_name_hint">This is how you appear in greetings and on leaderboards. Leave blank to use your generated name.</div>
   <button class="set-linkbtn" onclick="resetNameToHandle()" data-i18n="settings_reset">Use my generated name instead</button>
+  <!-- Leaderboard opt-in (db/002 profiles.stars_public). GATED: the switch only
+       enables once the player holds 75/75 ⭐ (mastery of all 25 levels). Below the
+       gate it's disabled and the hint shows their progress toward it. -->
+  <div class="set-toggle-wrap">
+    <label class="set-toggle" for="settings-public">
+      <input type="checkbox" id="settings-public" onchange="onTogglePublic(this)" disabled />
+      <span class="set-switch"><span class="set-knob"></span></span>
+      <span class="set-toggle-label" data-i18n="settings_public">Compete publicly on the leaderboard</span>
+    </label>
+    <div class="set-hint" id="settings-public-hint"></div>
+  </div>
   <div class="set-actions">
     <button class="set-cancel" onclick="closeSettings()" data-i18n="settings_close">Close</button>
     <button class="set-save" onclick="saveSettings()" data-i18n="settings_save">Save</button>
   </div>
 </div></div>
+
+<!-- Leaderboard — the global ranking (db/002 standings()): opted-in players by
+     total stars, then reach. Body is drawn by renderLeaderboard() into .wbox. -->
+<div id="leaderboard"><div class="wbox"></div></div>
 
 <!-- Qualifying Level intro — brief timed popup at entrance start -->
 <div id="qintro" onclick="dismissQIntro()">
@@ -993,6 +1043,21 @@ en:{
   settings_title:'Settings',settings_sub:'Your name and preferences.',settings_name:'Display name',
   settings_name_hint:'This is how you appear in greetings and on leaderboards. Leave blank to use your generated name.',
   settings_reset:'Use my generated name instead',settings_close:'Close',settings_save:'Save',
+  nav_board:'Leaderboard',
+  settings_public:'Compete publicly on the leaderboard',
+  settings_public_hint:'You appear on the global leaderboard under your display name. Turn off any time to go private.',
+  settings_public_locked:(h,m)=>'Master all 25 levels to compete — '+h+'/'+m+' ⭐ so far.',
+  board_title:'Leaderboard',
+  board_sub:'Masters of all 25 levels, ranked by stars then reach.',
+  board_player:'Player',board_stars:'Stars',board_reach:'Reach',
+  board_loading:'Loading the board…',
+  board_empty:'No one has stepped onto the board yet. Master all 25 levels and be the first.',
+  board_you:'you',
+  board_on:'You’re on the board. ★',
+  board_optin:'You’ve mastered all 25 — but you’re still private.',
+  board_optin_cta:'Go public in Settings',
+  board_gate:(h,m)=>'Reach '+m+'/'+m+' ⭐ to claim your seat — '+h+'/'+m+' so far.',
+  board_close:'Close',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
   products_label:'Their Products:',products_btn:'Open your Bundles',
   products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',
@@ -1070,6 +1135,21 @@ ko:{
   settings_title:'설정',settings_sub:'이름과 환경 설정.',settings_name:'표시 이름',
   settings_name_hint:'인사말과 리더보드에 표시되는 이름입니다. 비워 두면 자동 생성된 이름이 사용됩니다.',
   settings_reset:'자동 생성된 이름 사용',settings_close:'닫기',settings_save:'저장',
+  nav_board:'리더보드',
+  settings_public:'리더보드에 공개로 참가',
+  settings_public_hint:'표시 이름으로 전체 리더보드에 나타납니다. 언제든지 꺼서 비공개로 전환할 수 있습니다.',
+  settings_public_locked:(h,m)=>'25개 레벨을 모두 마스터하면 참가할 수 있습니다 — 현재 '+h+'/'+m+' ⭐',
+  board_title:'리더보드',
+  board_sub:'25개 레벨을 모두 마스터한 플레이어, 별과 도달 레벨 순.',
+  board_player:'플레이어',board_stars:'별',board_reach:'도달',
+  board_loading:'리더보드를 불러오는 중…',
+  board_empty:'아직 아무도 리더보드에 오르지 않았습니다. 25개 레벨을 모두 마스터하고 첫 번째가 되세요.',
+  board_you:'나',
+  board_on:'리더보드에 올랐습니다. ★',
+  board_optin:'25개 레벨을 모두 마스터했지만 아직 비공개입니다.',
+  board_optin_cta:'설정에서 공개하기',
+  board_gate:(h,m)=>m+'/'+m+' ⭐에 도달하면 자리를 차지합니다 — 현재 '+h+'/'+m,
+  board_close:'닫기',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
   products_label:'내 제품:',products_btn:'번들 열기',
   products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',
@@ -1152,6 +1232,21 @@ es:{
   settings_title:'Ajustes',settings_sub:'Tu nombre y preferencias.',settings_name:'Nombre visible',
   settings_name_hint:'Así apareces en los saludos y en las clasificaciones. Déjalo en blanco para usar tu nombre generado.',
   settings_reset:'Usar mi nombre generado',settings_close:'Cerrar',settings_save:'Guardar',
+  nav_board:'Clasificación',
+  settings_public:'Competir públicamente en la clasificación',
+  settings_public_hint:'Apareces en la clasificación global con tu nombre visible. Desactívalo cuando quieras para volver a privado.',
+  settings_public_locked:(h,m)=>'Domina los 25 niveles para competir — '+h+'/'+m+' ⭐ hasta ahora.',
+  board_title:'Clasificación',
+  board_sub:'Maestros de los 25 niveles, ordenados por estrellas y alcance.',
+  board_player:'Jugador',board_stars:'Estrellas',board_reach:'Alcance',
+  board_loading:'Cargando la clasificación…',
+  board_empty:'Nadie ha entrado en la clasificación todavía. Domina los 25 niveles y sé el primero.',
+  board_you:'tú',
+  board_on:'Estás en la clasificación. ★',
+  board_optin:'Has dominado los 25 — pero sigues en privado.',
+  board_optin_cta:'Hazte público en Ajustes',
+  board_gate:(h,m)=>'Alcanza '+m+'/'+m+' ⭐ para reclamar tu puesto — '+h+'/'+m+' hasta ahora.',
+  board_close:'Cerrar',
   btn_new_level:'+ Nuevo nivel',btn_new_level2:'+ Empezar un nuevo nivel',tmpl_label:'Empieza desde un clásico:',
   products_label:'Sus productos:',products_btn:'Abre tus paquetes',
   products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',
@@ -1254,7 +1349,7 @@ function toggleProfile(btn){
   if(!wasOpen){ m.classList.add('open'); btn.setAttribute('aria-expanded','true'); }
 }
 document.addEventListener('click',e=>{ if(!e.target.closest('.profilemenu')) closeProfileMenus(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeProfileMenus(); closeSettings(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeProfileMenus(); closeSettings(); closeLeaderboard(); } });
 // Reflect current identity + language into EVERY Profile menu instance.
 function updateProfile(){
   const nm=(window.AkashicID?AkashicID.name():'')||'';
@@ -1274,6 +1369,7 @@ function openSettings(){
   const inp=document.getElementById('settings-name');
   if(inp){ inp.value=(window.AkashicID?AkashicID.username():'')||''; inp.placeholder=genNamePretty(); }
   document.getElementById('settings').classList.add('open');
+  loadPublicToggle(); // reflect + gate the leaderboard opt-in
   if(inp) setTimeout(()=>inp.focus(),30);
 }
 function closeSettings(){ const s=document.getElementById('settings'); if(s)s.classList.remove('open'); }
@@ -1290,6 +1386,88 @@ function refreshIdentityUI(){
   if(typeof updateProfile==='function')updateProfile();
   if(typeof applyEdition==='function')applyEdition();
   const p=document.getElementById('products'); if(p&&p.classList.contains('open')&&typeof renderProductsList==='function'&&!productsView)renderProductsList();
+}
+
+// ── Leaderboard + public opt-in (db/002 standings() + profiles.stars_public) ──
+// The board is the ONE global ranking: opted-in players by total stars, then reach
+// (current level). Appearing is opt-in AND gated — a player only unlocks the
+// "compete publicly" switch at 75/75 ⭐ (mastery of all 25 levels).
+// prettyBoardName title-cases a generated handle ('wicked-jumping-llama') for the
+// board; a chosen username is already display-ready and passes through unchanged.
+function prettyBoardName(n){
+  if(!n) return '';
+  return n.indexOf('-')===-1 ? n
+    : n.split('-').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+}
+// The raw server name for THIS device (username override wins, else generated
+// handle) — used to spotlight the player's own row on the board.
+function myBoardName(){
+  if(!window.AkashicID) return '';
+  return AkashicID.username() || AkashicID.rawHandle() || '';
+}
+// Escape user-chosen names before injecting them into the board markup.
+function escapeBoard(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function closeLeaderboard(){ const b=document.getElementById('leaderboard'); if(b)b.classList.remove('open'); }
+async function openLeaderboard(){
+  closeProfileMenus();
+  const box=document.querySelector('#leaderboard .wbox'); if(!box) return;
+  box.innerHTML='<h2>'+TXT('board_title')+'</h2><div class="lb-sub">'+TXT('board_sub')+'</div>'
+    +'<div class="lb-empty">'+TXT('board_loading')+'</div>'
+    +'<div class="lb-actions"><button onclick="closeLeaderboard()">'+TXT('board_close')+'</button></div>';
+  document.getElementById('leaderboard').classList.add('open');
+  let rows=[];
+  if(window.AkashicAuth&&AkashicAuth.standings){ try{ rows=await AkashicAuth.standings(); }catch(e){ rows=[]; } }
+  renderLeaderboard(rows);
+}
+function renderLeaderboard(rows){
+  const box=document.querySelector('#leaderboard .wbox'); if(!box) return;
+  const mine=myBoardName();
+  let onBoard=false, body;
+  if(!rows||!rows.length){
+    body='<div class="lb-empty">'+TXT('board_empty')+'</div>';
+  } else {
+    const tr=rows.map((r,i)=>{
+      const raw=r.display_name||'', you=!!(mine&&raw===mine);
+      if(you) onBoard=true;
+      return '<tr class="'+(you?'lb-row-you':'')+'">'
+        +'<td class="lb-rank">'+(i+1)+'</td>'
+        +'<td class="lb-name">'+escapeBoard(prettyBoardName(raw))+(you?'<span class="lb-you-tag">'+TXT('board_you')+'</span>':'')+'</td>'
+        +'<td class="lb-num lb-star">'+(r.total_stars||0)+' ★</td>'
+        +'<td class="lb-num">L'+(r.reach||0)+'</td></tr>';
+    }).join('');
+    body='<table class="lb-table"><thead><tr>'
+      +'<th class="lb-rank">#</th><th>'+TXT('board_player')+'</th>'
+      +'<th class="lb-num">'+TXT('board_stars')+'</th><th class="lb-num">'+TXT('board_reach')+'</th>'
+      +'</tr></thead><tbody>'+tr+'</tbody></table>';
+  }
+  // footer: this player's gate status + a nudge into Settings if not yet showing
+  const t=(typeof bundleStarTotals==='function')?bundleStarTotals():{have:0,max:75};
+  let foot;
+  if(t.have>=t.max){
+    foot = onBoard ? TXT('board_on')
+      : (TXT('board_optin')+' <button class="lb-cta" onclick="closeLeaderboard();openSettings();">'+TXT('board_optin_cta')+'</button>');
+  } else {
+    foot = TXT('board_gate')(t.have,t.max);
+  }
+  box.innerHTML='<h2>'+TXT('board_title')+'</h2><div class="lb-sub">'+TXT('board_sub')+'</div>'
+    +body+'<div class="lb-foot">'+foot+'</div>'
+    +'<div class="lb-actions"><button onclick="closeLeaderboard()">'+TXT('board_close')+'</button></div>';
+}
+// Settings: reflect DB visibility into the switch, gated on 75/75 ⭐.
+async function loadPublicToggle(){
+  const cb=document.getElementById('settings-public'), hint=document.getElementById('settings-public-hint');
+  if(!cb||!hint) return;
+  const t=(typeof bundleStarTotals==='function')?bundleStarTotals():{have:0,max:75};
+  const unlocked=t.have>=t.max;
+  cb.disabled=!unlocked; cb.checked=false;
+  if(!unlocked){ hint.textContent=TXT('settings_public_locked')(t.have,t.max); return; }
+  hint.textContent=TXT('settings_public_hint');
+  if(window.AkashicAuth&&AkashicAuth.getStarsPublic){ try{ cb.checked=await AkashicAuth.getStarsPublic(); }catch(e){} }
+}
+async function onTogglePublic(cb){
+  if(!window.AkashicAuth||!AkashicAuth.setStarsPublic){ cb.checked=false; return; }
+  const ok=await AkashicAuth.setStarsPublic(cb.checked);
+  if(!ok) cb.checked=!cb.checked; // revert on failure (offline / not signed in)
 }
 let lastPView=null; // 'bundles' | 'grid' — re-render the player screen on switch
 function setLang(l){
