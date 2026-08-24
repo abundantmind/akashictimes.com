@@ -265,6 +265,9 @@ body.font-lg{--base-font:20px;}
 #products .pmsg{color:#887a9a;font-size:var(--fz-sm);margin-bottom:20px;font-family:var(--font-sans);}
 #products .prod-close{margin-top:22px;background:transparent;border:0.5px solid #3d2060;border-radius:6px;color:#8a74b0;padding:8px 20px;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
 #products .prod-close:hover{border-color:#8a74b0;color:#c9b8e8;}
+#products .prod-submit{margin-top:18px;background:#2a1d48;border:0.5px solid #6a4aaa;border-radius:6px;color:#e0d0ff;padding:9px 22px;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
+#products .prod-submit:hover{border-color:#c792ea;}
+#products .prod-submit:disabled{opacity:.65;cursor:default;}
 .prod-card{background:#1a0f2a;border:0.5px solid #3d2060;border-radius:10px;padding:18px 22px;cursor:pointer;transition:border-color .2s,transform .2s;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:16px;}
 .prod-card:hover{border-color:#c792ea;transform:translateY(-2px);}
 .prod-card .pc-name{font-size:var(--fz-lg);color:#c9b8e8;font-weight:500;}
@@ -382,6 +385,8 @@ body.player-playing #board-wrap{overflow:hidden;}
 #ehud-level{font-size:var(--fz-2xl);color:#c792ea;font-weight:500;text-align:center;line-height:1.1;}
 #ehud-goal{display:flex;flex-direction:column;align-items:center;gap:14px;}
 .ehud-goalrow{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.ehud-goalrow.done .phud-gcount{color:#4ade80;font-weight:700;} /* green check — a sandbox goal just completed */
+.ehud-goalrow.done .phud-icon{opacity:.55;}
 body.player-playing #ehud,body.player-playing #eboost{display:none!important;}
 body.player-playing #eframe{display:contents;background:none;}
 .rsec{padding:7px;background:#13111a;border-radius:6px;border:0.5px solid #2d2540;}
@@ -400,6 +405,13 @@ body.player-playing #eframe{display:contents;background:none;}
 .objrow .odel{background:transparent;border:0;color:#7a5a6a;cursor:pointer;font-size:var(--fz-md);padding:0 2px;flex-shrink:0;}
 .objrow .odel:hover{color:#d4537e;}
 .objbtns{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+/* Palette picker — toggle which colors spawn on this level's board */
+.palettepicker{display:flex;gap:5px;flex-wrap:wrap;}
+.paletteswatch{width:32px;height:32px;padding:3px;border-radius:6px;background:#1a1530;border:0.5px solid #3d3560;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.35;transition:opacity .15s,border-color .15s;}
+.paletteswatch svg{width:24px;height:24px;}
+.paletteswatch.on{opacity:1;border-color:#6a4aaa;background:#231a3a;}
+.paletteswatch:hover{opacity:.8;}
+.paletteswatch.on:hover{opacity:1;}
 .objempty{font-size:var(--fz-sm);color:#5a4a7a;font-style:italic;margin:3px 0;}
 #sbar{padding:3px 10px;font-size:var(--fz-sm);color:#5a4a7a;background:#0d0a14;border-top:0.5px solid #1a1530;display:flex;gap:12px;flex-shrink:0;}
 #flowbar{display:none;gap:4px;padding:4px 10px;background:#0d0a14;border-bottom:0.5px solid #2d2540;flex-shrink:0;}
@@ -813,6 +825,14 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="rrow"><span>Cols</span><span class="rval" id="info-c">—</span></div>
       </div>
       <div class="rsec">
+        <!-- Palette (Jed 2026-08-24): which gem colors spawn on THIS level's board.
+             Backs directly onto GEM_POOL — the same array randGem() draws from and
+             serializeLevel() emits as gemTypes, so toggling here is the whole feature;
+             load/save/play already round-trip GEM_POOL, they just had no editor control. -->
+        <div class="rtitle">Palette</div>
+        <div id="palettepicker" class="palettepicker"></div>
+      </div>
+      <div class="rsec">
         <div class="rtitle">Goals</div>
         <!-- Objectives list: board-derived goals (clover/key/acorn) auto-fill via Recommend;
              gem-color goals are added + edited by hand (the board can't guess color/count). -->
@@ -826,6 +846,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="tb" onclick="addObjective('key')">+ Key</button>
           <button class="tb" onclick="addObjective('acorn')">+ Acorn</button>
           <button class="tb" onclick="addObjective('crate')">+ Crate</button>
+          <button class="tb" onclick="addObjective('pu')">+ Power-up</button>
         </div>
         <div class="objbtns">
           <button class="tb" onclick="showSerialized()" title="Serialize the whole board to canonical 7-layer JSON (the Central Scrutinizer) and show it for review.">⌘ Serialize</button>
@@ -1058,6 +1079,11 @@ en:{
   board_optin_cta:'Go public in Settings',
   board_gate:(h,m)=>'Reach '+m+'/'+m+' ⭐ to claim your seat — '+h+'/'+m+' so far.',
   board_close:'Close',
+  submit_bundle_btn:'☁ Submit for review',
+  submit_bundle_confirm:(n,c)=>'Submit "'+n+'" ('+c+' level'+(c===1?'':'s')+') to the marketplace for review?',
+  submit_bundle_sending:'Submitting…',
+  submit_bundle_sent:'✓ Submitted — awaiting review',
+  submit_bundle_err:'Submit failed.',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
   products_label:'Their Products:',products_btn:'Open your Bundles',
   products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',
@@ -1150,6 +1176,11 @@ ko:{
   board_optin_cta:'설정에서 공개하기',
   board_gate:(h,m)=>m+'/'+m+' ⭐에 도달하면 자리를 차지합니다 — 현재 '+h+'/'+m,
   board_close:'닫기',
+  submit_bundle_btn:'☁ 검토 요청',
+  submit_bundle_confirm:(n,c)=>'"'+n+'" ('+c+'개 레벨)을 마켓플레이스 검토용으로 제출하시겠습니까?',
+  submit_bundle_sending:'제출 중…',
+  submit_bundle_sent:'✓ 제출됨 — 검토 대기 중',
+  submit_bundle_err:'제출에 실패했습니다.',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
   products_label:'내 제품:',products_btn:'번들 열기',
   products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',
@@ -1247,6 +1278,11 @@ es:{
   board_optin_cta:'Hazte público en Ajustes',
   board_gate:(h,m)=>'Alcanza '+m+'/'+m+' ⭐ para reclamar tu puesto — '+h+'/'+m+' hasta ahora.',
   board_close:'Cerrar',
+  submit_bundle_btn:'☁ Enviar para revisión',
+  submit_bundle_confirm:(n,c)=>'¿Enviar "'+n+'" ('+c+' nivel'+(c===1?'':'es')+') al mercado para revisión?',
+  submit_bundle_sending:'Enviando…',
+  submit_bundle_sent:'✓ Enviado — en espera de revisión',
+  submit_bundle_err:'Error al enviar.',
   btn_new_level:'+ Nuevo nivel',btn_new_level2:'+ Empezar un nuevo nivel',tmpl_label:'Empieza desde un clásico:',
   products_label:'Sus productos:',products_btn:'Abre tus paquetes',
   products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',
@@ -1959,8 +1995,34 @@ async function openUserBundle(id){
   let html='<h2>'+escHtml(b.name)+'</h2><div class="pmsg">Real JSON files on your disk. Click a number to edit, or ＋ to add a level.</div><div class="prodlvls">';
   levels.forEach(fn=>{ const num=+fn.match(/(\d+)/)[1]; html+='<button class="prodlvl" onclick="editUserBundleLevel(\''+id+'\',\''+fn+'\')">'+num+'</button>'; });
   html+='<button class="prodlvl" style="border-style:dashed;color:#c8a8ff" onclick="addLevelToBundle(\''+id+'\')">＋</button>';
-  html+='</div><button class="prod-close" onclick="currentUserBundle=null;renderProductsList()">← Bundles</button>';
+  html+='</div>';
+  if(levels.length) html+='<button class="prod-submit" id="prod-submit-btn" onclick="submitUserBundle(\''+id+'\')">'+TXT('submit_bundle_btn')+'</button>';
+  html+='<button class="prod-close" onclick="currentUserBundle=null;renderProductsList()">← Bundles</button>';
   document.querySelector('#products .wbox').innerHTML=html;
+}
+
+// Package every level-0NN.json in a local bundle folder and submit it to the
+// marketplace as a DRAFT row (public.bundles, published=false). Jed reviews +
+// hand-approves by flipping `published` in the Supabase SQL editor — no admin
+// UI yet at this volume (Wizard-of-Oz moderation).
+async function submitUserBundle(id){
+  const b=USER_BUNDLES.find(x=>x.id===id); if(!b)return;
+  if(!window.AkashicAuth||!AkashicAuth.submitBundle){ alert('Marketplace submission needs the auth module — try again in a moment.'); return; }
+  const btn=document.getElementById('prod-submit-btn');
+  const fnames=[];
+  try{ for await(const [n] of b.dir.entries()) if(/^level-\d+\.json$/i.test(n)) fnames.push(n); }
+  catch(e){ alert('Could not read the bundle folder: '+e.message); return; }
+  fnames.sort();
+  if(!fnames.length){ alert('This bundle has no levels yet.'); return; }
+  if(!confirm(TXT('submit_bundle_confirm')(b.name,fnames.length))) return;
+  const levels=[];
+  try{
+    for(const fn of fnames){ const fh=await b.dir.getFileHandle(fn); levels.push(JSON.parse(await (await fh.getFile()).text())); }
+  }catch(e){ alert('Could not read level files: '+e.message); return; }
+  if(btn){ btn.disabled=true; btn.textContent=TXT('submit_bundle_sending'); }
+  const res=await AkashicAuth.submitBundle({ title:b.name, levels });
+  if(res.ok){ if(btn){ btn.textContent=TXT('submit_bundle_sent'); } }
+  else{ alert(TXT('submit_bundle_err')+(res.error?' ('+res.error+')':'')); if(btn){ btn.disabled=false; btn.textContent=TXT('submit_bundle_btn'); } }
 }
 
 // ＋ Add level → target this bundle, then the normal New-Level (grid size) dialog.
@@ -2367,7 +2429,36 @@ function objKind(o){
   if(o.type==='clear'&&o.obstacle==='crate')return 'crate'; // clear-N-crates goal
   if(o.type==='collect'&&o.item==='key')return 'key';
   if(o.type==='collect'&&o.item==='acorn')return 'acorn';
+  if(o.type==='detonate'||o.type==='create')return 'pu';    // "Use/Make N {power-up}" goal
   return 'gem';
+}
+// The 4 power-ups a 'pu'-kind objective can target, generic id → display name
+// (matches the qualifying level's hardcoded goal names) and the icon variant
+// goalPuIcon() expects (rocket→rocket_h for display; puFired() normalizes
+// rocket_h/rocket_v back to 'rocket' for goal-matching either direction).
+const PU_GOAL_OPTS=[{id:'helicopter',name:'Grasshopper'},{id:'rocket',name:'Dragonfly'},{id:'bomb',name:'Scarab'},{id:'rainbow',name:'Akasha Ball'}];
+
+// Palette picker — toggle which colors are in GEM_POOL (the level's spawnable
+// set). Always leaves at least one color active. GEM_POOL itself is the single
+// source randGem()/serializeLevel() already read — this is purely the missing
+// editor control, per the Central Scrutinizer comment "future editor control =
+// per-color checkboxes on Randomize" (2026-07-31).
+function renderPalette(){
+  const box=document.getElementById('palettepicker'); if(!box)return;
+  box.innerHTML='';
+  GEM_JSON.forEach((name,gi)=>{
+    const on=GEM_POOL.includes(gi);
+    const btn=document.createElement('button');
+    btn.className='paletteswatch'+(on?' on':'');
+    btn.title=GDEFS[gi].name+(on?' (active)':' (off — click to add)');
+    btn.innerHTML=gemSVG(gi,24);
+    btn.onclick=()=>{
+      if(on){ if(GEM_POOL.length<=1)return; GEM_POOL=GEM_POOL.filter(i=>i!==gi); }
+      else{ GEM_POOL=[...GEM_POOL,gi].sort((a,b)=>a-b); }
+      renderPalette();
+    };
+    box.appendChild(btn);
+  });
 }
 // Scan the painted board for the board-derived goal counts.
 //  clover = UNCLOVERED plantable cells (active, not a solid crate, no clover yet)
@@ -2395,13 +2486,18 @@ function renderObjectives(){
     const row=document.createElement('div');row.className='objrow';
     // icon
     const ic=document.createElement('span');ic.className='oicon';
-    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='acorn'?acornIconSVG(20):k==='crate'?crateIconSVG(20):gemSVG(GEMMAP[o.gem]??3,20);
+    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='acorn'?acornIconSVG(20):k==='crate'?crateIconSVG(20):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),20):gemSVG(GEMMAP[o.gem]??3,20);
     row.appendChild(ic);
-    // label, or gem-color selector for gem goals
+    // label, or a selector for goals with a variant (gem color / which power-up)
     if(k==='gem'){
       const sel=document.createElement('select');sel.className='osel';
       GEM_JSON.forEach((name,gi)=>{const opt=document.createElement('option');opt.value=name;opt.textContent=GDEFS[gi].name;if((GEMMAP[o.gem]??3)===gi)opt.selected=true;sel.appendChild(opt);});
       sel.onchange=()=>{o.gem=sel.value;renderObjectives();};
+      row.appendChild(sel);
+    }else if(k==='pu'){
+      const sel=document.createElement('select');sel.className='osel';
+      PU_GOAL_OPTS.forEach(p=>{const opt=document.createElement('option');opt.value=p.id;opt.textContent='Use '+p.name;if((o.pu||'helicopter')===p.id)opt.selected=true;sel.appendChild(opt);});
+      sel.onchange=()=>{o.pu=sel.value;renderObjectives();};
       row.appendChild(sel);
     }else{
       const lb=document.createElement('span');lb.className='olabel';
@@ -2426,6 +2522,7 @@ function renderObjectives(){
     box.appendChild(row);
   });
   if(typeof updEditorFrame==='function')updEditorFrame(); // mirror goal edits onto the play-frame HUD
+  renderPalette();
 }
 // Add a blank objective of the given kind (gem defaults yellow×15; the rest seed
 // their count from the board so a fresh add already reflects what's painted).
@@ -2436,6 +2533,7 @@ function addObjective(kind){
   else if(kind==='key')   editorObjectives.push({type:'collect',item:'key',count:bc.key||1});
   else if(kind==='acorn') editorObjectives.push({type:'collect',item:'acorn',count:bc.acorn||1});
   else if(kind==='crate') editorObjectives.push({type:'clear',obstacle:'crate',count:bc.crate||1});
+  else if(kind==='pu')    editorObjectives.push({type:'detonate',pu:'helicopter',count:2});
   renderObjectives();
 }
 // Recommend: for each board-derived goal PRESENT on the board, ensure an
@@ -2494,6 +2592,8 @@ function serializeLevel(){
   const objectives=editorObjectives.map(o=>
     o.type==='plant'?{type:'plant',obstacle:o.obstacle||'clover',count:o.count}
     :o.type==='clear'?{type:'clear',obstacle:o.obstacle||'crate',count:o.count}
+    :o.type==='detonate'?{type:'detonate',pu:o.pu,count:o.count}
+    :o.type==='create'?{type:'create',pu:o.pu,count:o.count}
     :o.gem!=null    ?{type:'collect',gem:o.gem,count:o.count}
     :                {type:'collect',item:o.item,count:o.count});
   const out={
@@ -2844,7 +2944,12 @@ function setBase(v){
   document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#itmpal div')
     .forEach(x=>x.style.borderColor='transparent');
   if(layer!=='base') setLayer('base');
-  document.getElementById('sb1').textContent='Layer: Base ('+(v==='active'?'Active':'Hole')+')';
+  // Base is its own paint layer — a gem/PU/obstacle brush no longer applies to
+  // clicks until you re-pick one (Jed hit this 2026-08-24: painted Hole→Active,
+  // then a crate click silently did nothing because layer stayed 'base'). Spell
+  // that out here since it's the one persistent readout that won't get
+  // overwritten by cell-hover (#sb3 shows live (col,row) on every mouseenter).
+  document.getElementById('sb1').textContent='Layer: Base ('+(v==='active'?'Active':'Hole')+') — pick a brush below to paint content again';
 }
 
 function setTool(t){
@@ -2867,7 +2972,13 @@ function onCell(r,c,e){if(playing&&!animating){playTap(r,c);}else if(!playing){p
 function paintCell(r,c){
   const cd=board[r][c];
   if(layer==='base'){save();cd.active=(selBase==='active');} // SET to the chosen brush, not toggle
-  else if(layer==='tile'&&cd.active){
+  // 'obstacle' shares the tile paint pass — its brushes (crate/chain/leaf) already
+  // live in the Tile layer's palette (blk-pal). Picking a brush auto-corrects layer
+  // back to 'tile' (pickBrush), but clicking the Obstacle TAB alone (without
+  // re-picking) left layer stuck at 'obstacle', which paintCell never matched —
+  // every click silently no-op'd. Bug found + fixed 2026-08-24 (Jed repro: paint a
+  // crate → Hole → Active → try repaint the crate while the Obstacle tab is open).
+  else if((layer==='tile'||layer==='obstacle')&&cd.active){
     const b=selBrush; // the ONE active brush — dispatch on its type
     // fill / erase / mirror are gem-oriented tools (they operate on the gem layer);
     // they use the gem brush when one is picked and no-op under a non-gem brush.
@@ -2933,7 +3044,6 @@ function togglePlay(){
   document.getElementById('history-sec').style.display=playing?'block':'none';
   document.getElementById('playbtn').innerHTML=playing?'⏹ Stop':'▶ Play';
   architectPlaying=playing; // remember the Architect's explicit choice — sticky across level switches
-  updEditorFrame(); // refresh the frame HUD on every mode toggle (moves persist)
   if(playing){
     // startEmpty cells (field.empty in level JSONs — L8's sealed bottom and
     // clover donut) begin GEM-FREE; gravity fills them during play as the
@@ -2945,7 +3055,25 @@ function togglePlay(){
     for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
     if(!flyover&&!hasValidMove())shuffleBoard(); // opening board must have a move (skip authored flyover boards)
+    // Real goal-tracking for the sandbox (Jed 2026-08-24) — same playerGoals
+    // shape + tick functions the real game uses, so crate/PU/gem goals count
+    // down live and a completed level celebrates. See editorSandboxPlay above
+    // for why this never touches PlayerProgress.
+    editorSandboxPlay=true; playerMode=true;
+    playerGoals=(editorObjectives||[]).map(o=>{
+      if(o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null) return {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem};
+      if(o.type==='collect'&&o.item==='acorn') return {kind:'acorn',need:o.count,have:0,name:'acorn'};
+      if(o.type==='collect'&&o.item==='key') return {kind:'key',need:o.count,have:0,name:'key'};
+      if(o.type==='clear'&&o.obstacle==='crate') return {kind:'crate',need:o.count,have:0,name:'crate'};
+      if(o.type==='plant') return {kind:'plant',need:o.count,have:0,name:'clover'};
+      if(o.type==='detonate'&&o.pu) return {kind:'detonate',pu:o.pu,need:o.count,have:0,name:o.pu};
+      if(o.type==='create'&&o.pu) return {kind:'create',pu:o.pu,need:o.count,have:0,name:o.pu};
+      return null;
+    }).filter(Boolean);
+  } else {
+    editorSandboxPlay=false; playerMode=false; playerGoals=[];
   }
+  updEditorFrame(); // refresh the frame HUD on every mode toggle (moves persist)
   render();
 }
 
@@ -4882,6 +5010,13 @@ const GEMMAP={red:0,ruby:0,blue:1,sapphire:1,green:2,emerald:2,yellow:3,gold:3,t
 
 // player state
 let playerMode=false, playerGoals=[], curLevelNum=1, pwinWon=false;
+// editorSandboxPlay (Jed 2026-08-24): true only while the EDITOR's own ▶ Play
+// button is running (never during real Explore). Lets goal-tracking run for
+// real (playerMode=true, same tick functions the real game uses) so an
+// architect can verify a level solves — WITHOUT ever touching PlayerProgress,
+// since a test bundle's level numbers collide with the real "Go with the
+// Flow" numbering (no bundle_id yet — [[project_marketplace_pivot]]).
+let editorSandboxPlay=false;
 let entranceMode=false; // true while playing the Level 1 entrance/training level
 
 // Goal event: a power-up was formed by a match. Ticks 'create' goals and the
@@ -5136,11 +5271,23 @@ function updEditorFrame(){
   const mv=document.getElementById('ehud-moves'); if(mv)mv.textContent=moves;
   const g=document.getElementById('ehud-goal');
   if(g){
-    g.innerHTML=(editorObjectives||[]).map(o=>{
-      const k=objKind(o);
-      const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='acorn'?acornIconSVG(44):k==='crate'?crateIconSVG(44):gemSVG(GEMMAP[o.gem]??3,44);
-      return '<div class="ehud-goalrow"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(o.count||0)+'</div></div>';
-    }).join('');
+    if(editorSandboxPlay&&playerGoals.length){
+      // LIVE during a sandbox test run — remaining count + a checkmark once
+      // done, from the same playerGoals the real game ticks (goalDone()).
+      g.innerHTML=playerGoals.map(pg=>{
+        const done=goalDone(pg);
+        const icon=pg.kind==='plant'?cloverIconSVG(44):pg.kind==='acorn'?acornIconSVG(44):pg.kind==='key'?keyIconSVG(44):pg.kind==='crate'?crateIconSVG(44):(pg.kind==='detonate'||pg.kind==='create')?puSVG(goalPuIcon(pg.pu||'helicopter'),44):gemSVG(pg.gemIdx??3,44);
+        const remaining=Math.max(0,pg.need-pg.have);
+        return '<div class="ehud-goalrow'+(done?' done':'')+'"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(done?'✓':remaining)+'</div></div>';
+      }).join('');
+    } else {
+      // Static preview — editing, not testing: shows the AUTHORED target count.
+      g.innerHTML=(editorObjectives||[]).map(o=>{
+        const k=objKind(o);
+        const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='acorn'?acornIconSVG(44):k==='crate'?crateIconSVG(44):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),44):gemSVG(GEMMAP[o.gem]??3,44);
+        return '<div class="ehud-goalrow"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(o.count||0)+'</div></div>';
+      }).join('');
+    }
   }
   renderBoosterPanel();
 }
@@ -5434,6 +5581,10 @@ function loadLevelData(json,num){
         return {kind:'crate',need:o.count,have:0,name:'crate'};
       if(o.type==='plant')
         return {kind:'plant',need:o.count,have:0,name:'clover'};
+      if(o.type==='detonate'&&o.pu)
+        return {kind:'detonate',pu:o.pu,need:o.count,have:0,name:o.pu};
+      if(o.type==='create'&&o.pu)
+        return {kind:'create',pu:o.pu,need:o.count,have:0,name:o.pu};
       return null;
     })
     .filter(Boolean);
@@ -5730,18 +5881,23 @@ function dismissQIntro(){
 function playerTally(gemIdx){ playerGoals.forEach(g=>{ if(g.gemIdx===gemIdx) g.have++; }); }
 
 function updatePlayerHUD(){
+  // Sandbox play never shows #phud (that's real-Explore chrome) — mirror every
+  // tick onto the editor's own visible frame instead. Real play is untouched:
+  // updEditorFrame() no-ops there since #ehud/#eboost are display:none.
+  if(editorSandboxPlay&&typeof updEditorFrame==='function')updEditorFrame();
   // Entrance is NOT Level 1 — Level 1 is reachable via Bundles. Distinct name.
   document.getElementById('phud-level').textContent=entranceMode?TXT('lvl_qualifying'):TXT('lvl_prefix')+curLevelNum;
   // Moves count UP from 0 — no-fail model, no limit shown.
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
   if(!playerGoals.length){goalEl.innerHTML='';return;}
-  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='acorn'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate')){
-    // Single collect/plant/acorn/key/crate goal — classic big-icon layout. Counts DOWN, 0 = done.
+  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='acorn'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate'||playerGoals[0].kind==='detonate'||playerGoals[0].kind==='create')){
+    // Single collect/plant/acorn/key/crate/detonate/create goal — classic big-icon layout. Counts DOWN, 0 = done.
     const g=playerGoals[0];
     const remaining=Math.max(0,g.need-g.have);
-    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='acorn'?acornIconSVG(48):g.kind==='key'?keyIconSVG(48):g.kind==='crate'?crateIconSVG(48):gemSVG(g.gemIdx,48);
-    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'||g.kind==='key'?TXT('cap_collect'):g.kind==='acorn'?TXT('cap_free'):g.kind==='crate'?TXT('cap_clear'):TXT('cap_plant'))+'</div>'+
+    const isPu=g.kind==='detonate'||g.kind==='create';
+    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='acorn'?acornIconSVG(48):g.kind==='key'?keyIconSVG(48):g.kind==='crate'?crateIconSVG(48):isPu?puSVG(goalPuIcon(g.pu),48):gemSVG(g.gemIdx,48);
+    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'||g.kind==='key'?TXT('cap_collect'):g.kind==='acorn'?TXT('cap_free'):g.kind==='crate'?TXT('cap_clear'):g.kind==='detonate'?TXT('verb_fire'):g.kind==='create'?TXT('verb_make'):TXT('cap_plant'))+'</div>'+
       '<div class="phud-icon">'+icon+'</div>'+
       '<div class="phud-gcount">'+remaining+'</div>';
     return;
@@ -5895,6 +6051,10 @@ function choosePlayerPath(){
 function playerFinish(win){
   // Entrance level ends with the two-path choice, not the stars overlay
   if(entranceMode&&win){showEntranceChoice();return;}
+  // Sandbox test run (editor ▶ Play): celebrate a real solve, but NEVER touch
+  // PlayerProgress — a test bundle's level numbers collide with the real
+  // "Go with the Flow" numbering (no bundle_id yet). See editorSandboxPlay.
+  if(editorSandboxPlay){ sandboxPlayerFinish(win); return; }
   playing=false; animating=true; // lock the board
   // STAR CANON (sober, Jed 2026-07-29 — see memory project_star_canon):
   // SEQUENTIAL ENABLEMENT — stars are earned strictly in order, AT MOST ONE
@@ -5941,6 +6101,27 @@ function playerFinish(win){
   document.getElementById('pwin').classList.add('open');
   pwinWon=win;
   if(earnedNew) celebrateStar(stars); // rainbow arc + fireworks OVER the win overlay, then reveals it
+}
+// Sandbox counterpart to playerFinish() — same win overlay + fireworks feel,
+// zero PlayerProgress reads/writes (see editorSandboxPlay above). Continue
+// just closes back to the editor's own board, not exitToGrid()'s real-Explore
+// teardown (that assumes a player-shell that doesn't exist here).
+function sandboxPlayerFinish(win){
+  playing=false; animating=true;
+  document.getElementById('pwin-title').textContent=win?TXT('win_title'):TXT('lose_title');
+  document.getElementById('pwin-stars').textContent=win?'★★★':'';
+  document.getElementById('pwin-msg').textContent=win?TXT('win_msg')(curLevelNum,moves):TXT('try_again');
+  document.getElementById('pwin-rec').textContent='';
+  document.getElementById('pwin-reset').style.display='none';
+  document.getElementById('pwin-btn').textContent=win?TXT('cont'):TXT('retry');
+  document.getElementById('pwin-btn').onclick=function(){
+    document.getElementById('pwin').classList.remove('open');
+    document.getElementById('pwin-btn').onclick=pwinContinue; // restore the normal handler
+    if(!win) togglePlay(); // failed sandbox run: drop back to Edit, board as-is
+    // a win just stays put — architect sees the solved board, can inspect it
+  };
+  document.getElementById('pwin').classList.add('open');
+  if(win) celebrateStar(3); // same fireworks, no real star tied to it
 }
 // Reset ONE level's stars + record + miss counter, then replay it so the player
 // can set a new (often deliberately terrible) first-star bar (Jed 2026-07-29).
