@@ -266,6 +266,23 @@ const AkashicAuth = {
     return true;
   },
 
+  // ── Marketplace submission (schema.sql's public.bundles, live since v1 —
+  // never wired to a UI until now). Inserts a DRAFT row: published defaults to
+  // false, so it's invisible to everyone but its author until Jed hand-approves
+  // it (Wizard-of-Oz moderation, [[project_marketplace_pivot]]) by flipping
+  // `published` in the Supabase SQL editor — no admin UI needed at this volume.
+  // `levels` = the array of canonical serializeLevel() outputs already written
+  // to the architect's local bundle folder; `data` just carries them as-is.
+  async submitBundle({ title, levels }){
+    const u = this.user; if(!u) return { ok:false, error:'not signed in' };
+    if(!title || !levels || !levels.length) return { ok:false, error:'nothing to submit' };
+    const { data, error } = await supabase.from('bundles')
+      .insert({ author: u.id, title: title.slice(0,80), data: levels, published: false })
+      .select('id').maybeSingle();
+    if(error){ console.warn('[auth] submitBundle failed', error.message); return { ok:false, error: error.message }; }
+    return { ok:true, id: data && data.id };
+  },
+
   // Called from renderGrid() to paint the sign-in strip in the right state.
   stripHTML(){
     if(this.user){
