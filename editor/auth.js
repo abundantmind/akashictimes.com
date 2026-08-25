@@ -132,13 +132,23 @@ function registerStrings(){
 // progress: keep MAX stars, MIN non-zero move record. Read the game's live
 // PlayerProgress store rather than re-parsing localStorage — it's the same data,
 // already normalized for old plain-number entries.
+// BUNDLE-SCOPED (2026-08-25, [[project_marketplace_pivot]]): P.data is nested
+// data[bundleId][level] — walk both levels and carry bundle_id in every row
+// (0 = native "Go with the Flow" sentinel, else a real public.bundles.id).
 function localProgressRows(){
   const P = window.PlayerProgress;
   const rows = [];
   if(!P) return rows;
-  Object.keys(P.data).forEach(k => {
-    const n = +k; if(!n) return;
-    rows.push({ level:n, stars:P.stars(n), move_record:P.record(n) });
+  Object.keys(P.data).forEach(bk => {
+    const bundleId = +bk;
+    const bucket = P.data[bk] || {};
+    Object.keys(bucket).forEach(k => {
+      const n = +k; if(!n) return;
+      const d = bucket[k];
+      const stars = typeof d === 'number' ? d : (d && d.s) || 0;
+      const rec = (d && d.rec) || 0;
+      rows.push({ bundle_id:bundleId, level:n, stars, move_record:rec });
+    });
   });
   return rows;
 }
@@ -148,12 +158,16 @@ function localProgressRows(){
 function foldCloudIntoLocal(cloudRows){
   const P = window.PlayerProgress; if(!P) return;
   (cloudRows||[]).forEach(r => {
-    const curS = P.stars(r.level), curR = P.record(r.level);
+    const bundleId = r.bundle_id || 0;
+    const bucket = P.data[bundleId] || (P.data[bundleId] = {});
+    const cur = bucket[r.level];
+    const curS = typeof cur === 'number' ? cur : (cur && cur.s) || 0;
+    const curR = (cur && cur.rec) || 0;
     const stars = Math.max(curS, r.stars);
     // MIN non-zero record across the two
     const recs = [curR, r.move_record].filter(x => x > 0);
     const rec = recs.length ? Math.min(...recs) : 0;
-    P.data[r.level] = { s: stars, rec: rec };
+    bucket[r.level] = { s: stars, rec: rec };
   });
   P.save();
 }
@@ -179,14 +193,15 @@ async function reconcile(userId){
 
   // 2. progress — pull cloud, fold into local, push the union up
   const { data: cloudRows } = await supabase
-    .from('progress').select('level,stars,move_record').eq('user_id', userId);
+    .from('progress').select('bundle_id,level,stars,move_record').eq('user_id', userId);
   foldCloudIntoLocal(cloudRows);
   const union = localProgressRows().map(r => ({
-    user_id: userId, level: r.level, stars: r.stars, move_record: r.move_record
+    user_id: userId, bundle_id: r.bundle_id, level: r.level, stars: r.stars, move_record: r.move_record
   }));
   if(union.length){
-    // onConflict on the (user_id, level) PK — one authoritative row per level.
-    await supabase.from('progress').upsert(union, { onConflict: 'user_id,level' });
+    // onConflict on the (user_id, bundle_id, level) PK (db/003) — one authoritative
+    // row per level per bundle.
+    await supabase.from('progress').upsert(union, { onConflict: 'user_id,bundle_id,level' });
   }
 
   // 3. identity — durable handle + username (server-wins, migrate a local name up once)
@@ -194,11 +209,13 @@ async function reconcile(userId){
 }
 
 // Push a single level's living state after it changes mid-play (star earned).
+// bundle_id comes from PlayerProgress's own ambient .bundle — whoever opened
+// this play session (native or community) already set it there.
 async function pushLevel(n){
   const u = AkashicAuth.user; if(!u) return;
   const P = window.PlayerProgress; if(!P) return;
-  const row = { user_id: u.id, level: n, stars: P.stars(n), move_record: P.record(n) };
-  const { error } = await supabase.from('progress').upsert(row, { onConflict: 'user_id,level' });
+  const row = { user_id: u.id, bundle_id: P.bundle||0, level: n, stars: P.stars(n), move_record: P.record(n) };
+  const { error } = await supabase.from('progress').upsert(row, { onConflict: 'user_id,bundle_id,level' });
   if(error) console.warn('[auth] progress push failed', error.message); // localStorage already has it; non-fatal
 }
 
@@ -281,6 +298,27 @@ const AkashicAuth = {
       .select('id').maybeSingle();
     if(error){ console.warn('[auth] submitBundle failed', error.message); return { ok:false, error: error.message }; }
     return { ok:true, id: data && data.id };
+  },
+
+  // ── Marketplace browse (Explore → community bundles, [[project_marketplace_pivot]]).
+  // Read side of the submission pipeline above: list every APPROVED bundle
+  // (published=true — Jed's hand-flip is the only path to true) so a real
+  // player can find and play one. `author` FK → profiles makes the embedded
+  // select work; profiles are already public-readable (schema.sql).
+  async listPublishedBundles(){
+    const { data, error } = await supabase.from('bundles')
+      .select('id,title,downloads,profiles(username,handle)')
+      .eq('published', true).order('created_at', { ascending:false });
+    if(error){ console.warn('[auth] listPublishedBundles failed', error.message); return []; }
+    return data || [];
+  },
+  // Full level data for one bundle (its `data` jsonb = the canonical level-JSON
+  // array, already in level order — submitUserBundle sorts filenames first).
+  async getBundle(id){
+    const { data, error } = await supabase.from('bundles')
+      .select('id,title,data').eq('id', id).maybeSingle();
+    if(error){ console.warn('[auth] getBundle failed', error.message); return null; }
+    return data;
   },
 
   // Called from renderGrid() to paint the sign-in strip in the right state.
