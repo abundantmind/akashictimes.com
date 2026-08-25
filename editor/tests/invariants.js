@@ -137,6 +137,103 @@ window.runInvariants = async function(){
     let changed=0; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem!==snap[r][c])changed++;
     ok('shuffle · no-op when a move already exists', changed===0, changed+' cells changed');
 
+    // ═══ 7-9. PLAYER-SESSION LAYER (real-vs-sandbox routing, goal loading,
+    // bundle-scoped stars) — added 2026-08-25 after TWO regressions shipped
+    // live and neither was caught: Session 24's sandbox goal-tracking made
+    // togglePlay() unconditionally (a) mark every play-start as sandbox
+    // (real player stars silently stopped saving) and (b) overwrite
+    // playerGoals from the editor's own state (the qualifying level's Goals
+    // panel went blank). Sections 1-6 above never touch playerFinish/
+    // togglePlay/PlayerProgress at all — this is the layer both bugs lived
+    // in, entirely uncovered until now. Every regression found from here on
+    // gets a permanent test here THE SAME SESSION IT'S FOUND — that's the
+    // whole point (Jed 2026-08-25: "every time you fix a bug, you break at
+    // least one other UX I'd already approved").
+    //
+    // SAFETY: these tests write real stars through the real functions a
+    // player uses. Never let a run touch the actual save or push junk to
+    // the live Supabase progress table (auth.js hooks PlayerProgress.set to
+    // upsert on every write when signed in — and local dev auto-signs-in
+    // anonymously, so this WILL fire against production Supabase if not
+    // suppressed). Snapshot .data + .bundle, swap .set for a local-only
+    // clone for the duration, hard-restore everything in the nested finally
+    // below regardless of pass/fail.
+    const _savedData=JSON.parse(JSON.stringify(PlayerProgress.data));
+    const _savedBundle=PlayerProgress.bundle;
+    const _savedCurBundle=(typeof curBundle!=='undefined')?curBundle:null;
+    const _realSet=PlayerProgress.set;
+    PlayerProgress.set=function(n,s,rec){ // local-only clone — no cloud push, mirrors the real .set exactly
+      const old=this.bucket()[n];
+      this.bucket()[n]={s:s,rec:rec||this.record(n)||0,m:(old&&typeof old==='object'&&old.m)||0};
+      this.save();
+    };
+    try {
+      // ═══ 7. REAL VS SANDBOX ROUTING (the star-saving regression) ═══════════
+      PlayerProgress.data={0:{}}; PlayerProgress.bundle=0; curBundle=null;
+      await startPlayerLevel(1,false); await wait(45);
+      ok('player · real entry (beginPlaySession) is NOT sandbox', editorSandboxPlay===false, editorSandboxPlay);
+      moves=3; playerFinish(true);
+      ok('player · a real win writes PlayerProgress (native bundle 0)', PlayerProgress.stars(1)===1, PlayerProgress.stars(1));
+      pwinContinue(); // clears the win overlay, mirrors real UI flow — must not throw
+
+      // editor's OWN ▶ Play (no args → sandbox=true default) must still tag
+      // itself sandbox, and a "win" while sandboxed must NOT touch PlayerProgress.
+      playing=false; togglePlay(); // start branch, sandbox default
+      ok('player · editor\'s own ▶ Play still tags itself sandbox', editorSandboxPlay===true, editorSandboxPlay);
+      const starsBeforeSandboxWin=PlayerProgress.stars(1);
+      curLevelNum=1; playerFinish(true); // routes into sandboxPlayerFinish — must NOT touch PlayerProgress
+      ok('player · sandbox play never touches PlayerProgress', PlayerProgress.stars(1)===starsBeforeSandboxWin, PlayerProgress.stars(1));
+      document.getElementById('pwin').classList.remove('open');
+      togglePlay(); // stop — resets editorSandboxPlay=false, playerMode=false
+
+      // ═══ 8. ENTRANCE GOALS SURVIVE REAL ENTRY (the blank-Goals-panel regression) ═
+      startEntrance(); await wait(45);
+      ok('player · entrance loads all 5 qualifying goals', playerGoals.length===5, playerGoals.length);
+      ok('player · entrance keeps two-stage make→fire PU goals', playerGoals.filter(g=>g.kind==='pu').length===4, playerGoals.filter(g=>g.kind==='pu').length);
+      ok('player · entrance keeps its collect goal', playerGoals.some(g=>g.kind==='collect'&&g.need===12), playerGoals.find(g=>g.kind==='collect'));
+      leaveEntrance();
+
+      // ═══ 9. BUNDLE-SCOPED PROGRESS ISOLATION ════════════════════════════════
+      PlayerProgress.data={0:{}}; PlayerProgress.bundle=0;
+      PlayerProgress.set(5,2,10); // native bundle 0, level 5
+      PlayerProgress.bundle=424242; // sentinel — never a real bundles.id
+      ok('bundle · a fresh community bundle starts with 0 stars on a level the native bundle has starred', PlayerProgress.stars(5)===0, PlayerProgress.stars(5));
+      PlayerProgress.set(1,1,5); // community bundle, level 1 — same level number as native L1, must not collide
+      PlayerProgress.bundle=0;
+      ok('bundle · native progress is untouched by a same-numbered community level', PlayerProgress.stars(5)===2&&PlayerProgress.stars(1)===0, {n5:PlayerProgress.stars(5),n1:PlayerProgress.stars(1)});
+      PlayerProgress.bundle=424242;
+      ok('bundle · community progress is unaffected by native writes', PlayerProgress.stars(1)===1, PlayerProgress.stars(1));
+      resetLevelStars(1); // must delete from the AMBIENT bucket, not PlayerProgress.data[n] directly
+      ok('bundle · resetLevelStars clears the current bundle\'s bucket only', PlayerProgress.stars(1)===0, PlayerProgress.stars(1));
+      PlayerProgress.bundle=0;
+      ok('bundle · resetLevelStars on a community bundle did not touch native', PlayerProgress.stars(5)===2, PlayerProgress.stars(5));
+
+      // ═══ 10. COMMUNITY BUNDLE PLAY, END TO END ══════════════════════════════
+      // No real published bundle exists to fetch — stand in with a real level
+      // JSON (schema-identical to what submitBundle() actually stores) under a
+      // sentinel id, exactly mirroring openCommunityBundle()'s shape.
+      const l1json=await (await fetch('levels/level-001.json',{cache:'no-cache'})).json();
+      curBundle={ id:424243, title:'Invariants Test Bundle', levels:[l1json] };
+      PlayerProgress.bundle=424243; PlayerProgress.data[424243]={};
+      startCommunityLevel(1); await wait(45);
+      ok('community · startCommunityLevel is real play, not sandbox', editorSandboxPlay===false, editorSandboxPlay);
+      moves=2; playerFinish(true);
+      ok('community · a win stars the COMMUNITY bucket only', PlayerProgress.stars(1)===1, PlayerProgress.stars(1));
+      PlayerProgress.bundle=0;
+      ok('community · native L1 stars untouched by community L1 win', PlayerProgress.stars(1)===0, PlayerProgress.stars(1));
+      PlayerProgress.bundle=424243;
+      pwinContinue(); // win → should route to renderCommunityGrid(), not native renderGrid()
+      ok('community · pwinContinue after a win returns to the COMMUNITY grid title', document.getElementById('pgrid-title').textContent===curBundle.title, document.getElementById('pgrid-title').textContent);
+      exitToGrid(); // idempotent re-check via the other exit path
+      ok('community · exitToGrid also returns to the COMMUNITY grid', document.getElementById('pgrid-title').textContent===curBundle.title, document.getElementById('pgrid-title').textContent);
+      playerBack();
+      ok('community · playerBack resets to native context (bundle 0, curBundle null)', PlayerProgress.bundle===0&&curBundle===null, {bundle:PlayerProgress.bundle,curBundle});
+    } finally {
+      PlayerProgress.set=_realSet;
+      PlayerProgress.data=_savedData; PlayerProgress.save();
+      PlayerProgress.bundle=_savedBundle; curBundle=_savedCurBundle;
+    }
+
   } catch(e){ ok('SUITE THREW', false, e.message); }
   finally { window.requestAnimationFrame=_raf; window.removeEventListener('error',onerr); }
   ok('no uncaught console errors during run', errs.length===0, errs.slice(0,4));
