@@ -1094,6 +1094,7 @@ en:{
   moves_cap:'Moves',goals_cap:'Goals',
   bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
   bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
+  community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
   lvl_qualifying:'Qualifying',lvl_prefix:'Level ',
   alert_na:n=>'Level '+n+' is not available yet.',
   toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
@@ -1191,6 +1192,7 @@ ko:{
   moves_cap:'이동',goals_cap:'목표',
   bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
   bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
+  community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
   lvl_qualifying:'자격 레벨',lvl_prefix:'레벨 ',
   alert_na:n=>'레벨 '+n+' — 아직 준비되지 않았습니다.',
   toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
@@ -1293,6 +1295,7 @@ es:{
   moves_cap:'Movimientos',goals_cap:'Objetivos',
   bundle_title:'Déjate llevar',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
   bundle_play:'Jugar',grid_sub:'Paquete 1 · 25 niveles',soon:'Pronto',
+  community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
   lvl_qualifying:'Clasificación',lvl_prefix:'Nivel ',
   alert_na:n=>'El nivel '+n+' aún no está disponible.',
   toast_new_version:'Nueva versión — toca para recargar',bug_btn:'🐛 Reportar un error',
@@ -1510,7 +1513,8 @@ function setLang(l){
   LANG=l;localStorage.setItem('akashicswaps-lang',l);
   applyLang();
   if(document.getElementById('player').classList.contains('active')){
-    if(lastPView==='grid')renderGrid();else if(lastPView==='bundles')renderBundles();
+    if(lastPView==='grid'){ curBundle?renderCommunityGrid():renderGrid(); }
+    else if(lastPView==='bundles')renderBundles();
   }
   // Products modal is built with innerHTML (not data-i18n), so re-draw it if open.
   if(document.getElementById('products').classList.contains('open')){
@@ -3032,7 +3036,15 @@ function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].g
 // a clean all-active canvas when a template's hole layout isn't wanted (Jed 2026-07-29).
 function fillGrid(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++)board[r][c].active=true;render();}
 
-function togglePlay(){
+// sandbox=true (default) is the editor's OWN ▶ Play button + its resume call
+// sites (architectPlaying), which never touch PlayerProgress. beginPlaySession()
+// (real native/community play) explicitly passes sandbox=false — BUG FIX
+// 2026-08-25: this flag used to be set unconditionally in the block below, so
+// EVERY togglePlay() call (including real player entry, which reuses this same
+// function) was marking itself as sandbox play — real stars silently stopped
+// writing to PlayerProgress the moment Session 24's sandbox goal-tracking
+// shipped (commit 1e2960e), live on production until this fix.
+function togglePlay(sandbox=true){
   // moves/cleared PERSIST across the play⇄edit toggle so an author can pause, edit
   // the grid into a specific test condition, and resume the SAME run — 3 swaps then
   // an edit then Play resumes on move #4 (Jed 2026-08-06). They reset only on a
@@ -3055,21 +3067,32 @@ function togglePlay(){
     for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
     if(!flyover&&!hasValidMove())shuffleBoard(); // opening board must have a move (skip authored flyover boards)
-    // Real goal-tracking for the sandbox (Jed 2026-08-24) — same playerGoals
+    editorSandboxPlay=sandbox; playerMode=true;
+    // Real goal-tracking for the sandbox ONLY (Jed 2026-08-24) — same playerGoals
     // shape + tick functions the real game uses, so crate/PU/gem goals count
     // down live and a completed level celebrates. See editorSandboxPlay above
     // for why this never touches PlayerProgress.
-    editorSandboxPlay=true; playerMode=true;
-    playerGoals=(editorObjectives||[]).map(o=>{
-      if(o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null) return {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem};
-      if(o.type==='collect'&&o.item==='acorn') return {kind:'acorn',need:o.count,have:0,name:'acorn'};
-      if(o.type==='collect'&&o.item==='key') return {kind:'key',need:o.count,have:0,name:'key'};
-      if(o.type==='clear'&&o.obstacle==='crate') return {kind:'crate',need:o.count,have:0,name:'crate'};
-      if(o.type==='plant') return {kind:'plant',need:o.count,have:0,name:'clover'};
-      if(o.type==='detonate'&&o.pu) return {kind:'detonate',pu:o.pu,need:o.count,have:0,name:o.pu};
-      if(o.type==='create'&&o.pu) return {kind:'create',pu:o.pu,need:o.count,have:0,name:o.pu};
-      return null;
-    }).filter(Boolean);
+    // BUG FIX 2026-08-25: this rebuild used to run UNCONDITIONALLY, so every
+    // real player entry (beginPlaySession → togglePlay) also stomped whatever
+    // playerGoals loadLevelData()/startEntrance() had just correctly set, with
+    // whatever the EDITOR's live editorObjectives happened to hold (usually
+    // wrong/empty, and structurally incapable of reconstructing entrance's
+    // two-stage {kind:'pu',...} goals at all) — the qualifying level's Goals
+    // panel went blank the moment Session 24's sandbox feature shipped. Real
+    // player mode (sandbox=false) now leaves the already-correct playerGoals
+    // alone; only the editor's own ▶ Play derives goals from editorObjectives.
+    if(sandbox){
+      playerGoals=(editorObjectives||[]).map(o=>{
+        if(o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null) return {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem};
+        if(o.type==='collect'&&o.item==='acorn') return {kind:'acorn',need:o.count,have:0,name:'acorn'};
+        if(o.type==='collect'&&o.item==='key') return {kind:'key',need:o.count,have:0,name:'key'};
+        if(o.type==='clear'&&o.obstacle==='crate') return {kind:'crate',need:o.count,have:0,name:'crate'};
+        if(o.type==='plant') return {kind:'plant',need:o.count,have:0,name:'clover'};
+        if(o.type==='detonate'&&o.pu) return {kind:'detonate',pu:o.pu,need:o.count,have:0,name:o.pu};
+        if(o.type==='create'&&o.pu) return {kind:'create',pu:o.pu,need:o.count,have:0,name:o.pu};
+        return null;
+      }).filter(Boolean);
+    }
   } else {
     editorSandboxPlay=false; playerMode=false; playerGoals=[];
   }
@@ -5050,17 +5073,32 @@ function goalDone(g){return g.kind==='pu'?(g.made&&g.fired):g.have>=g.need;}
 // progress store (separate key from the editor's own prefs)
 // Per-level living state (STAR CANON, era 1): s = stars, rec = personal move
 // record. Backward-compatible with the old plain-number entries.
+// BUNDLE-SCOPED (2026-08-25, [[project_marketplace_pivot]]): data is nested
+// one level deeper, data[bundleId][level] = {s,rec,m}. `bundle` is the AMBIENT
+// current-bundle context (0 = native "Go with the Flow" sentinel, else a real
+// public.bundles.id) — every method below reads/writes through it, so every
+// existing call site (PlayerProgress.stars(n), .set(n,s,rec)…) is untouched;
+// only whoever opens/leaves a bundle needs to set PlayerProgress.bundle.
 const PlayerProgress={
-  key:'akashicswaps-player', data:{},
-  load(){try{this.data=JSON.parse(localStorage.getItem(this.key))||{};}catch(e){this.data={};}},
+  key:'akashicswaps-player', data:{}, bundle:0,
+  load(){
+    try{this.data=JSON.parse(localStorage.getItem(this.key))||{};}catch(e){this.data={};}
+    // one-time migration: old flat shape had level numbers at the top level
+    // (a value carries .s/.rec directly) — nest the whole thing under bundle 0.
+    const flat=Object.keys(this.data).some(k=>{const v=this.data[k];return v&&typeof v==='object'&&('s' in v||'rec' in v);});
+    if(flat){ this.data={0:this.data}; this.save(); }
+  },
   save(){localStorage.setItem(this.key,JSON.stringify(this.data));},
-  stars(n){const d=this.data[n];return typeof d==='number'?d:(d&&d.s)||0;},
-  record(n){const d=this.data[n];return (d&&d.rec)||0;},
+  bucket(){return this.data[this.bundle]||(this.data[this.bundle]={});},
+  stars(n){const d=this.bucket()[n];return typeof d==='number'?d:(d&&d.s)||0;},
+  record(n){const d=this.bucket()[n];return (d&&d.rec)||0;},
   // m = consecutive won runs that FAILED to beat the record (once ★1 is held).
   // 3 of them unlock the per-level star reset (Jed 2026-07-29). set() preserves m.
-  misses(n){const d=this.data[n];return (d&&d.m)||0;},
-  setMisses(n,m){const d=this.data[n];if(d&&typeof d==='object'){d.m=m;this.save();}},
-  set(n,s,rec){const old=this.data[n];this.data[n]={s:s,rec:rec||this.record(n)||0,m:(old&&typeof old==='object'&&old.m)||0};this.save();},
+  misses(n){const d=this.bucket()[n];return (d&&d.m)||0;},
+  setMisses(n,m){const d=this.bucket()[n];if(d&&typeof d==='object'){d.m=m;this.save();}},
+  set(n,s,rec){const old=this.bucket()[n];this.bucket()[n]={s:s,rec:rec||this.record(n)||0,m:(old&&typeof old==='object'&&old.m)||0};this.save();},
+  // Native-only gating (HELD_LEVELS skip chain) — community bundles use their
+  // own simple sequential check inline (renderCommunityGrid), not this.
   unlocked(n){
     if(n===1)return true;
     let p=n-1; while(p>1&&HELD_LEVELS.has(p))p--; // skip held levels (e.g. L23) — gate on the nearest shipped predecessor
@@ -5328,10 +5366,16 @@ function showPlayerShell(){
   document.getElementById('player').classList.add('active');
 }
 
+// Current community bundle being browsed/played (null = native "Go with the
+// Flow"). Set by openCommunityBundle, cleared here so leaving a bundle can
+// never leak its PlayerProgress.bundle context into native play.
+let curBundle=null;
+
 function renderBundles(){
   showPlayerShell();
   lastPView='bundles'; // language switch re-renders this screen
   document.getElementById('pback-top').style.display='none';
+  curBundle=null; PlayerProgress.bundle=0;
   // "{name}'s Bundles" + the star total earned on each (Jed 2026-08-12: Explore
   // shows the visitor's bundles with the stars on each).
   const t=bundleStarTotals();
@@ -5342,7 +5386,74 @@ function renderBundles(){
       '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
       '<div class="bcount">'+TXT('bundle_n')+' · ★ '+t.have+' / '+t.max+'</div>'+
       '<div class="bplay">'+TXT('bundle_play')+'</div>'+
-    '</div>';
+    '</div>'+
+    '<div id="community-bundles"></div>';
+  renderCommunityBundleList();
+}
+
+// Community bundles ([[project_marketplace_pivot]]): published rows from
+// public.bundles, fetched async so the native card paints instantly — this
+// slots in below it once the query resolves. One card per approved bundle;
+// author label = username ?? handle (AkashicAuth.listPublishedBundles embeds
+// the profiles row via the author FK).
+async function renderCommunityBundleList(){
+  if(!window.AkashicAuth||!AkashicAuth.listPublishedBundles) return;
+  const rows=await AkashicAuth.listPublishedBundles();
+  const host=document.getElementById('community-bundles');
+  if(!host) return; // navigated away before the fetch resolved
+  if(!rows.length){ host.innerHTML=''; return; }
+  host.innerHTML='<div class="home-bundles-label">'+TXT('community_bundles_label')+'</div>'+
+    rows.map(b=>{
+      const author=(b.profiles&&(b.profiles.username||b.profiles.handle))||'?';
+      return '<div class="bundle-card" onclick="openCommunityBundle('+b.id+')">'+
+        '<h2>'+escHtml(b.title)+'</h2>'+
+        '<div class="bsub">'+TXT('community_by')(escHtml(author))+'</div>'+
+        '<div class="bplay">'+TXT('bundle_play')+'</div>'+
+      '</div>';
+    }).join('');
+}
+
+// Open a community bundle: pull its full level data, point PlayerProgress at
+// its own bundle_id bucket (db/003 — stars can never collide with native
+// Bundle 1's level numbers), then show its own level grid.
+async function openCommunityBundle(id){
+  if(!window.AkashicAuth||!AkashicAuth.getBundle) return;
+  const row=await AkashicAuth.getBundle(id);
+  if(!row||!Array.isArray(row.data)||!row.data.length){ alert(TXT('alert_na')(id)); return; }
+  curBundle={ id:row.id, title:row.title, levels:row.data };
+  PlayerProgress.bundle=id;
+  renderCommunityGrid();
+}
+
+// Level grid for the currently-open community bundle — same shell as native
+// renderGrid() but sized to curBundle.levels.length, and gating is a plain
+// sequential check (no HELD_LEVELS/MAX_BUILT_LEVEL — those are native-only).
+function renderCommunityGrid(){
+  showPlayerShell();
+  lastPView='grid';
+  document.getElementById('pback-top').style.display='';
+  const authStrip=(AUTH_ENABLED&&window.AkashicAuth)?AkashicAuth.stripHTML():'';
+  const n=curBundle.levels.length;
+  let html=authStrip+'<div id="pgrid-title">'+escHtml(curBundle.title)+'</div>'+
+           '<div id="pgrid-sub">'+TXT('bundle_n')+' · '+n+'</div><div class="pgrid">';
+  const arch=isArchitect();
+  for(let i=1;i<=n;i++){
+    const open=arch||i===1||PlayerProgress.stars(i-1)>0, st=PlayerProgress.stars(i);
+    if(open){const rc=PlayerProgress.record(i);
+      html+='<div class="pcell open" onclick="startCommunityLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span>'+(rc?'<span class="prec">'+TXT('rec_moves')(rc)+'</span>':'')+'</div>';}
+    else html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
+  }
+  html+='</div>';
+  document.getElementById('pbody').innerHTML=html;
+}
+
+// Start a level from the currently-open community bundle. Mirrors
+// startPlayerLevel, but the level JSON is already in memory (curBundle.levels)
+// — no fetch, since community levels aren't files on disk.
+function startCommunityLevel(idx){
+  loadLevelData(curBundle.levels[idx-1],idx);
+  entranceMode=false;
+  beginPlaySession();
 }
 
 const MAX_BUILT_LEVEL=25; // levels with shipped JSONs — bump as the bundle grows
@@ -5831,7 +5942,7 @@ function beginPlaySession(){
   armedBooster=null; window.runBoosterCount=0; // fresh run: nothing armed, era-2 sensor zeroed
   renderBoosterPanel();
   render();
-  togglePlay();      // fills empty active cells, removes initial matches, starts Play
+  togglePlay(false); // fills empty active cells, removes initial matches, starts Play — NOT sandbox
   updatePlayerHUD();
   if(flyover)flyCutscene(); // opening pan: bottom→top reveal, then the board goes live
 }
@@ -6125,18 +6236,22 @@ function sandboxPlayerFinish(win){
 }
 // Reset ONE level's stars + record + miss counter, then replay it so the player
 // can set a new (often deliberately terrible) first-star bar (Jed 2026-07-29).
-function resetLevelStars(n){delete PlayerProgress.data[n];PlayerProgress.save();}
+// Deletes from the CURRENT bundle's bucket (PlayerProgress.bundle) — never the
+// raw .data map, which is now nested per bundle_id (db/003).
+function resetLevelStars(n){delete PlayerProgress.bucket()[n];PlayerProgress.save();}
 function pwinResetLevel(){
   const n=curLevelNum;
   resetLevelStars(n);
   document.getElementById('pwin').classList.remove('open');
-  startPlayerLevel(n,false); // re-bar replay — no splash nag
+  if(curBundle) startCommunityLevel(n); else startPlayerLevel(n,false); // re-bar replay — no splash nag
 }
 
 function pwinContinue(){
   document.getElementById('pwin').classList.remove('open');
   if(pwinWon) exitToGrid();
-  else startPlayerLevel(curLevelNum,false); // retry after a loss — no splash nag
+  // retry after a loss — no splash nag
+  else if(curBundle) startCommunityLevel(curLevelNum);
+  else startPlayerLevel(curLevelNum,false);
 }
 
 function exitToGrid(){
@@ -6147,7 +6262,7 @@ function exitToGrid(){
   document.body.classList.remove('player-playing');
   document.getElementById('editor').style.display='none';
   document.getElementById('pwin').classList.remove('open');
-  renderGrid();
+  if(curBundle) renderCommunityGrid(); else renderGrid(); // back to whichever bundle's grid we came from
 }
 
 // ── UNPINCHABLE (iOS Safari tab) ──────────────────────────────────────────────
