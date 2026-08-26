@@ -221,6 +221,21 @@ window.runInvariants = async function(){
     ok('editor · undo snapshots carry the flow layer', (()=>{try{return JSON.parse(snapState()).f!==undefined;}catch(e){return false;}})(), 'snapState missing flow');
     setLayer('tile'); setFlow('down');
 
+    // A NEW blank level must not inherit the previous level's identity. openEditor()
+    // never cleared curLevelNum (and it initializes to 1), so "＋ Add level" opened
+    // reading "Level 1" no matter what — Jed 2026-08-26, adding to DancingPangolin.
+    // Pre-existing, shipped, and invisible until someone looked at the HUD.
+    await startPlayerLevel(1,false); await wait(45);
+    ok('editor · a loaded level sets its own number', curLevelNum===1, curLevelNum);
+    const _tgt=saveTargetBundle, _edit=bundleEditNum;
+    saveTargetBundle=null; bundleEditNum=null;   // classic new level: no bundle target
+    R=9;C=11; openEditor();
+    ok('editor · a fresh blank level does NOT inherit the last level number', curLevelNum===null, curLevelNum);
+    ok('editor · fresh-level HUD shows no number', (updEditorFrame(),(document.getElementById('ehud-level')||{}).textContent==='—'), (document.getElementById('ehud-level')||{}).textContent);
+    ok('editor · a fresh blank level honours the chosen grid size', R===9&&C===11&&board.length===9&&board[0].length===11, R+'x'+C);
+    ok('editor · the number a bundle will assign has ONE definition', typeof nextBundleLevelNum==='function', typeof nextBundleLevelNum);
+    saveTargetBundle=_tgt; bundleEditNum=_edit;
+
     // ═══ 7-9. PLAYER-SESSION LAYER (real-vs-sandbox routing, goal loading,
     // bundle-scoped stars) — added 2026-08-25 after TWO regressions shipped
     // live and neither was caught: Session 24's sandbox goal-tracking made

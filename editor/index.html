@@ -1804,6 +1804,16 @@ function openEditor(){
   buildGPal();buildPUPal();buildObsPal();
   editorObjectives=[];editorFlyover=null;renderObjectives(); // fresh board starts with no goals, no flyover
   setBase('inactive'); // New Level opens on the Base brush — lay the foundation first (also engages the Base layer + renders)
+  // A FRESH BOARD IS NOT THE LEVEL THAT WAS OPEN A MOMENT AGO. curLevelNum used to
+  // survive into the new board (openEditor never cleared it, and it initializes to
+  // 1), so "＋ Add level" opened showing the PREVIOUS level's number — Jed 2026-08-26
+  // on DancingPangolin: "it opens Level #1 instead of giving me a blank 9x11 Level 2".
+  // Adding to a bundle now PREVIEWS the number the save will really assign (same
+  // nextBundleLevelNum the save calls); the classic editor has no number yet → "—".
+  curLevelNum=null;
+  const tgtBundle=USER_BUNDLES.find(x=>x.id===saveTargetBundle);
+  if(tgtBundle&&bundleEditNum==null)
+    nextBundleLevelNum(tgtBundle).then(n=>{curLevelNum=n;updEditorFrame();}); // async dir read → HUD catches up
   updUB();updEditorFrame(); // a fresh board has no level# yet → HUD shows "—"
   updateBundleSaveBtn();    // show "▽ Save to <bundle>" when this new level targets a user bundle
 }
@@ -2079,12 +2089,21 @@ async function editUserBundleLevel(id,fn){
   if(architectPlaying) togglePlay();
 }
 
+// The next level number a bundle will assign. ONE definition, shared by the
+// New-Level preview and the actual save, so the number an architect SEES while
+// building can never disagree with the number the file ends up with.
+async function nextBundleLevelNum(b){
+  let mx=0;
+  try{ for await(const [n] of b.dir.entries()){ const m=n.match(/^level-(\d+)\.json$/i); if(m)mx=Math.max(mx,+m[1]); } }catch(e){}
+  return mx+1;
+}
+
 // Save the current board INTO the target bundle as a real level-0NN.json file.
 async function saveBoardToBundle(){
   const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); if(!b){ alert('No target bundle set — open a bundle and ＋ Add level.'); return; }
   try{ if((await b.dir.queryPermission({mode:'readwrite'}))!=='granted' && (await b.dir.requestPermission({mode:'readwrite'}))!=='granted'){ alert('Folder access denied.'); return; } }catch(e){}
   let num=bundleEditNum;
-  if(num==null){ let mx=0; try{ for await(const [n] of b.dir.entries()){ const m=n.match(/^level-(\d+)\.json$/i); if(m)mx=Math.max(mx,+m[1]); } }catch(e){} num=mx+1; }
+  if(num==null) num=await nextBundleLevelNum(b);
   const name='level-'+String(num).padStart(3,'0')+'.json';
   try{ const fh=await b.dir.getFileHandle(name,{create:true}); const w=await fh.createWritable();
     await w.write(JSON.stringify(serializeLevel(),null,2)+'\n'); await w.close();
