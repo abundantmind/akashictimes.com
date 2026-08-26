@@ -29,7 +29,7 @@ window.runInvariants = async function(){
     const held=(typeof HELD_LEVELS!=='undefined')?HELD_LEVELS:new Set();
     for(let L=1;L<=MAXL;L++){
       if(held.has(L))continue;
-      await startPlayerLevel(L); await wait(45); if(window.flyover){flyStop=0;flyLock=false;}
+      await startPlayerLevel(L,false); await wait(45); if(window.flyover){flyStop=0;flyLock=false;}
       ok(`L${L} · 0 initial matches`, find3().length===0 && find2x2().length===0, find3().length);
       let crateGems=0,gemInHole=0,puCloverStuck=0;
       for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c];
@@ -45,19 +45,19 @@ window.runInvariants = async function(){
     // ═══ 2. GRAVITY / FILL INVARIANTS ═════════════════════════════════════════
     // 2a. crates block gravity: no gem ever falls/spawns into a crate (L22/L23 stress)
     for(const L of [22,23]){
-      await startPlayerLevel(L); await wait(45); if(window.flyover){flyStop=0;flyLock=false;}
+      await startPlayerLevel(L,false); await wait(45); if(window.flyover){flyStop=0;flyLock=false;}
       const crates=[]; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].obs&&/crate/.test(board[r][c].obs))crates.push([r,c]);
       for(let i=0;i<12;i++){ for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].active&&board[r][c].gem!==null&&!board[r][c].item&&Math.random()<0.5)board[r][c].gem=null; gravityWithMap(); }
       ok(`L${L} · crates never receive a gem (30-pass stress)`, crates.every(([r,c])=>board[r][c].gem===null), 'a crate got a gem');
     }
     // 2b. L25 canal: startEmpty cells never SPAWN (fill only via inflow)
-    await startPlayerLevel(25); await wait(45);
+    await startPlayerLevel(25,false); await wait(45);
     const emptyStart=[]; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].obs&&!board[r][c].item)emptyStart.push([r,c]);
     for(let r=0;r<4;r++)for(let c=0;c<4;c++) if(board[r][c].active&&board[r][c].gem!==null&&!board[r][c].obs)board[r][c].gem=null;
     gravityWithMap();
     ok('L25 · startEmpty cells do not spawn (no fill from below)', emptyStart.every(([r,c])=>board[r][c].gem===null), 'a sealed cell spawned');
     // 2c. L2 interior holes: gravity never routes a gem INTO / spawns FROM a hole
-    await startPlayerLevel(2); await wait(45);
+    await startPlayerLevel(2,false); await wait(45);
     const holes=new Set(); for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(!board[r][c].active)holes.add(r+','+c);
     let holeGem=0, flyFromHole=0;
     for(let i=0;i<12;i++){ for(let r=0;r<4;r++){ if(board[r][3].active)board[r][3].gem=null; if(board[r][4].active)board[r][4].gem=null; }
@@ -69,7 +69,7 @@ window.runInvariants = async function(){
 
     // ═══ 3. CLOVER RULES (blank canvas, V-rocket = column) ═════════════════════
     const col=3, colClover=()=>[...Array(R).keys()].filter(r=>board[r][col].sub==='clover').length;
-    await startPlayerLevel(14); await wait(45); // 8x7 rectangle canvas
+    await startPlayerLevel(14,false); await wait(45); // 8x7 rectangle canvas
     // 3a. double-tap in place, no clover in line -> plants nothing
     wipe(); board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
     await fireDet('rocket_v',3,col); ok('clover · double-tap-in-place on bare, no clover crossed → 0', colClover()===0, colClover());
@@ -102,7 +102,7 @@ window.runInvariants = async function(){
     await fireDet('rocket_v',3,col); ok('clover · uncharged beam ending ON a seed (terminus) plants nothing new', colClover()===1, colClover());
 
     // ═══ 4. CRATE SPLASH FROM DETONATIONS ═════════════════════════════════════
-    await startPlayerLevel(14); await wait(60); wipe(GEM_POOL[1]);
+    await startPlayerLevel(14,false); await wait(60); wipe(GEM_POOL[1]);
     // crate at (4,4); only its 4 neighbors are the Ball's target color (keeps the
     // sweep to 4 cells so the fixed-pace laser stays fast). Ball clears them → crack.
     board[4][4].obs='crate1'; board[4][4].gem=null;
@@ -116,7 +116,7 @@ window.runInvariants = async function(){
 
     // ═══ 5. SWAP RULES ════════════════════════════════════════════════════════
     // key is swappable (guard admits item==='key')
-    await startPlayerLevel(14); await wait(45); wipe();
+    await startPlayerLevel(14,false); await wait(45); wipe();
     const guardAdmitsKey=(cd=>!(!cd.active||(cd.gem===null&&!cd.pu&&cd.item!=='key')))(( ()=>{board[2][2].gem=null;board[2][2].item='key';return board[2][2];})());
     ok('swap · key cell is selectable', guardAdmitsKey, guardAdmitsKey);
     // gem slides into empty active cell to make a match (yellow V-3)
@@ -125,17 +125,101 @@ window.runInvariants = async function(){
     ok('swap · gem slides into empty active cell to complete a match', find3().some(([r,c])=>r===4&&c===3), 'no match at gap');
 
     // ═══ 6. AUTO-SHUFFLE ══════════════════════════════════════════════════════
-    await startPlayerLevel(14); await wait(45);
+    await startPlayerLevel(14,false); await wait(45);
     const three=[GEM_POOL[0],GEM_POOL[1],GEM_POOL[2]];
     for(let r=0;r<R;r++)for(let c=0;c<C;c++){ board[r][c].active=true;board[r][c].obs=null;board[r][c].item=null;board[r][c].pu=null;board[r][c].startEmpty=false;board[r][c].sub=null;board[r][c].gem=three[(r+c)%3]; }
     ok('shuffle · genuine deadlock detected (no move)', !hasValidMove(), 'hasValidMove true on deadlock');
     playerMode=true; animating=false; maybeShuffle();
     ok('shuffle · escapes deadlock → has-move + no-match', hasValidMove()&&find3().length===0, 'still stuck');
     // no-op when a move exists
-    await startPlayerLevel(2); await wait(45);
+    await startPlayerLevel(2,false); await wait(45);
     const snap=board.map(row=>row.map(x=>x.gem)); maybeShuffle();
     let changed=0; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem!==snap[r][c])changed++;
     ok('shuffle · no-op when a move already exists', changed===0, changed+' cells changed');
+
+    // ═══ 6b. DRILL WALKER (travel rule B) ══════════════════════════════════════
+    // Six drills ride ONE direction-agnostic walker. These pin the rule Jed
+    // ruled on: bore FROM the cell along the given directions ONLY; a breakable
+    // takes its hit and the bore CONTINUES; an unbreakable (a hole) stops that
+    // arm dead. Also pins the 8-direction capability the diagonal Grasshopper
+    // will need, so nobody narrows DIR8 back to 4 without a red light here.
+    await startPlayerLevel(14,false); await wait(45); wipe();
+    const key=(cs)=>new Set(cs.map(([r,c])=>r+','+c));
+    // 6b-i. single direction bores ONE way only
+    let d=drillCells(4,4,['r']);
+    ok('drill · right-only never bores left', d.every(([r,c])=>r===4&&c>=4), d.filter(([r,c])=>c<4));
+    ok('drill · right-only reaches the board edge on a clear row', d.length===C-4, d.length+' of '+(C-4));
+    ok('drill · includes its own impact point', key(d).has('4,4'), [...key(d)].slice(0,3));
+    // 6b-ii. the four single directions are mutually exclusive
+    const dl=drillCells(4,4,['l']), du=drillCells(4,4,['u']), dd=drillCells(4,4,['d']);
+    ok('drill · left-only never bores right', dl.every(([r,c])=>r===4&&c<=4), dl.filter(([r,c])=>c>4));
+    ok('drill · up-only never bores down',    du.every(([r,c])=>c===4&&r<=4), du.filter(([r,c])=>r>4));
+    ok('drill · down-only never bores up',    dd.every(([r,c])=>c===4&&r>=4), dd.filter(([r,c])=>r<4));
+    // 6b-iii. bidirectional = the union of its two arms (Horizon/Ascension)
+    const dh=drillCells(4,4,['l','r']);
+    ok('drill · bidirectional H = both arms, whole row', key(dh).size===C, key(dh).size+' of '+C);
+    // 6b-iv. TRAVEL RULE B — a BREAKABLE is bored THROUGH (crate at (4,6) does not stop it)
+    wipe(); board[4][6].obs='crate1'; board[4][6].gem=null;
+    d=drillCells(4,4,['r']);
+    ok('drill · travel B: bores THROUGH a breakable crate', key(d).has('4,7')||C<8, [...key(d)].join(' '));
+    // 6b-v. TRAVEL RULE B — an UNBREAKABLE (inactive hole) stops the arm dead
+    wipe(); board[4][6].active=false;
+    d=drillCells(4,4,['r']);
+    ok('drill · travel B: a hole stops the bore', !key(d).has('4,7')&&key(d).has('4,5'), [...key(d)].join(' '));
+    ok('drill · never returns an inactive cell', d.every(([r,c])=>board[r][c].active), d.filter(([r,c])=>!board[r][c].active));
+    // 6b-vi. all 8 directions exist — the diagonal Grasshopper's foundation
+    wipe();
+    ok('drill · DIR8 carries all four diagonals', ['ne','nw','se','sw'].every(k=>DIR8[k]), Object.keys(DIR8));
+    const dx=drillCells(4,4,['ne','nw','se','sw']);
+    ok('drill · diagonal set bores diagonally only', dx.every(([r,c])=>r===4&&c===4||Math.abs(r-4)===Math.abs(c-4)), dx.slice(0,4));
+    // Diagonals can only ever touch ONE checkerboard parity — the property that
+    // makes the die-five Grasshopper a different tool from the Akashic Cross.
+    ok('drill · diagonals preserve (r+c) parity', dx.every(([r,c])=>((r+c)%2+2)%2===((4+4)%2+2)%2), dx.filter(([r,c])=>(r+c)%2!==0).slice(0,3));
+    // 6b-vii. every catalog booster resolves (no drill ships without directions)
+    ok('drill · every BOOSTERS entry has a known id + valid dirs', BOOSTERS.every(b=>b.id&&(!b.dirs||b.dirs.every(k=>DIR8[k]))), BOOSTERS.map(b=>b.id));
+    ok('drill · catalog is ungated (no intro levels remain)', BOOSTERS.every(b=>b.intro===undefined), BOOSTERS.filter(b=>b.intro!==undefined));
+    // No booster ships nameless or iconless in ANY language — the lesson from the
+    // goal-icon bug that had to be fixed in four places (Session 24). A missing
+    // i18n key renders as the raw key; a missing icon silently renders a padlock,
+    // which reads to the player as "locked" rather than "we forgot".
+    ['en','ko','es'].forEach(lg=>{
+      const miss=BOOSTERS.filter(b=>!(window.I18N&&I18N[lg]&&I18N[lg]['booster_'+b.id]));
+      ok('drill · every booster is named in '+lg, miss.length===0, miss.map(b=>b.id));
+    });
+    const noArt=BOOSTERS.filter(b=>/<svg/.test(boosterSVG(b.id,40))===false||boosterSVG(b.id,40)===padlockSVG(40));
+    ok('drill · every booster renders real art (never a fallback padlock)', noArt.length===0, noArt.map(b=>b.id));
+    // The four diagonals are each represented exactly once — the roster Jed set.
+    ok('drill · all four diagonals are in the catalog', ['ne','nw','se','sw'].every(d=>BOOSTERS.some(b=>b.dirs&&b.dirs[0]===d)), BOOSTERS.map(b=>b.dirs&&b.dirs.join('')));
+
+    // ═══ 6c. EDITOR — NO SILENT DEAD ENDS, NO UNRECOVERABLE WIPES ══════════════
+    // Jed 2026-08-25, painting a 9x11 serpentine: picking the Flow layer left
+    // flowMode on a preset, so every click silently did nothing. That was the
+    // THIRD instance of the same disease (Obstacle tab + Base brush, Session 24).
+    // A layer you can select but not paint on must never be reachable — assert it
+    // for EVERY layer, so the next one added can't quietly repeat this.
+    await startPlayerLevel(14,false); await wait(45); playing=false;
+    // Each layer is forced into a state the paint MUST change, so the check can't
+    // false-pass (or false-FAIL) on whatever the cell happened to already hold —
+    // painting gem-0 onto a cell that already holds gem 0 proves nothing.
+    const layerPaints={};
+    setLayer('base'); setBase('active'); board[2][2].active=false;
+    paintCell(2,2); layerPaints.base=board[2][2].active===true;
+    setLayer('tile'); selBrush={type:'gem',id:0}; board[2][2].gem=1;
+    paintCell(2,2); layerPaints.tile=board[2][2].gem===0;
+    setLayer('flow'); flow[2][2]='down';
+    paintCell(2,2); layerPaints.flow=flow[2][2]!=='down';
+    ok('editor · every selectable layer actually paints on click', Object.values(layerPaints).every(Boolean), layerPaints);
+    ok('editor · picking the Flow layer engages custom painting', (setLayer('flow'),flowMode==='custom'), flowMode);
+    // A whole-board flow preset is destructive; it must be undoable.
+    setFlow('custom'); paintCell(5,5); paintCell(5,5);
+    const handPainted=flow[5][5];
+    setFlow('down');
+    const wiped=flow[5][5];
+    doUndo();
+    ok('editor · a flow preset wipe is recoverable with undo', flow[5][5]===handPainted&&wiped!==handPainted, {handPainted,wiped,afterUndo:flow[5][5]});
+    // Flow must ride in the undo snapshot at all — it used to be omitted entirely.
+    ok('editor · undo snapshots carry the flow layer', (()=>{try{return JSON.parse(snapState()).f!==undefined;}catch(e){return false;}})(), 'snapState missing flow');
+    setLayer('tile'); setFlow('down');
 
     // ═══ 7-9. PLAYER-SESSION LAYER (real-vs-sandbox routing, goal loading,
     // bundle-scoped stars) — added 2026-08-25 after TWO regressions shipped
