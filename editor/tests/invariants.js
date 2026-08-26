@@ -236,6 +236,36 @@ window.runInvariants = async function(){
     ok('editor · the number a bundle will assign has ONE definition', typeof nextBundleLevelNum==='function', typeof nextBundleLevelNum);
     saveTargetBundle=_tgt; bundleEditNum=_edit;
 
+    // ═══ 6d. NO DEAD ENDS — every screen goes back exactly one step ════════════
+    // Jed 2026-08-26: the bundles screen hid the back button entirely, so the only
+    // exit was the wordmark (a jump to the landing page, not one step back), and
+    // Esc did nothing anywhere. Assert the whole ladder, both directions.
+    const backBtn=()=>document.getElementById('pback-top');
+    const backShown=()=>backBtn()&&getComputedStyle(backBtn()).display!=='none';
+    renderBundles(); await wait(60);
+    ok('nav · the bundles screen offers a way back', backShown(), 'back button hidden');
+    ok('nav · bundles back is labelled Home, not Bundles', backBtn().textContent===TXT('pback_home'), backBtn().textContent);
+    navBack(); await wait(60);
+    ok('nav · back from bundles lands on the Create/Explore home',
+       document.getElementById('home').style.display==='flex'&&!document.getElementById('player').classList.contains('active'),
+       document.getElementById('home').style.display);
+    renderGrid(); await wait(60);
+    ok('nav · the level grid offers a way back', backShown(), 'back button hidden');
+    ok('nav · grid back is labelled Bundles', backBtn().textContent===TXT('pback_bundles'), backBtn().textContent);
+    navBack(); await wait(60);
+    ok('nav · back from the level grid lands on bundles', lastPView==='bundles', lastPView);
+    // Esc closes an overlay BEFORE it navigates — an open panel is the innermost thing.
+    renderGrid(); await wait(40);
+    document.getElementById('leaderboard').classList.add('open');
+    navBack();
+    ok('nav · Esc closes an open overlay first', !document.getElementById('leaderboard').classList.contains('open')&&lastPView==='grid', lastPView);
+    // …and the qualifying level has no back door out of the front door.
+    entranceMode=true; const viewBefore=lastPView; navBack();
+    ok('nav · the qualifying level cannot be escaped backwards', lastPView===viewBefore, lastPView);
+    entranceMode=false;
+    ok('nav · back has ONE definition shared by button and Esc', document.getElementById('pback-top').getAttribute('onclick')==='navBack()', document.getElementById('pback-top').getAttribute('onclick'));
+    renderBundles(); await wait(40);
+
     // ═══ 7-9. PLAYER-SESSION LAYER (real-vs-sandbox routing, goal loading,
     // bundle-scoped stars) — added 2026-08-25 after TWO regressions shipped
     // live and neither was caught: Session 24's sandbox goal-tracking made
