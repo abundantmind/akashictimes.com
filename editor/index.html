@@ -3478,6 +3478,8 @@ function autoGrasshopperTarget(r,c,excludeSet){
     : o.item==='acorn' ? {kind:'acorn',need:o.count,have:0}
     : o.item==='key'   ? {kind:'key',need:o.count,have:0}
     : o.type==='clear' ? {kind:'crate',need:o.count,have:0}
+    : o.type==='detonate'? {kind:'detonate',pu:o.pu,need:o.count,have:0}
+    : o.type==='create' ? {kind:'create',pu:o.pu,need:o.count,have:0}
     :                    {kind:'collect',gemIdx:0,need:o.count,have:0});
   let goal=null,bestNeed=0;
   goals.forEach(g=>{const rem=g.need-g.have;if(rem>bestNeed){bestNeed=rem;goal=g;}});
@@ -3490,6 +3492,19 @@ function autoGrasshopperTarget(r,c,excludeSet){
     if(goal.kind==='acorn')  return cd.item==='acorn'||isLeafy(nr,nc);
     if(goal.kind==='key')    return cd.item==='key';
     if(goal.kind==='crate')  return isCrate(nr,nc);                  // hunt the nearest crate (lands → clearCell → damageChain cracks it)
+    // "Use N <power-up>" — hunt that power-up ON THE BOARD. A hopper landing on a
+    // PU clears its cell through clearCellD, which detonates it and ticks the goal,
+    // so seeking one is a real move toward the objective (Jed 2026-08-27: three
+    // cascade hoppers ignored the Grasshoppers sitting next to them, on a level
+    // whose only remaining goal was "fire 4 Grasshoppers"). Rocket halves both
+    // answer to 'rocket', the same normalisation puFired() uses.
+    if(goal.kind==='detonate'){
+      const k=(cd.pu==='rocket_h'||cd.pu==='rocket_v')?'rocket':cd.pu;
+      return !!cd.pu&&k===goal.pu;
+    }
+    // "Make N <power-up>" has no cell to aim at — a hopper cannot create one; the
+    // matches that follow its blast might. Fall through to the gem default rather
+    // than pretend otherwise.
     return cd.gem!==null;
   };
   const nearest=(pred)=>{

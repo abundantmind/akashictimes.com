@@ -258,6 +258,41 @@ window.runInvariants = async function(){
       ok('editor · a gem cell serializes the same whatever colour is painted', a==='g'&&b==='g', {red:a,other:b});
     })();
 
+    // ═══ 6f. GRASSHOPPER TARGETS THE GOAL, INCLUDING A POWER-UP GOAL ══════════
+    // Jed 2026-08-27, his own bundle: the level's only remaining goal was "fire 4
+    // Grasshoppers", three hoppers spawned from a cascade, and not one of them went
+    // for the Grasshoppers sitting on the board. autoGrasshopperTarget knew about
+    // collect/plant/acorn/key/crate goals and nothing else — worse, in EDITOR test
+    // play a PU objective fell through the mapping and was read as "collect gem 0",
+    // so it actively aimed at the wrong thing. A hopper landing on a PU detonates it
+    // (clearCellD → puFired), so seeking one really does advance the goal.
+    const _savedGoals=playerGoals, _savedObjs=editorObjectives, _savedMode=playerMode;
+    await startPlayerLevel(14,false); await wait(45);
+    const _cells=[];
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      const cd=board[r][c]; if(!cd||!cd.active)continue;
+      cd.pu=null; if(cd.gem===null)cd.gem=1; _cells.push([r,c]);
+    }
+    const _from=_cells[0], _far=_cells[_cells.length-1];
+    board[_far[0]][_far[1]].pu='helicopter';
+    playerMode=true; playerGoals=[{kind:'detonate',pu:'helicopter',need:4,have:0}];
+    const _t1=autoGrasshopperTarget(_from[0],_from[1],null);
+    ok('hopper · a "use N power-up" goal makes it hunt that power-up',
+       !!_t1&&_t1[0]===_far[0]&&_t1[1]===_far[1], {target:_t1, hopper:_far});
+    playerMode=false; editorObjectives=[{type:'detonate',pu:'helicopter',count:4}];
+    const _t2=autoGrasshopperTarget(_from[0],_from[1],null);
+    ok('hopper · the same goal drives targeting in EDITOR test-play',
+       !!_t2&&_t2[0]===_far[0]&&_t2[1]===_far[1], {target:_t2, hopper:_far});
+    board[_far[0]][_far[1]].pu=null;
+    const _mid=_cells[Math.floor(_cells.length/2)]; board[_mid[0]][_mid[1]].pu='rocket_v';
+    playerMode=true; playerGoals=[{kind:'detonate',pu:'rocket',need:2,have:0}];
+    const _t3=autoGrasshopperTarget(_from[0],_from[1],null);
+    ok('hopper · either Dragonfly half satisfies a rocket goal',
+       !!_t3&&_t3[0]===_mid[0]&&_t3[1]===_mid[1], {target:_t3, rocket:_mid});
+    board[_mid[0]][_mid[1]].pu=null;
+    playerGoals=_savedGoals; editorObjectives=_savedObjs; playerMode=_savedMode;
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+
     setLayer('tile'); setFlow('down');
 
     // A NEW blank level must not inherit the previous level's identity. openEditor()
