@@ -488,7 +488,12 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
    rail instead of sitting beside the board. Because this box can never exceed its
    parent, the parent's justify-content:center is safe: nothing overflows upward
    into the unreachable-scroll trap that plain centering causes. */
-.bpanel-scroll{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-height:min(100%,calc(5 * 86px + 62px));overflow-y:auto;}
+.bpanel-scroll{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-height:min(100%,calc(5 * 86px + 62px));overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;}
+/* The rail still scrolls — it just doesn't SHOW a scrollbar (Jed 2026-08-27):
+   a browser chrome bar down the side of the play area is the one web-ism left
+   on screen, and it lands in every clip. Hidden on all three engines; the
+   partially-visible 6th booster is what tells the player there's more. */
+.bpanel-scroll::-webkit-scrollbar{display:none;width:0;height:0;}
 .bslot{width:56px;height:56px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#141020;border:2px solid #2a2040;transition:border-color .15s,box-shadow .15s;}
 .bslot.locked{cursor:default;opacity:.75;}
 .bslot.armed{border-color:#ffcb6b;box-shadow:0 0 12px rgba(255,203,107,.4);}
