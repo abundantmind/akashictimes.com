@@ -830,8 +830,11 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <button class="bbtn on" id="b-hole" onclick="setBase('inactive')"><span class="ldot" style="background:#0d0a14;box-shadow:0 0 0 1px #444"></span>Hole</button>
         <button class="bbtn" id="b-active" onclick="setBase('active')"><span class="ldot" style="background:#7F77DD"></span>Active</button>
       </div>
+      <!-- Contents=Empty lives alone here now: gem COLOURS are seeded at load and
+           never serialized, so painting them was a no-op the right-hand palette
+           picker already does properly (Jed 2026-08-27). -->
       <div class="psec" id="gem-pal">
-        <div class="ptitle">Gems</div>
+        <div class="ptitle">Empty</div>
         <div id="gpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
       </div>
       <div class="psec" id="pu-pal">
@@ -1798,7 +1801,7 @@ let board=[],flow=[],layer='tile',tool='paint';
 //   'gem'   id = gem index          'pu'   id = PU name
 //   'obs'   id = OBS_TYPES id        'clear' id = '_clear_pu'|'_clear_sub'|'_clear_obs'|'_clear_item'
 // The Base brush (Active/Hole) is a DIFFERENT layer and stays in selBase below.
-let selBrush={type:'gem',id:0};
+let selBrush={type:'empty',id:'empty'};   // gem colours aren't paintable any more — start on the one Contents swatch that is
 let selBase='inactive'; // Base brush: 'active' or 'inactive'(Hole) — click cells to SET this state
 // Editor Goals panel: the level's objectives, held in canonical JSON shape
 // ({type:'plant',obstacle:'clover',count} | {type:'collect',gem|item,count}).
@@ -2538,15 +2541,13 @@ function buildGPal(){
   ed.textContent='∅';
   ed.onclick=()=>pickBrush('empty','empty',ed);
   p.appendChild(ed);
-  GDEFS.forEach((g,i)=>{
-    const d=document.createElement('div');
-    const on=selBrush.type==='gem'&&selBrush.id===i;
-    d.style.cssText=`width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid ${on?'#c8a8ff':'transparent'};overflow:hidden;`;
-    d.dataset.bid='gem:'+i; // level-presence highlight target (markLevelBrushes)
-    d.innerHTML=gemSVG(i,34);
-    d.onclick=()=>pickBrush('gem',i,d);
-    p.appendChild(d);
-  });
+  // NO GEM-COLOUR SWATCHES (Jed 2026-08-27). Colours are SEEDED at load, never
+  // painted: serializeLevel() writes a plain 'g' for every gem cell — "color seeded,
+  // not stored" — so a painted red gem is gone the moment the level is saved. The
+  // real control is the palette picker on the RIGHT (GEM_POOL), which decides which
+  // colours a level may spawn. Two palettes claiming to set gem colour, one of them
+  // a no-op, is the duplication Jed spotted. The gem BRUSH still exists in
+  // paintCell for building a test position by hand or from a script.
 }
 
 // ══ OBJECTIVES (editor Goals panel) ═══════════════════════════════════════════

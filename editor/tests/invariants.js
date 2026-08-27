@@ -242,6 +242,22 @@ window.runInvariants = async function(){
     ok('editor · the Obstacle layer still paints after picking there',
        board[3][3].obs==='crate1', {obs:board[3][3].obs,sub:board[3][3].sub});
 
+    // GEM COLOURS ARE SEEDED, NOT PAINTED (Jed 2026-08-27). serializeLevel() writes a
+    // plain 'g' for every gem cell, so a painted colour never survives a save — the
+    // left palette's colour swatches were a no-op duplicating the right-hand palette
+    // picker, which is the real control. Assert both halves: no colour swatches, and
+    // the serializer genuinely ignores whatever colour a cell holds.
+    ok('editor · the paint palette offers no gem-colour swatches',
+       document.querySelectorAll('#gpal [data-bid^="gem:"]').length===0,
+       document.querySelectorAll('#gpal [data-bid^="gem:"]').length);
+    (function(){
+      const r0=2,c0=2; board[r0][c0].active=true; board[r0][c0].pu=null; board[r0][c0].obs=null;
+      board[r0][c0].item=null; board[r0][c0].startEmpty=false;
+      board[r0][c0].gem=0; const a=serializeLevel().layers.contents[r0][c0];
+      board[r0][c0].gem=3; const b=serializeLevel().layers.contents[r0][c0];
+      ok('editor · a gem cell serializes the same whatever colour is painted', a==='g'&&b==='g', {red:a,other:b});
+    })();
+
     setLayer('tile'); setFlow('down');
 
     // A NEW blank level must not inherit the previous level's identity. openEditor()
