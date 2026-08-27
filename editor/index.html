@@ -375,7 +375,10 @@ body.player-playing #board-wrap{overflow:hidden;}
    left open for the future flyover pan affordances — 8-direction arrows + grid
    extension around the 9×11 Township view. Auto margins push them out; all three
    columns are locked to the grid height (--grid-h, set by updEditorFrame). */
-#lpanel{margin-right:auto;height:var(--grid-h,100%);overflow-y:auto;}
+/* Paint palette scrolls without showing a scrollbar, same as the booster rail
+   (Jed 2026-08-27) — browser chrome inside the play frame reads as a web page. */
+#lpanel{margin-right:auto;height:var(--grid-h,100%);overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;}
+#lpanel::-webkit-scrollbar{display:none;width:0;height:0;}
 #rpanel{margin-left:auto;height:var(--grid-h,100%);}
 /* The centered tablet: Level#/moves/goals | grid | boosters as ONE cohesive box. */
 #eframe{display:flex;align-items:stretch;flex:0 0 auto;background:#0a0810;border-radius:16px;overflow:hidden;}
