@@ -384,7 +384,15 @@ body.player-playing #board-wrap{overflow:hidden;}
 /* Editor play-frame's booster mirror — same catalog, same structure (the capped
    scroll area is the child, so the column itself never grows past the frame). */
 #eboost{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px 12px;min-width:104px;overflow:hidden;}
-#eboost .bpanel-scroll{gap:12px;max-height:min(100%,calc(5 * 84px + 62px));}
+/* THE RAIL IS THE GRID'S HEIGHT, and scrolls inside it (Jed 2026-08-27). This cap
+   must be a DEFINITE length, not a percentage: `min(100%, …)` is ignored while the
+   browser computes the column's intrinsic height, so #eboost contributed its FULL
+   11-booster content (~1011px) to #eframe even though the scroll box then rendered
+   at the cap. The frame grew past the viewport, taking the grid and both satellite
+   rails below the top menu — Jed: "worthless as an editing tool." --grid-h is the
+   live board height, measured in updEditorFrame(); minus #eboost's own 44px of
+   padding, plus the 20px board-wrap padding the frame already carries. */
+#eboost .bpanel-scroll{gap:12px;max-height:calc(var(--grid-h,480px) - 24px);}
 #ehud-level{font-size:var(--fz-2xl);color:#c792ea;font-weight:500;text-align:center;line-height:1.1;}
 #ehud-goal{display:flex;flex-direction:column;align-items:center;gap:14px;}
 .ehud-goalrow{display:flex;flex-direction:column;align-items:center;gap:2px;}

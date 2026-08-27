@@ -236,6 +236,29 @@ window.runInvariants = async function(){
     ok('editor · the number a bundle will assign has ONE definition', typeof nextBundleLevelNum==='function', typeof nextBundleLevelNum);
     saveTargetBundle=_tgt; bundleEditNum=_edit;
 
+    // THE PLAY-FRAME IS THE GRID'S HEIGHT, NEVER THE BOOSTER LIST'S (Jed 2026-08-27).
+    // The rail's cap was `min(100%, …)`, and a percentage is ignored while the browser
+    // computes the column's intrinsic height — so #eboost handed #eframe its FULL
+    // 11-booster content and the frame outgrew the viewport, pushing the grid and both
+    // satellite rails below the top menu ("worthless as an editing tool"). The rail may
+    // scroll all it likes; it must never make the frame taller than the board it flanks.
+    // The suite reaches here still flagged as play mode, where #eframe is
+    // display:contents and #eboost is hidden — measuring there proves nothing.
+    // Drop the flag so the editor layout is the one under test.
+    const _wasPlaying=document.body.classList.contains('player-playing');
+    document.body.classList.remove('player-playing');
+    render(); updEditorFrame(); await wait(60);
+    const _fr=document.getElementById('eframe').getBoundingClientRect().height;
+    const _bh=document.getElementById('board').getBoundingClientRect().height;
+    ok('editor · the play-frame is the GRID\'s height, not the booster list\'s',
+       _fr>0&&_bh>0&&_fr<=_bh+28, {frame:Math.round(_fr), board:Math.round(_bh)});
+    const _sc=document.querySelector('#eboost .bpanel-scroll');
+    _sc.scrollTop=99999; const _bot=_sc.scrollTop; _sc.scrollTop=0;
+    ok('editor · the booster rail still scrolls inside that height',
+       _sc.scrollHeight<=_sc.clientHeight+1 || _bot>0,
+       {content:_sc.scrollHeight, visible:_sc.clientHeight, bottomReach:_bot});
+    if(_wasPlaying) document.body.classList.add('player-playing');
+
     // ═══ 6d. NO DEAD ENDS — every screen goes back exactly one step ════════════
     // Jed 2026-08-26: the bundles screen hid the back button entirely, so the only
     // exit was the wordmark (a jump to the landing page, not one step back), and
