@@ -3227,7 +3227,12 @@ function togglePlay(sandbox=true){
   // beginPlaySession, i.e. real play — so an architect building a flow level had
   // no way to see whether their flow actually READS without publishing it first.
   // Hitting Play on an unsaved, unpublished board now runs the same sweep.
-  if(playing) flowPreviewT=setTimeout(runFlowSweep,1400);
+  // SANDBOX ONLY. beginPlaySession() arms its own preview timer right after it
+  // calls togglePlay(false), and both assignments landed on the SAME handle — the
+  // second orphaned the first, leaving a timer nobody could cancel. Real play owns
+  // its timer there; this one exists for the editor's ▶ Play (no flyover camera,
+  // which runs its own opening pan).
+  if(playing&&sandbox&&!flyover) flowPreviewT=setTimeout(runFlowSweep,1400);
   updEditorFrame(); // refresh the frame HUD on every mode toggle (moves persist)
   render();
 }
@@ -6161,7 +6166,52 @@ function flowWaveOrder(){
   for(let i=0;i<rows.length;i++) rows[i]=rows[i]||[];
   return rows;
 }
-function clearFlowHints(){ document.querySelectorAll('.flowhint').forEach(e=>e.remove()); }
+// THE HINTS LIVE OUTSIDE THE BOARD (Jed 2026-08-27). render() rebuilds the grid
+// with `bd.innerHTML=''`, so a chevron parented to a cell was destroyed the instant
+// ANYTHING re-rendered — the wave froze wherever it had reached and stayed dead
+// until the next loop. That is the "L25 never finishes, stops in different places"
+// bug: it stopped exactly where a render landed. Rather than police every caller of
+// render(), the layer is a SIBLING of the board positioned over it, so a rebuild
+// cannot reach the hints at all, whatever triggered it.
+function flowLayer(){
+  const bd=document.getElementById('board'); if(!bd||!bd.parentNode)return null;
+  const wrap=bd.parentNode;                       // #board-wrap is position:relative
+  let L=document.getElementById('flowlayer');
+  if(!L){ L=document.createElement('div'); L.id='flowlayer'; }
+  if(L.parentNode!==wrap) wrap.appendChild(L);
+  // Track the board's box so the overlay sits exactly on the grid at any scale.
+  L.style.cssText='position:absolute;pointer-events:none;z-index:26;'
+    +'left:'+bd.offsetLeft+'px;top:'+bd.offsetTop+'px;'
+    +'width:'+bd.offsetWidth+'px;height:'+bd.offsetHeight+'px;';
+  return L;
+}
+function boardGeo(){
+  const b=document.getElementById('board');
+  return b?b.offsetLeft+':'+b.offsetTop+':'+b.offsetWidth+':'+b.offsetHeight:'';
+}
+// Being render-proof means the wave can no longer learn "the board got busy" by
+// being destroyed — so it watches for that itself. One ticker, alive only while a
+// sweep is on screen: a cascade/armed booster sends it back to the calm loop, and a
+// resize redraws it in the new geometry instead of leaving chevrons off the grid.
+let flowWatch=null;
+function stopFlowWatch(){ if(flowWatch){clearInterval(flowWatch);flowWatch=null;} }
+function startFlowWatch(){
+  stopFlowWatch();
+  const geo=boardGeo();
+  flowWatch=setInterval(()=>{
+    if(!playerMode||!playing||animating||armedBooster||choosingRainbow||choosingGrasshopper){
+      clearFlowHints();                                    // board went busy — stand down
+      if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
+      flowPreviewT=setTimeout(runFlowSweep,FLOW_CALM);     // …and look again when it rests
+      return;
+    }
+    if(boardGeo()!==geo){                                  // board moved/rescaled under us
+      if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
+      runFlowSweep();                                      // redraw in the new geometry
+    }
+  },140);
+}
+function clearFlowHints(){ stopFlowWatch(); document.querySelectorAll('.flowhint').forEach(e=>e.remove()); }
 // Full stop — used when leaving the level or finishing it.
 function stopFlowPreview(){
   if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
@@ -6194,6 +6244,7 @@ function runFlowSweep(){
   // Pulse length scales with the step so the lit "comet tail" stays a sane length
   // rather than lighting half the board at once on a fast wave.
   const PULSE=Math.max(420,Math.min(900,STEP*6));
+  const layer=flowLayer(); if(!layer)return;
   rows.forEach((cells,d)=>{
     if(!cells)return;
     cells.forEach(([r,c])=>{
@@ -6204,14 +6255,18 @@ function runFlowSweep(){
       // A green glow muddied the mark on sand instead of lifting it — the dark
       // casing in chevronSVG does the separating now, so the shadow is a plain
       // dark one that works on light and dark cells alike.
-      s.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
-        +'pointer-events:none;z-index:26;opacity:0;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));';
+      // Placed by the CELL'S OWN BOX (offsets are relative to #board, which the
+      // layer is aligned to) — the hint sits over its cell without being its child.
+      s.style.cssText='position:absolute;display:flex;align-items:center;justify-content:center;'
+        +'left:'+el.offsetLeft+'px;top:'+el.offsetTop+'px;'
+        +'width:'+el.offsetWidth+'px;height:'+el.offsetHeight+'px;'
+        +'pointer-events:none;opacity:0;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));';
       // fade in -> hold bright -> fade out, offset by depth = the travelling pulse
       s.style.animation='flowpulse '+PULSE+'ms ease-in-out '+(d*STEP)+'ms 1 both';
-      el.style.position=el.style.position||'relative';
-      el.appendChild(s);
+      layer.appendChild(s);
     });
   });
+  startFlowWatch();   // the sweep is on screen — watch for a busy board or a resize
   // …then clear, breathe, and sweep again. Loops until the player acts.
   flowPreviewT=setTimeout(()=>{
     clearFlowHints();

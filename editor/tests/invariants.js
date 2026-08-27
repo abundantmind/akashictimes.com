@@ -363,6 +363,27 @@ window.runInvariants = async function(){
        sw.length===99&&sw.every(c=>c.length===1), {fronts:sw.length, sizes:[...new Set(sw.map(c=>c.length))]});
     R=_R;C=_C;board=_b;flow=_f;
 
+    // RENDER-PROOF (Jed 2026-08-27). The wave used to hang its chevrons inside the
+    // board's cells, and render() rebuilds the board with `bd.innerHTML=''` — so any
+    // re-render mid-sweep deleted the whole wave and it froze wherever it had got to.
+    // That is the bug Jed hit trying to clip L25: "it stops in different places, never
+    // finishes." The hints now live in their own layer beside the board. These pin
+    // that: the sweep draws, a render cannot touch it, and stopping leaves nothing.
+    await startPlayerLevel(25,false); await wait(45);
+    runFlowSweep(); await wait(30);
+    const drawn=document.querySelectorAll('.flowhint').length;
+    ok('flow preview · a sweep actually draws chevrons', drawn>0, drawn);
+    ok('flow preview · hints are NOT children of the board (render() wipes it)',
+       drawn>0&&[...document.querySelectorAll('.flowhint')].every(s=>!document.getElementById('board').contains(s)),
+       'a hint is parented to a cell');
+    render();
+    ok('flow preview · a mid-sweep render() cannot kill the wave',
+       document.querySelectorAll('.flowhint').length===drawn,
+       {before:drawn,after:document.querySelectorAll('.flowhint').length});
+    stopFlowPreview();
+    ok('flow preview · stopping the preview leaves no hints behind',
+       document.querySelectorAll('.flowhint').length===0, document.querySelectorAll('.flowhint').length);
+
     // Flow glyphs must be DRAWN, not typed. Text characters ('v' a letter, '^' a
     // caret, '<'/'>' math operators) have unrelated shapes and baselines and can
     // never mirror each other — Jed 2026-08-27. One rotated chevron guarantees it
