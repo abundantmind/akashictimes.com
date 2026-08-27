@@ -266,6 +266,133 @@ window.runInvariants = async function(){
     ok('nav · back has ONE definition shared by button and Esc', document.getElementById('pback-top').getAttribute('onclick')==='navBack()', document.getElementById('pback-top').getAttribute('onclick'));
     renderBundles(); await wait(40);
 
+    // ═══ 6e. FLOW PREVIEW WAVE (Jed 2026-08-27, Township parity) ══════════════
+    // The preview must start AT THE SOURCE and walk downstream one step at a
+    // time — a travelling pulse, not the whole board blinking. Ordering is
+    // asserted here because the animation itself cannot be verified headlessly
+    // (the browser pane registers CSS animations but never advances their clock).
+    // THE FRONT MUST STAY A STRAIGHT LINE. The first build ordered by distance
+    // along the flow path, which shatters wherever two paths of different lengths
+    // run side by side — L25's outer and inner paths put ADJACENT cells 4 steps
+    // apart. These assert the property that was actually wanted: a coherent
+    // wavefront, on every level including the awkward one.
+    const frontCheck=async(L)=>{
+      await startPlayerLevel(L,false); await wait(45);
+      if(window.flyover){flyStop=0;flyLock=false;}
+      const w=flowWaveOrder();
+      let ragged=0, desync=0, mixedDirFronts=0;
+      const sizes=[], dirSequence=[];
+      w.forEach((cells)=>{
+        if(!cells||!cells.length)return;
+        const rs=cells.map(x=>x[0]), cs=cells.map(x=>x[1]);
+        const sameRow=Math.max(...rs)===Math.min(...rs), sameCol=Math.max(...cs)===Math.min(...cs);
+        if(!sameRow&&!sameCol)ragged++;            // a front is one row OR one column, never scattered
+        const dirs=new Set(cells.map(([r,c])=>(flow[r]&&flow[r][c])||'down'));
+        if(dirs.size>1)mixedDirFronts++;           // one front, one direction of travel
+        else{ const d0=[...dirs][0]; if(dirSequence[dirSequence.length-1]!==d0)dirSequence.push(d0); }
+        sizes.push(cells.length);
+      });
+      // Cells that are neighbours AND travel together must light together — this
+      // is the L25 failure: outer and inner paths put adjacent cells 4 beats apart.
+      const at=new Map();
+      w.forEach((cells,d)=>(cells||[]).forEach(([r,c])=>{ if(!at.has(r+','+c))at.set(r+','+c,d); }));
+      at.forEach((d,k)=>{
+        const [r,c]=k.split(',').map(Number);
+        const mine=(flow[r]&&flow[r][c])||'down';
+        for(const [nr,nc] of [[r,c+1],[r+1,c]]){
+          const nd=at.get(nr+','+nc);
+          if(nd===undefined)continue;
+          const theirs=(flow[nr]&&flow[nr][nc])||'down';
+          if(theirs!==mine)continue;               // different directions: different fronts, fine
+          const v=FLOW_VEC[mine];
+          const perpendicular=(v[0]!==0)?(nr===r):(nc===c);  // neighbour ACROSS the flow
+          if(perpendicular&&Math.abs(nd-d)>0)desync++;       // same front => same beat
+        }
+      });
+      // continuity: no dead beats, and every direction change hands off along flow
+      const emptyBeats=w.filter(c=>!c.length).length;
+      let brokenTurns=0;
+      for(let d=1;d<w.length;d++){
+        const prev=w[d-1], cur=w[d];
+        if(!prev.length||!cur.length)continue;
+        const pd=(flow[prev[0][0]]&&flow[prev[0][0]][prev[0][1]])||'down';
+        const cd=(flow[cur[0][0]]&&flow[cur[0][0]][cur[0][1]])||'down';
+        if(pd===cd)continue;                       // same direction: ordinary advance
+        const feeds=prev.some(([r,c])=>{
+          const v=FLOW_VEC[pd];
+          return cur.some(([nr,nc])=>r+v[0]===nr&&c+v[1]===nc);
+        });
+        if(!feeds)brokenTurns++;
+      }
+      return {ragged,desync,mixedDirFronts,depths:w.length,dirSequence,emptyBeats,brokenTurns,
+              minFront:Math.min(...sizes),maxFront:Math.max(...sizes)};
+    };
+    let fc=await frontCheck(14);
+    ok('flow preview · L14 fronts are straight lines', fc.ragged===0, fc);
+    ok('flow preview · L14 has no neighbour desync', fc.desync===0, fc);
+    ok('flow preview · plain down-flow gives FULL-WIDTH fronts', fc.minFront===fc.maxFront&&fc.maxFront>1, fc);
+    fc=await frontCheck(25);
+    ok('flow preview · L25 (outer+inner paths) fronts stay straight', fc.ragged===0, fc);
+    ok('flow preview · L25 neighbours never fall out of sync', fc.desync===0, fc);
+    // Every cell in one front travels the SAME WAY — that is what makes it a front
+    // rather than an arbitrary group, and it is why L25 splits into three phases.
+    ok('flow preview · every front is one direction only', fc.mixedDirFronts===0, fc);
+    ok('flow preview · L25 sweeps down, then right, then up (Township order)',
+       fc.dirSequence.join('>')==='down>right>up', fc.dirSequence);
+    // THE LONG PATH IS THE METRONOME (Jed 2026-08-27): the beat never stops. No
+    // empty beats, and where the front turns, the last cell of the old direction
+    // must RELEASE INTO the first cell of the new one — the wave hands off along
+    // the real gem path instead of restarting somewhere else.
+    ok('flow preview · the beat never stops (no empty beats)', fc.emptyBeats===0, fc.emptyBeats);
+    ok('flow preview · the front hands off along the flow when it turns',
+       fc.brokenTurns===0, fc.brokenTurns);
+    const step=Math.max(22,Math.min(130,Math.round(2600/Math.max(fc.depths,1))));
+    ok('flow preview · adaptive step keeps any sweep under ~3.5s', fc.depths*step<3500, fc.depths*step);
+    // A one-cell-thin region has no front to draw. Jed's serpentine reverses every
+    // row, so no two neighbours travel the same way — single-cell fronts are the
+    // CORRECT answer there, not a degenerate one.
+    const _R=R,_C=C,_b=board,_f=flow;
+    R=9;C=11;board=[];flow=[];
+    for(let r=0;r<R;r++){board.push([]);flow.push([]);
+      for(let c=0;c<C;c++){board[r].push({gem:null,active:true,obs:null,pu:null,sub:null,item:null});flow[r].push('down');}}
+    for(let r=0;r<R;r++){const rt=r%2===0;
+      for(let c=0;c<C;c++)flow[r][c]=rt?'right':'left';
+      if(r<R-1)flow[r][rt?C-1:0]='down';}
+    const sw=flowWaveOrder().filter(c=>c.length);
+    ok('flow preview · a reversing serpentine yields single-cell fronts',
+       sw.length===99&&sw.every(c=>c.length===1), {fronts:sw.length, sizes:[...new Set(sw.map(c=>c.length))]});
+    R=_R;C=_C;board=_b;flow=_f;
+
+    // Flow glyphs must be DRAWN, not typed. Text characters ('v' a letter, '^' a
+    // caret, '<'/'>' math operators) have unrelated shapes and baselines and can
+    // never mirror each other — Jed 2026-08-27. One rotated chevron guarantees it
+    // geometrically, so assert the rotations really are opposites.
+    const rotOf=d=>{const v=FLOW_VEC[d];return Math.round(Math.atan2(v[0],v[1])*180/Math.PI)-90;};
+    ok('flow glyph · every direction renders real SVG, not a text character',
+       ['down','up','left','right'].every(d=>/<svg/.test(chevronSVG(d,40))&&/<path/.test(chevronSVG(d,40))),
+       ['down','up','left','right'].map(d=>chevronSVG(d,40).slice(0,18)));
+    ok('flow glyph · up is down rotated 180 (a true mirror)', Math.abs(rotOf('up')-rotOf('down'))===180, [rotOf('up'),rotOf('down')]);
+    ok('flow glyph · left is right rotated 180 (a true mirror)', Math.abs(rotOf('left')-rotOf('right'))===180, [rotOf('left'),rotOf('right')]);
+    // CONTRAST ON EVERY SURFACE THE SWEEP CROSSES. A single pale-green chevron
+    // measured 1.45:1 against the sand of an empty active cell — invisible, which
+    // is what Jed caught on L25 (and the same trap as the light-on-sand animation
+    // lesson). Two strokes: a dark casing that carries on light cells, a bright
+    // core that carries on dark ones. At least one must clear 4.5:1 anywhere.
+    const _lum=h=>{const p=[1,3,5].map(i=>parseInt(h.substr(i,2),16)/255)
+      .map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));
+      return 0.2126*p[0]+0.7152*p[1]+0.0722*p[2];};
+    const _ratio=(a,b)=>{const s=[_lum(a),_lum(b)].sort((x,y)=>y-x);return (s[0]+0.05)/(s[1]+0.05);};
+    const svgNow=chevronSVG('down',40);
+    const strokes=(svgNow.match(/stroke="(#[0-9a-fA-F]{6})"/g)||[]).map(m=>m.slice(8,15));
+    ok('flow glyph · chevron is drawn with two strokes (dark casing + bright core)', strokes.length>=2, strokes);
+    ['#d4b483','#0d1a0d','#241b30'].forEach(surface=>{
+      const best=Math.max(...strokes.map(s=>_ratio(s,surface)));
+      ok('flow glyph · legible on '+surface+' (best stroke >= 4.5:1)', best>=4.5, best.toFixed(2));
+    });
+    ok('flow glyph · all four share one path (identical but for rotation)',
+       new Set(['down','up','left','right'].map(d=>chevronSVG(d,40).replace(/rotate\([^)]*\)/,''))).size===1,
+       'paths differ beyond rotation');
+
     // ═══ 7-9. PLAYER-SESSION LAYER (real-vs-sandbox routing, goal loading,
     // bundle-scoped stars) — added 2026-08-25 after TWO regressions shipped
     // live and neither was caught: Session 24's sandbox goal-tracking made

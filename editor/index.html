@@ -554,6 +554,15 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 #pstar-cele .celewrap{position:relative;text-align:center;animation:celepop .55s cubic-bezier(.2,1.5,.4,1) both;}
 #pstar-cele .celestars{font-size:60px;letter-spacing:10px;color:#ffd76b;filter:drop-shadow(0 0 12px rgba(255,190,60,.85));margin-top:2px;}
 @keyframes celepop{0%{transform:scale(.3);opacity:0;}100%{transform:scale(1);opacity:1;}}
+/* Flow preview pulse: fade in, hold at full, fade out. Each cell runs the same
+   900ms animation offset by its distance from the source, which is what turns a
+   row of identical fades into a wave travelling downstream. */
+@keyframes flowpulse{
+  0%{opacity:0;transform:scale(.72);}
+  28%{opacity:1;transform:scale(1);}
+  62%{opacity:1;transform:scale(1);}
+  100%{opacity:0;transform:scale(1.04);}
+}
 
 /* ── Entrance: multi-goal HUD rows, help popup, two-path choice ── */
 .goal-row{display:flex;align-items:center;gap:8px;padding:4px 0;width:100%;}
@@ -1720,7 +1729,42 @@ const GDEFS=[
   {name:'Amethyst',color:'#5C3A8A',hi:'#9A6ACA',dark:'#241040',rune:'&#9775;', shape:'hex'},
   {name:'Pearl',   color:'#C4BFB4',hi:'#FFFFFF', dark:'#7A7870',rune:'&#9789;', shape:'star'},
 ];
-const FARROWS={down:'↓',right:'→',left:'←',up:'↑',custom:'?'};
+// Flow glyphs are DRAWN, never typed. Text characters can't work here: 'v' is a
+// lowercase letter, '^' is a caret, '<' and '>' are math operators — four
+// unrelated shapes with different weights, sizes and baselines, so they can never
+// mirror each other no matter the font (Jed 2026-08-27: "the v needs to look like
+// the mirror image of the ^, not some Times New Roman silliness").
+//
+// ONE chevron path, rotated. The rotation derives from the direction's own
+// FLOW_VEC via atan2 — same self-deriving trick as the drill icons — so 'up' is
+// exactly 'down' turned 180 degrees, and a new direction would get correct art
+// for free. Kept for any legacy/text use (serializer keys, custom marker):
+const FARROWS={down:'v',right:'>',left:'<',up:'^',custom:'?'};
+
+// Chunky chevron pointing DOWN at 0 rotation; every other direction is this shape
+// turned. Round caps/joins so it reads as a solid mark, not a thin arrow.
+//
+// DRAWN TWICE — a near-black outer stroke under a bright inner one. The preview
+// sweeps over whatever the cell happens to hold: light sand (#d4b483) on empty
+// active cells, saturated gems elsewhere, and the dark board in the editor's flow
+// layer. A single bright-green chevron vanished against sand (Jed 2026-08-27,
+// spotted on L25's empty actives) — the same trap as [[feedback_animation_contrast]]:
+// pale bodies disappear on the light cells. The dark casing carries the shape on
+// anything light; the bright core keeps it legible and on-brand on anything dark.
+function chevronSVG(dir,size,color){
+  const v=FLOW_VEC[dir]||FLOW_VEC.down;                 // [dr,dc]
+  const deg=Math.round(Math.atan2(v[0],v[1])*180/Math.PI)-90;  // 'down' is the drawn baseline
+  const w=Math.round(size);
+  const d='M8 13 L20 27 L32 13';
+  return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" '
+    +'style="display:block;overflow:visible">'
+    +'<g transform="rotate('+deg+' 20 20)">'
+    +'<path d="'+d+'" fill="none" stroke="#0a1408" stroke-width="11" '
+    +'stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>'
+    +'<path d="'+d+'" fill="none" stroke="'+(color||'#49c463')+'" stroke-width="5" '
+    +'stroke-linecap="round" stroke-linejoin="round"/>'
+    +'</g></svg>';
+}
 let CELL_SIZE=44;const CELL_GAP=3;  // CELL_SIZE is dynamic in player mode (board scales to viewport)
 const gemSize=()=>CELL_SIZE-4;       // gem/power-up draw size tracks the cell
 
@@ -2370,7 +2414,11 @@ function buildCellEl(r,c,dropping){
   if(!cd.active){el.classList.add('inactive');}
   else if(layer==='flow'){
     el.style.background='#0d1a0d';el.style.borderColor='#1a3a1a';
-    el.innerHTML=`<span style="font-size:var(--fz-2xl);color:#3a9a3a;">${FARROWS[flow[r][c]]}</span>`;
+    // Sized to the CELL, not to a fixed font step, so the glyph stays near
+    // cell-filling at any board scale. line-height:1 + flex centring keeps 'v'
+    // and '^' optically centred (their glyph boxes are top-heavy).
+    el.innerHTML='<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;">'
+      +chevronSVG(flow[r][c],CELL_SIZE*0.78)+'</span>';
   } else {
     const inner=document.createElement('div');
     inner.className='gem-inner';
@@ -3167,7 +3215,13 @@ function togglePlay(sandbox=true){
     }
   } else {
     editorSandboxPlay=false; playerMode=false; playerGoals=[];
+    stopFlowPreview(); // left Play — kill the sweep and its idle timer
   }
+  // FLOW PREVIEW IN THE EDITOR TOO (Jed 2026-08-27). It used to start only from
+  // beginPlaySession, i.e. real play — so an architect building a flow level had
+  // no way to see whether their flow actually READS without publishing it first.
+  // Hitting Play on an unsaved, unpublished board now runs the same sweep.
+  if(playing) flowPreviewT=setTimeout(runFlowSweep,1400);
   updEditorFrame(); // refresh the frame HUD on every mode toggle (moves persist)
   render();
 }
@@ -4250,6 +4304,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue){
 
 function playTap(r,c){
   if(animating)return;
+  nudgeFlowIdle(); // player acted: drop the sweep, re-arm the idle clock so it returns if they stall
   // an ARMED booster claims the next board tap (never during a choosing state)
   if(armedBooster&&!choosingRainbow&&!choosingGrasshopper){applyBooster(r,c);return;}
   // Akasha Ball choosing state — waiting for color pick
@@ -6001,6 +6056,163 @@ function flyGo(stop,dur,ease){
 // ease-out decelerates INTO each intermediate view (the row-13 wall beat), a dwell
 // lets it read, and the last leg glides to the top where play begins. Input is
 // locked until the camera rests.
+// ── FLOW PREVIEW (Jed 2026-08-27, Township parity) ──────────────────────────
+// Before the first move, show the player WHERE GEMS COME FROM. A travelling
+// pulse runs the flow path from each source downstream: the leading cell fades
+// its chevron in, the cell behind it sits at full brightness, and the one behind
+// THAT fades out — a wave, never the whole board blinking at once.
+//
+// The wave order is BFS along the flow vectors, so it is derived from the level's
+// real flow data rather than assuming top-to-bottom. On Jed's serpentine that
+// makes the pulse visibly snake across and back down the board, which is exactly
+// the mechanic a new player needs explained and no text could explain as well.
+//
+// Ambient, never modal: it does not block input. Swap during the preview and it
+// simply stops. Sources are the same "no active neighbour flows into me" rule
+// gravityWithMap uses, so preview and reality can never disagree.
+// The preview is a LOOP, not a one-shot (Jed 2026-08-27): it sweeps, pauses,
+// sweeps again, and keeps doing that until the player swaps. After a swap it
+// goes quiet — then returns if they sit idle again. It is an attractor that
+// says "here's how this board works" whenever nobody is doing anything.
+let flowPreviewT=null, flowIdleT=null;
+const FLOW_GAP=950;    // breath between sweeps
+const FLOW_IDLE=5000;  // how long a player sits still before the wave comes back
+const FLOW_CALM=700;   // re-check interval while the board is mid-cascade
+// THE SWEEP IS GEOMETRIC, NOT A PATH TRACE. First attempt ordered cells by their
+// distance along the flow path, which looks identical to a clean front on a plain
+// down-flow board — but L25 has an outer path and an inner path of DIFFERENT
+// LENGTHS, so cells sitting side by side ended up many steps apart and the front
+// shattered (Jed 2026-08-27; measured: adjacent cells (5,7) and (5,8) were 4
+// depths ≈ half a second out of sync, and one "front" spanned 6 rows).
+//
+// Township pans instead: a horizontal line sweeping DOWN, then a vertical line
+// sweeping RIGHT. A straight line cannot desynchronise, whatever the flow does.
+// Each cell still draws ITS OWN chevron — direction is taught by the glyph, while
+// the sweep just walks the eye across every cell in turn.
+// NO PAUSE WHEN THE FRONT TURNS (Jed 2026-08-27): "it's as if the outer, longest
+// path IS the metronome." The beat never stops — the wave steps one cell along the
+// long path every tick, and the perpendicular fronts simply ride it. A gap here
+// broke that pulse, and worse, it separated cells that genuinely flow into each
+// other: L25's (7,0) releases straight into (8,0), so they must be consecutive
+// beats. Kept as a named constant rather than deleted so the choice stays visible.
+const FLOW_PHASE_GAP=0;
+function flowWaveOrder(){
+  const usable=(r,c)=>r>=0&&r<R&&c>=0&&c<C&&board[r]&&board[r][c]&&board[r][c].active&&inPlayWindow(r,c);
+  const dirAt=(r,c)=>(flow[r]&&flow[r][c])||'down';
+
+  // 1. REGIONS OF ONE DIRECTION. Contiguous cells sharing a flow direction move
+  // as a body, so they can carry a front between them. L25 splits into three:
+  // the left block flowing down, the staircase flowing right, the right block
+  // flowing up — which is exactly the down → right → up sweep Township plays.
+  const rid=[]; for(let r=0;r<R;r++)rid.push(new Array(C).fill(-1));
+  const regions=[];
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(!usable(r,c)||rid[r][c]!==-1)continue;
+    const dir=dirAt(r,c), id=regions.length, cells=[], st=[[r,c]];
+    rid[r][c]=id;
+    while(st.length){
+      const [qr,qc]=st.pop(); cells.push([qr,qc]);
+      for(const [nr,nc] of [[qr-1,qc],[qr+1,qc],[qr,qc-1],[qr,qc+1]])
+        if(usable(nr,nc)&&rid[nr][nc]===-1&&dirAt(nr,nc)===dir){ rid[nr][nc]=id; st.push([nr,nc]); }
+    }
+    regions.push({dir,cells});
+  }
+
+  // 2. SEQUENCE THE REGIONS DOWNSTREAM. Region A precedes B when a cell of A
+  // releases into a cell of B. Kahn's ordering from the regions nothing feeds.
+  const nextOf=regions.map(()=>new Set()), indeg=regions.map(()=>0);
+  regions.forEach((reg,i)=>reg.cells.forEach(([r,c])=>{
+    const v=FLOW_VEC[reg.dir], nr=r+v[0], nc=c+v[1];
+    if(!usable(nr,nc))return;
+    const j=rid[nr][nc];
+    if(j!==i&&!nextOf[i].has(j)){ nextOf[i].add(j); indeg[j]++; }
+  }));
+  const order=[], q=regions.map((_,i)=>i).filter(i=>indeg[i]===0);
+  const queued=new Set(q);
+  while(q.length){
+    const i=q.shift(); order.push(i);
+    nextOf[i].forEach(j=>{ if(--indeg[j]<=0&&!queued.has(j)){ queued.add(j); q.push(j); } });
+  }
+  regions.forEach((_,i)=>{ if(!order.includes(i)) order.push(i); }); // any cycle: append
+
+  // 3. WITHIN A REGION THE FRONT IS PERPENDICULAR TO THE FLOW, moving with it.
+  // Cells sharing a position along the flow axis light together — a full line
+  // where the region is wide, and a single cell where it is one cell thin (Jed's
+  // serpentine: every row reverses, so no two neighbours travel the same way and
+  // there is legitimately no front to draw).
+  const axisKey=(dir,r,c)=>dir==='down'?r:dir==='up'?-r:dir==='right'?c:-c;
+  const rows=[]; let d=0;
+  order.forEach(i=>{
+    const reg=regions[i];
+    const byKey=new Map();
+    reg.cells.forEach(([r,c])=>{
+      const k=axisKey(reg.dir,r,c);
+      (byKey.get(k)||byKey.set(k,[]).get(k)).push([r,c]);
+    });
+    [...byKey.keys()].sort((a,b)=>a-b).forEach(k=>{ rows[d++]=byKey.get(k); });
+    for(let g=0;g<FLOW_PHASE_GAP;g++) rows[d++]=[];   // beat of stillness as the front turns
+  });
+  for(let i=0;i<rows.length;i++) rows[i]=rows[i]||[];
+  return rows;
+}
+function clearFlowHints(){ document.querySelectorAll('.flowhint').forEach(e=>e.remove()); }
+// Full stop — used when leaving the level or finishing it.
+function stopFlowPreview(){
+  if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
+  if(flowIdleT){clearTimeout(flowIdleT);flowIdleT=null;}
+  clearFlowHints();
+}
+// The player did something. Kill the sweep, then start the idle clock — if they
+// go quiet again, the wave returns.
+function nudgeFlowIdle(){
+  stopFlowPreview();
+  if(playerMode) flowIdleT=setTimeout(runFlowSweep,FLOW_IDLE);
+}
+function playFlowPreview(){ runFlowSweep(); }   // kept: the level-start entry point
+function runFlowSweep(){
+  clearFlowHints();
+  if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
+  // Only sweep when the board is genuinely at rest. Mid-cascade or with a booster
+  // armed, wait and look again rather than drawing over a busy board.
+  if(!playerMode||!playing||animating||armedBooster||choosingRainbow||choosingGrasshopper){
+    flowPreviewT=setTimeout(runFlowSweep,FLOW_CALM); return;
+  }
+  const bd=document.getElementById('board'); if(!bd)return;
+  const rows=flowWaveOrder(); if(!rows.length)return;
+  // ADAPTIVE TIMING. Depth count varies enormously with the level's flow: a plain
+  // down-flow board is ~9 deep, but a serpentine is a single-file path 99 cells
+  // long. A fixed step made the snake take 11 seconds. Target a constant ~2.6s
+  // total instead, so a short board gets a stately wave and a long snake gets a
+  // fast one racing along the path — both read as the same gesture.
+  const STEP=Math.max(22,Math.min(130,Math.round(2600/Math.max(rows.length,1))));
+  // Pulse length scales with the step so the lit "comet tail" stays a sane length
+  // rather than lighting half the board at once on a fast wave.
+  const PULSE=Math.max(420,Math.min(900,STEP*6));
+  rows.forEach((cells,d)=>{
+    if(!cells)return;
+    cells.forEach(([r,c])=>{
+      const el=bd.children[r*C+c]; if(!el)return;
+      const s=document.createElement('span');
+      s.className='flowhint';
+      s.innerHTML=chevronSVG((flow[r]&&flow[r][c])||'down',CELL_SIZE*0.72,'#8dff9f');
+      // A green glow muddied the mark on sand instead of lifting it — the dark
+      // casing in chevronSVG does the separating now, so the shadow is a plain
+      // dark one that works on light and dark cells alike.
+      s.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
+        +'pointer-events:none;z-index:26;opacity:0;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));';
+      // fade in -> hold bright -> fade out, offset by depth = the travelling pulse
+      s.style.animation='flowpulse '+PULSE+'ms ease-in-out '+(d*STEP)+'ms 1 both';
+      el.style.position=el.style.position||'relative';
+      el.appendChild(s);
+    });
+  });
+  // …then clear, breathe, and sweep again. Loops until the player acts.
+  flowPreviewT=setTimeout(()=>{
+    clearFlowHints();
+    flowPreviewT=setTimeout(runFlowSweep,FLOW_GAP);
+  },rows.length*STEP+PULSE+120);
+}
+
 function flyCutscene(){
   flyLock=true;
   flyGo(flyover.stops.length-1,0);       // open on the bottom view
@@ -6140,6 +6352,10 @@ function beginPlaySession(){
   render();
   togglePlay(false); // fills empty active cells, removes initial matches, starts Play — NOT sandbox
   updatePlayerHUD();
+  // Flow preview (Township parity): after a beat, run the wave so the player sees
+  // where gems enter and which way they travel BEFORE their first move. Delayed so
+  // the board has visibly settled first; cancelled by the first tap (playTap).
+  if(!flyover) flowPreviewT=setTimeout(playFlowPreview,1400);
   if(flyover)flyCutscene(); // opening pan: bottom→top reveal, then the board goes live
 }
 
@@ -6356,6 +6572,7 @@ function choosePlayerPath(){
 }
 
 function playerFinish(win){
+  stopFlowPreview(); // level is over — no sweeping under the win overlay
   // Entrance level ends with the two-path choice, not the stars overlay
   if(entranceMode&&win){showEntranceChoice();return;}
   // Sandbox test run (editor ▶ Play): celebrate a real solve, but NEVER touch
@@ -6451,6 +6668,7 @@ function pwinContinue(){
 }
 
 function exitToGrid(){
+  stopFlowPreview(); // leaving the board — kill the loop and its idle timer
   playing=false; animating=false; playerMode=false;
   flyTeardown(); // clear any flyover camera window/transform
   entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; // leaving mid-entrance also restores full gem set
