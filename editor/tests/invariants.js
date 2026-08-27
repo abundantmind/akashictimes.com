@@ -219,6 +219,29 @@ window.runInvariants = async function(){
     ok('editor · a flow preset wipe is recoverable with undo', flow[5][5]===handPainted&&wiped!==handPainted, {handPainted,wiped,afterUndo:flow[5][5]});
     // Flow must ride in the undo snapshot at all — it used to be omitted entirely.
     ok('editor · undo snapshots carry the flow layer', (()=>{try{return JSON.parse(snapState()).f!==undefined;}catch(e){return false;}})(), 'snapState missing flow');
+    // THE PALETTE SHOWS ONLY WHAT THE LAYER CAN PAINT (Jed 2026-08-27: every swatch
+    // was visible on every layer, and most of them were inert). The map is the
+    // contract — assert each layer's visible sections ARE its mapped ones, so a new
+    // section can't quietly appear on a layer that ignores it.
+    const _visible=()=>['base-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','itm-pal']
+      .filter(id=>{const e=document.getElementById(id);return e&&getComputedStyle(e).display!=='none';});
+    const _palOK={};
+    Object.keys(LAYER_SECTIONS).forEach(L=>{
+      setLayer(L);
+      const vis=_visible(), want=LAYER_SECTIONS[L];
+      _palOK[L]=vis.length===want.length&&want.every(id=>vis.includes(id));
+    });
+    ok('editor · each layer shows exactly the swatches it can paint', Object.values(_palOK).every(Boolean), _palOK);
+    // Tile and Obstacle share one paint pass, so a brush picked from the Obstacle
+    // palette must KEEP that view — snapping back to Tile would re-expand every
+    // swatch the author just filtered away, one click after filtering them.
+    setLayer('obstacle'); pickBrush('obs','crate1',null);
+    ok('editor · picking an Obstacle swatch stays on the Obstacle layer', layer==='obstacle', layer);
+    board[3][3].active=true; board[3][3].obs=null; board[3][3].sub=null;
+    setTool&&setTool('paint'); paintCell(3,3);
+    ok('editor · the Obstacle layer still paints after picking there',
+       board[3][3].obs==='crate1', {obs:board[3][3].obs,sub:board[3][3].sub});
+
     setLayer('tile'); setFlow('down');
 
     // A NEW blank level must not inherit the previous level's identity. openEditor()

@@ -1879,7 +1879,7 @@ function openEditor(){
   initBlankBoard();
   fitEditorBoard(); // scale the grid to fill the viewport (device-independent)
   playing=false; // never inherit a stale play state — clicks must paint, not playTap
-  buildGPal();buildPUPal();buildObsPal();
+  buildGPal();buildPUPal();buildObsPal(); applyLayerPalette();
   editorObjectives=[];editorFlyover=null;renderObjectives(); // fresh board starts with no goals, no flyover
   setBase('inactive'); // New Level opens on the Base brush — lay the foundation first (also engages the Base layer + renders)
   // A FRESH BOARD IS NOT THE LEVEL THAT WAS OPEN A MOMENT AGO. curLevelNum used to
@@ -1926,7 +1926,7 @@ async function openTemplate(n){
   document.getElementById('btn-to-bundle').style.display=editorBundle?'':'none';
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
-  buildGPal();buildPUPal();buildObsPal();
+  buildGPal();buildPUPal();buildObsPal(); applyLayerPalette();
   undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null;
   setBase('inactive'); // always open with the Left Palette on Base (Hole), never Tile — a stray click paints the foundation, not a gem (Jed 2026-08-06)
   render();updUB();updEditorFrame(); // sync the play-frame HUD (Level#, goals, boosters)
@@ -2162,7 +2162,7 @@ async function editUserBundleLevel(id,fn){
   document.getElementById('editor').style.display='flex';
   document.getElementById('btn-to-bundle').style.display='none';
   document.getElementById('info-r').textContent=R; document.getElementById('info-c').textContent=C;
-  buildGPal();buildPUPal();buildObsPal(); undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null;
+  buildGPal();buildPUPal();buildObsPal(); applyLayerPalette(); undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null;
   setBase('inactive'); render();updUB();updEditorFrame(); updateBundleSaveBtn();
   if(architectPlaying) togglePlay();
 }
@@ -3029,7 +3029,11 @@ function buildSrcPal(){
 // selPU/selObs hijack paintCell (the "gem won't paint on a cleared clover cell" bug).
 function pickBrush(type,id,el){
   selBrush={type,id};
-  if(layer!=='tile')setLayer('tile'); // grabbing a swatch engages the paint layer (mirrors setBase engaging Base)
+  // Grabbing a swatch engages a paint layer (mirrors setBase engaging Base). Tile
+  // and Obstacle share one paint pass in paintCell, so a brush picked from the
+  // Obstacle palette KEEPS that view — snapping to Tile would re-expand every
+  // swatch the author just filtered away, one click after filtering them.
+  if(layer!=='tile'&&layer!=='obstacle')setLayer('tile');
   document.querySelectorAll('#base-pal .bbtn').forEach(b=>b.classList.remove('on')); // Base is a different layer — drop its highlight
   document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#itmpal div')
     .forEach(x=>x.style.borderColor='transparent');
@@ -3058,6 +3062,32 @@ function markLevelBrushes(){
   });
 }
 
+// WHICH SWATCHES BELONG TO WHICH LAYER (Jed 2026-08-27: "confusing for humans to
+// see all those Paint palette options when only some are active"). The grouping is
+// NOT invented here — it is PAINTER-LAYER-MODEL.md's locked taxonomy, collapsed
+// onto the five layer buttons the editor actually has:
+//   Base     → Layer 1 Board
+//   Tile     → Layer 5 Contents (gem · power-up · block · item) + Layer 3 Source,
+//              which paints on the same click pass
+//   Obstacle → Layer 4 Substrate + Layer 6 Overlay + the blocks that are authored
+//              as obstacles (a crate is Contents by schema, an obstacle by intent)
+//   Flow     → no swatches: the direction bar in the toolbar IS the tool
+//   Border   → Layer 7, NOT IMPLEMENTED — paintCell has no 'border' branch at all,
+//              so the layer paints nothing whatever the palette shows.
+const LAYER_SECTIONS={
+  base:    ['base-pal'],
+  tile:    ['gem-pal','pu-pal','src-pal','blk-pal','itm-pal'],
+  obstacle:['sub-pal','ovl-pal','blk-pal'],
+  flow:    [],
+  border:  [],
+};
+function applyLayerPalette(){
+  const shown=LAYER_SECTIONS[layer]||[];
+  ['base-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','itm-pal'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=shown.includes(id)?'':'none';
+  });
+}
 function setLayer(l){
   layer=l;
   document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('on'));
@@ -3071,6 +3101,7 @@ function setLayer(l){
   // That is the THIRD instance of this exact disease — see the Obstacle-tab and
   // Base-brush dead ends fixed 2026-08-24, documented in paintCell below. A layer
   // you can select but not paint on must never be reachable.
+  applyLayerPalette();   // show only the swatches this layer can actually paint
   if(l==='flow'&&flowMode!=='custom'){setFlow('custom');return;} // setFlow renders
   render();
 }
@@ -6417,7 +6448,7 @@ function beginPlaySession(){
   document.body.classList.add('player-playing');
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
-  buildGPal();buildPUPal();buildObsPal();
+  buildGPal();buildPUPal();buildObsPal(); applyLayerPalette();
   playerMode=true; playing=false;
   flyWindow(); // flyover levels: fixed camera window (after playerMode is set; clears on normal levels)
   moves=0; cleared=0; // FRESH player run — zero the move counter. togglePlay() PERSISTS moves
