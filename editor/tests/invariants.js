@@ -247,9 +247,20 @@ window.runInvariants = async function(){
     // left palette's colour swatches were a no-op duplicating the right-hand palette
     // picker, which is the real control. Assert both halves: no colour swatches, and
     // the serializer genuinely ignores whatever colour a cell holds.
-    ok('editor · the paint palette offers no gem-colour swatches',
-       document.querySelectorAll('#gpal [data-bid^="gem:"]').length===0,
-       document.querySelectorAll('#gpal [data-bid^="gem:"]').length);
+    // The chips are a TESTING tool — an author builds an exact position by hand and
+    // hits Play. They are not level data (see the serializer check below), and every
+    // glyph must sit INSIDE its box: the old chips drew a 34px gem in a 32px chip,
+    // so each one overflowed its own border (Jed: "they looked wonky").
+    setLayer('tile'); buildGPal();
+    const _chips=[...document.querySelectorAll('#gpal [data-bid^="gem:"]')];
+    ok('editor · a gem chip exists for every gem colour', _chips.length===GDEFS.length,
+       {chips:_chips.length, colours:GDEFS.length});
+    const _overflow=_chips.filter(ch=>{
+      const svg=ch.querySelector('svg'); if(!svg)return true;
+      const b=ch.getBoundingClientRect(), g=svg.getBoundingClientRect();
+      return g.width>b.width||g.height>b.height;      // glyph must never exceed its chip
+    }).length;
+    ok('editor · every gem glyph fits inside its chip', _chips.length>0&&_overflow===0, {overflowing:_overflow});
     (function(){
       const r0=2,c0=2; board[r0][c0].active=true; board[r0][c0].pu=null; board[r0][c0].obs=null;
       board[r0][c0].item=null; board[r0][c0].startEmpty=false;

@@ -421,6 +421,15 @@ body.player-playing #eframe{display:contents;background:none;}
 .objbtns{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
 /* Palette picker — toggle which colors spawn on this level's board */
 .palettepicker{display:flex;gap:5px;flex-wrap:wrap;}
+/* BRUSH SWATCH — the paint palette's gem chips, deliberately the same object as
+   the right-hand palette picker below (Jed 2026-08-27: "make it look like the one
+   on the right side"). The old chips sized their glyph at 34px inside a ~32px box,
+   so every gem overflowed its own border — the wonk. Box owns the size, glyph is
+   drawn smaller than the box, always. */
+.brushswatch{width:32px;height:32px;padding:3px;border-radius:6px;background:#1a1530;border:2px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s;}
+.brushswatch svg{width:24px;height:24px;display:block;}
+.brushswatch.on{border-color:#c8a8ff;background:#231a3a;}
+.brushswatch:hover{background:#231a3a;}
 .paletteswatch{width:32px;height:32px;padding:3px;border-radius:6px;background:#1a1530;border:0.5px solid #3d3560;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.35;transition:opacity .15s,border-color .15s;}
 .paletteswatch svg{width:24px;height:24px;}
 .paletteswatch.on{opacity:1;border-color:#6a4aaa;background:#231a3a;}
@@ -830,12 +839,12 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <button class="bbtn on" id="b-hole" onclick="setBase('inactive')"><span class="ldot" style="background:#0d0a14;box-shadow:0 0 0 1px #444"></span>Hole</button>
         <button class="bbtn" id="b-active" onclick="setBase('active')"><span class="ldot" style="background:#7F77DD"></span>Active</button>
       </div>
-      <!-- Contents=Empty lives alone here now: gem COLOURS are seeded at load and
-           never serialized, so painting them was a no-op the right-hand palette
-           picker already does properly (Jed 2026-08-27). -->
+      <!-- Gem colours are a TEST tool, not level data: they build an exact position
+           to hit Play on. The saved level stores only "there is a gem here" — which
+           colours may spawn is the palette picker on the right. -->
       <div class="psec" id="gem-pal">
-        <div class="ptitle">Empty</div>
-        <div id="gpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+        <div class="ptitle">Gems</div>
+        <div id="gpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;justify-items:center;"></div>
       </div>
       <div class="psec" id="pu-pal">
         <div class="ptitle">Power-ups</div>
@@ -1801,7 +1810,7 @@ let board=[],flow=[],layer='tile',tool='paint';
 //   'gem'   id = gem index          'pu'   id = PU name
 //   'obs'   id = OBS_TYPES id        'clear' id = '_clear_pu'|'_clear_sub'|'_clear_obs'|'_clear_item'
 // The Base brush (Active/Hole) is a DIFFERENT layer and stays in selBase below.
-let selBrush={type:'empty',id:'empty'};   // gem colours aren't paintable any more — start on the one Contents swatch that is
+let selBrush={type:'gem',id:0};
 let selBase='inactive'; // Base brush: 'active' or 'inactive'(Hole) — click cells to SET this state
 // Editor Goals panel: the level's objectives, held in canonical JSON shape
 // ({type:'plant',obstacle:'clover',count} | {type:'collect',gem|item,count}).
@@ -2533,21 +2542,29 @@ function buildGPal(){
   // fills only after the first swap (field.empty). Needed from L14 on (Jed
   // 2026-08-01: "remove a gem from an active cell"). Sits with the gems since it's
   // the gem's Contents-layer sibling.
-  const eon=selBrush.type==='empty';
   const ed=document.createElement('div');
-  ed.style.cssText=`width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid ${eon?'#c8a8ff':'transparent'};overflow:hidden;display:flex;align-items:center;justify-content:center;background:#120f1a;color:#7a7a9a;font-size:18px;line-height:1;`;
+  ed.className='brushswatch'+(selBrush.type==='empty'?' on':'');
+  ed.style.cssText='color:#7a7a9a;font-size:18px;line-height:1;';
   ed.dataset.bid='empty:empty';
   ed.title='Empty — active cell, no gem until the first swap (field.empty)';
   ed.textContent='∅';
   ed.onclick=()=>pickBrush('empty','empty',ed);
   p.appendChild(ed);
-  // NO GEM-COLOUR SWATCHES (Jed 2026-08-27). Colours are SEEDED at load, never
-  // painted: serializeLevel() writes a plain 'g' for every gem cell — "color seeded,
-  // not stored" — so a painted red gem is gone the moment the level is saved. The
-  // real control is the palette picker on the RIGHT (GEM_POOL), which decides which
-  // colours a level may spawn. Two palettes claiming to set gem colour, one of them
-  // a no-op, is the duplication Jed spotted. The gem BRUSH still exists in
-  // paintCell for building a test position by hand or from a script.
+  // GEM CHIPS ARE A TESTING TOOL, not level data (Jed 2026-08-27, restoring them):
+  // serializeLevel() writes a plain 'g' for every gem cell — "color seeded, not
+  // stored" — so a painted colour never reaches the saved level, and the RIGHT-hand
+  // picker (GEM_POOL) is what decides which colours a level may spawn. What painting
+  // a colour IS for: building an exact position by hand in the editor and hitting
+  // Play, which is how a mechanic gets tested. Same chip as the picker below it.
+  GDEFS.forEach((g,i)=>{
+    const d=document.createElement('div');
+    d.className='brushswatch'+(selBrush.type==='gem'&&selBrush.id===i?' on':'');
+    d.dataset.bid='gem:'+i; // level-presence highlight target (markLevelBrushes)
+    d.title=GDEFS[i].name;
+    d.innerHTML=gemSVG(i,24);   // glyph SMALLER than the box — the CSS caps it too
+    d.onclick=()=>pickBrush('gem',i,d);
+    p.appendChild(d);
+  });
 }
 
 // ══ OBJECTIVES (editor Goals panel) ═══════════════════════════════════════════
