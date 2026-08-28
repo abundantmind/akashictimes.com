@@ -209,6 +209,24 @@ window.runInvariants = async function(){
     setLayer('flow'); flow[2][2]='down';
     paintCell(2,2); layerPaints.flow=flow[2][2]!=='down';
     ok('editor · every selectable layer actually paints on click', Object.values(layerPaints).every(Boolean), layerPaints);
+    // Same rule one level up: a TOOL you can select must change the cell you click.
+    // Fill and Mirror were removed 2026-08-27 because they only ever acted under a
+    // gem brush — editing the one thing the serializer discards — and Jed had never
+    // used either. Enumerated from the DOM so a tool added later is covered without
+    // anyone remembering to add a test.
+    const toolActs={};
+    setLayer('tile'); pickBrush('gem',2,null);
+    [...document.querySelectorAll('[id^="tt-"]')].map(b=>b.id.replace('tt-','')).forEach(t=>{
+      setTool(t);
+      const cd=board[4][4];
+      cd.active=true; cd.gem=0; cd.pu=null; cd.obs='bind1'; cd.sub=null; cd.item=null;
+      const before=JSON.stringify(cd);
+      paintCell(4,4);
+      toolActs[t]=JSON.stringify(board[4][4])!==before;   // any real change counts
+    });
+    setTool('paint');
+    ok('editor · every tool button actually changes the cell it clicks',
+       Object.keys(toolActs).length>0&&Object.values(toolActs).every(Boolean), toolActs);
     ok('editor · picking the Flow layer engages custom painting', (setLayer('flow'),flowMode==='custom'), flowMode);
     // A whole-board flow preset is destructive; it must be undoable.
     setFlow('custom'); paintCell(5,5); paintCell(5,5);

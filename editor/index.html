@@ -778,9 +778,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <div class="tg">
       <span class="elbl">Tool</span>
       <button class="tb on" id="tt-paint" onclick="setTool('paint')">Paint</button>
-      <button class="tb" id="tt-fill" onclick="setTool('fill')">Fill</button>
       <button class="tb" id="tt-erase" onclick="setTool('erase')">Erase</button>
-      <button class="tb" id="tt-mirror" onclick="setTool('mirror')">Mirror</button>
     </div>
     <div class="tg">
       <button class="tb" onclick="doRandom()">Random</button>
@@ -3176,11 +3174,12 @@ function paintCell(r,c){
   // crate → Hole → Active → try repaint the crate while the Obstacle tab is open).
   else if((layer==='tile'||layer==='obstacle')&&cd.active){
     const b=selBrush; // the ONE active brush — dispatch on its type
-    // fill / erase / mirror are gem-oriented tools (they operate on the gem layer);
-    // they use the gem brush when one is picked and no-op under a non-gem brush.
-    if(tool==='fill'){if(b.type==='gem'){save();flood(r,c,cd.gem,b.id);}}
-    else if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;}
-    else if(tool==='mirror'){if(b.type==='gem'){save();cd.gem=b.id;cd.pu=null;board[r][C-1-c].gem=b.id;board[r][C-1-c].pu=null;}}
+    // FILL and MIRROR are GONE (Jed 2026-08-27: "I've never used them, don't even
+    // remember asking for them"). Both only ever acted under a gem brush, and a
+    // painted gem colour is never serialized — so each was a tool that edited data
+    // the save discards, on the one brush type where that is true. Erase stays: it
+    // clears every layer of a cell, which IS saved.
+    if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;}
     else if(tool==='paint'){
       save();
       if(b.type==='clear'){                                             // clear-brush: null one layer, leave the rest
@@ -3207,20 +3206,11 @@ function paintCell(r,c){
     const dirs=['down','right','left','up'];
     flow[r][c]=dirs[(dirs.indexOf(flow[r][c])+1)%4];
   }
-  // Incremental repaint: only the touched cell(s) redraw, so a drag-paint no
-  // longer thrashes the whole board (the flicker fix). Fill floods many cells,
-  // so it still needs a full render; mirror also updates its partner column.
-  if(tool==='fill') render();
-  else if(layer==='tile'&&tool==='mirror'){renderCell(r,c);renderCell(r,C-1-c);}
-  else renderCell(r,c);
+  // Incremental repaint: only the touched cell redraws, so painting no longer
+  // thrashes the whole board (the flicker fix). Every remaining tool is one cell
+  // per click — Fill was the only one that ever touched more.
+  renderCell(r,c);
   markLevelBrushes(); // keep the level-presence rings current as the board changes
-}
-
-function flood(r,c,from,to){
-  if(r<0||r>=R||c<0||c>=C)return;
-  if(!board[r][c].active||board[r][c].gem!==from||from===to)return;
-  board[r][c].gem=to;
-  flood(r-1,c,from,to);flood(r+1,c,from,to);flood(r,c-1,from,to);flood(r,c+1,from,to);
 }
 
 function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=randGem();board[r][c].pu=null;}clean();render();markLevelBrushes();}
