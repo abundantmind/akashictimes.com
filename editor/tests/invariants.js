@@ -714,6 +714,117 @@ window.runInvariants = async function(){
       ok('motion · every cell is playable again afterwards', Motion.quietAt(0,0)&&Motion.quietAt(R-1,C-1), 'a cell stayed locked');
     }
 
+    // ═══ 11g. A QUIET BOARD NEVER HOLDS AN UNRESOLVED MATCH ═══════════════════
+    // THE L25 FREEZE (Jed, first hand-test of Still Water): swap at the entry
+    // point, then swap downstream into the first one's falling water. The second
+    // swap COMMITS, but resolve() refuses its match because the other chain owns
+    // those cells — and if that chain has already scanned, nobody ever comes back
+    // for it. The move counted, nothing happened, and the board reads as frozen.
+    // The rule that makes it impossible: the last chain standing sweeps.
+    {
+      await startPlayerLevel(1,false); await wait(45);
+      const A=GEM_POOL[0],B=GEM_POOL[1],D=GEM_POOL[2];
+      Motion.releaseAll(); playing=true;
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c];
+        cd.active=true;cd.obs=null;cd.item=null;cd.pu=null;cd.puClover=false;cd.startEmpty=false;cd.sub=null;
+        cd.gem=[A,B,D][(r+c)%3]; }
+      for(let c=0;c<3;c++)board[R-1][c].gem=A;          // one plain match, nothing else
+
+      // Another chain owns exactly those cells — resolve must refuse them...
+      const owner=Motion.newChain('other');
+      Motion.claim(owner+'/fall',[[R-1,0],[R-1,1],[R-1,2]]);
+      const mine=Motion.newChain('swap');
+      Motion.claim(mine+'/swap',[[0,0],[0,1]]);
+      resolve(findPatterns(-1,-1,-1,-1),-1,-1,JSON.parse(JSON.stringify(board)),-1,-1,mine);
+      for(let i=0;i<40&&Motion.tags().some(t=>t.indexOf(mine+'/')===0);i++) await wait(50);
+      ok('sweep · a match owned by another chain is left alone while that chain runs',
+         board[R-1][0].gem===A&&board[R-1][1].gem===A&&board[R-1][2].gem===A, 'it was resolved by the wrong chain');
+
+      // ...and when the owner finishes, the LAST chain standing must clean it up.
+      Motion.releaseChain(owner);
+      cascadeEnd(Motion.newChain('last'));
+      for(let i=0;i<80&&Motion.busy();i++) await wait(50);
+      ok('sweep · a quiet board holds NO unresolved match (the L25 freeze)',
+         find3().length===0, find3().length+' matches left sitting on a settled board');
+      let empt=0; for(let r=0;r<R;r++)for(let c=0;c<C;c++){const cd=board[r][c];
+        if(cd.active&&!cd.obs&&!cd.item&&!cd.pu&&cd.gem===null&&!cd.startEmpty)empt++;}
+      ok('sweep · and it refilled what the sweep cleared', empt===0, empt);
+      Motion.releaseAll(); playing=false;
+    }
+
+    // ═══ 11f. NO CHAIN MAY STRAND THE BOARD (the L16 freeze) ══════════════════
+    // Jed froze L25 on the first hand-test of Still Water. The shape, found by
+    // fuzzing: a chain claims cells and then hands off to a DIFFERENT chain, so
+    // its own claim is never released and those cells refuse input forever.
+    // Engine 1 could not have this bug — `animating=false` cleared everyone's
+    // state at once, which is exactly the "one flag, two universes" trap.
+    {
+      await startPlayerLevel(16,false); await wait(45);
+      Motion.releaseAll(); playing=true;
+
+      // 1. A PU⇄PU combo is the SAME move as the swap that made it.
+      const swapChain=Motion.newChain('swap');
+      Motion.claim(swapChain+'/swap',[[0,0],[0,1]]);
+      const puCells=[];
+      for(let r=0;r<R&&puCells.length<2;r++)for(let c=0;c<C-1&&puCells.length<2;c++)
+        if(board[r][c].active&&board[r][c+1].active&&!board[r][c].obs&&!board[r][c+1].obs)puCells.push([r,c],[r,c+1]);
+      if(puCells.length>=2){
+        const [ar,ac]=puCells[0],[br,bc]=puCells[1];
+        board[ar][ac].gem=null;board[ar][ac].pu='rocket_h';
+        board[br][bc].gem=null;board[br][bc].pu='rocket_v';
+        startPUCombo(ar,ac,br,bc,swapChain);
+        ok('freeze · a combo claims under the SWAP\'s chain, never its own',
+           Motion.tags().some(t=>t.indexOf(swapChain+'/')===0)&&!Motion.tags().some(t=>/^combo#/.test(t)), Motion.tags());
+        // A combo cascade on L16's clover board can run for a while — poll the
+        // PROPERTY (nothing of this swap is still claimed), not a stopwatch.
+        for(let i=0;i<240&&Motion.tags().some(t=>t.indexOf(swapChain+'/')===0);i++) await wait(50);
+        ok('freeze · the swap\'s own claim is gone when the combo finishes',
+           !Motion.tags().some(t=>t.indexOf(swapChain+'/')===0), Motion.tags());
+      }
+      Motion.releaseAll();
+
+      // 2. A Grasshopper reticle belongs to the chain that swapped it. Another
+      //    chain ending first must not open it — a reticle claims every tap, so
+      //    opening one nobody asked for reads to the player as a frozen board.
+      await startPlayerLevel(1,false); await wait(45); Motion.releaseAll(); playing=true;
+      const owner=Motion.newChain('swap'), stranger=Motion.newChain('swap');
+      window._pendingHopperChoose={r:1,c:1,excluded:new Set(),orthCells:[],chain:owner};
+      cascadeEnd(stranger);
+      ok('freeze · another chain does not open a pending Grasshopper reticle',
+         choosingGrasshopper===null&&!!window._pendingHopperChoose, {choosingGrasshopper,pending:!!window._pendingHopperChoose});
+      cascadeEnd(owner);
+      ok('freeze · the chain that swapped it DOES open it', !!choosingGrasshopper, choosingGrasshopper);
+      choosingGrasshopper=null; window._pendingHopperChoose=null; Motion.releaseAll();
+
+      // 3. The watchdog: a claim whose chain has gone silent is released, and the
+      //    board it stranded is finished off. A player is never stuck, ever.
+      await startPlayerLevel(1,false); await wait(45); Motion.releaseAll(); playing=true;
+      const dead=Motion.newChain('swap');
+      Motion.claim(dead+'/effects');                  // board-wide, then never released
+      board[2][2].gem=null; board[2][3].gem=null;     // died mid-clear, like the real freeze
+      const stalls0=window.stallCount;
+      Motion._seen.set(dead,Date.now()-99999);        // ...and it has said nothing for ages
+      window._stallTick();
+      ok('freeze · the watchdog releases a chain that has gone silent',
+         !Motion.tags().some(t=>t.indexOf(dead+'/')===0), Motion.tags());
+      ok('freeze · the stall is recorded, loudly, for diagnosis',
+         window.stallCount===stalls0+1&&window.__lastStall&&window.__lastStall.deadChain===dead, window.__lastStall);
+      // The recovery settle starts on a timer, so `busy` is briefly FALSE right
+      // after the tick — poll the board itself, never the flag.
+      const holesNow=()=>{let h=0;for(let r=0;r<R;r++)for(let c=0;c<C;c++){const cd=board[r][c];
+        if(cd.active&&!cd.obs&&!cd.item&&!cd.pu&&cd.gem===null&&!cd.startEmpty)h++;}return h;};
+      for(let i=0;i<120&&holesNow();i++) await wait(50);
+      ok('freeze · and the board it stranded is refilled, not left half-cleared', holesNow()===0, holesNow()+' cells left empty');
+
+      // 4. A chain that is WORKING must never be killed by the watchdog.
+      Motion.releaseAll();
+      const live=Motion.newChain('swap');
+      Motion.claim(live+'/effects');
+      window._stallTick();
+      ok('freeze · a chain that is still working is left alone', Motion.busy(), Motion.tags());
+      Motion.releaseAll(); playing=false;
+    }
+
     // ═══ 11e. STILL WATER — the player may act where nothing is moving ════════
     // Named by Jed 2026-08-28. Engine 1 froze the WHOLE board for every cascade;
     // the claim is now the honest set of cells in motion, and everything else is
