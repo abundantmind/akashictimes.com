@@ -129,7 +129,7 @@ window.runInvariants = async function(){
     const three=[GEM_POOL[0],GEM_POOL[1],GEM_POOL[2]];
     for(let r=0;r<R;r++)for(let c=0;c<C;c++){ board[r][c].active=true;board[r][c].obs=null;board[r][c].item=null;board[r][c].pu=null;board[r][c].startEmpty=false;board[r][c].sub=null;board[r][c].gem=three[(r+c)%3]; }
     ok('shuffle · genuine deadlock detected (no move)', !hasValidMove(), 'hasValidMove true on deadlock');
-    playerMode=true; animating=false; maybeShuffle();
+    playerMode=true; Motion.releaseAll(); maybeShuffle();
     ok('shuffle · escapes deadlock → has-move + no-match', hasValidMove()&&find3().length===0, 'still stuck');
     // no-op when a move exists
     await startPlayerLevel(2,false); await wait(45);
@@ -302,7 +302,7 @@ window.runInvariants = async function(){
         if(cd.gem===null)cd.gem=1; cd.pu=null; cells.push([r,c]);
       }
       const h=cells[Math.floor(cells.length/2)];
-      board[h[0]][h[1]].pu='helicopter'; render(); animating=false; selCell=null;
+      board[h[0]][h[1]].pu='helicopter'; render(); Motion.releaseAll(); selCell=null;
       onCell(h[0],h[1],{clientX:0,clientY:0}); onCell(h[0],h[1],{clientX:0,clientY:0});
       const own=document.querySelector('[data-r="'+h[0]+'"][data-c="'+h[1]+'"]');
       ok('hopper · the reticle offers the hopper\'s OWN cell (detonate in place)',
@@ -659,6 +659,60 @@ window.runInvariants = async function(){
       ok('community · exitToGrid also returns to the COMMUNITY grid', document.getElementById('pgrid-title').textContent===curBundle.title, document.getElementById('pgrid-title').textContent);
       playerBack();
       ok('community · playerBack resets to native context (bundle 0, curBundle null)', PlayerProgress.bundle===0&&curBundle===null, {bundle:PlayerProgress.bundle,curBundle});
+
+    // ═══ 11b. BOARD MOTION REGISTRY (the `animating` boolean's replacement) ═══
+    // The boolean is GONE — that is the point, not a detail: two sources of truth
+    // for "may the player act?" is how the flag drifted wrong in the first place.
+    // Today every claim is board-wide, so these answers must match the old flag's
+    // exactly. The narrow-claim tests below are the mechanism Rule A / Still Water
+    // stand on, proven before either rule exists.
+    {
+      await startPlayerLevel(1,false); await wait(45);
+      ok('motion · the global `animating` boolean no longer exists', typeof window.animating==='undefined'&&(()=>{try{animating;return false;}catch(e){return true;}})(), typeof window.animating);
+      Motion.releaseAll();
+      ok('motion · a settled board is quiet everywhere', !Motion.busy()&&Motion.quietAt(0,0)&&Motion.quietAt(R-1,C-1), Motion.tags());
+      Motion.claim('test-board');
+      ok('motion · a board-wide claim reads busy', Motion.busy(), Motion.tags());
+      ok('motion · a board-wide claim silences every cell (today\'s behaviour, exactly)',
+         !Motion.quietAt(0,0)&&!Motion.quietAt(R-1,C-1)&&!Motion.quietAt((R/2)|0,(C/2)|0), 'a cell stayed quiet under a board-wide claim');
+      Motion.releaseAll();
+      ok('motion · releaseAll clears every claim', !Motion.busy()&&Motion.tags().length===0, Motion.tags());
+
+      // The seam itself: a claim that covers PART of the board leaves the rest quiet.
+      Motion.claim('test-narrow',[[0,0],[0,1]]);
+      ok('motion · a narrow claim is busy but only where it claims',
+         Motion.busy()&&!Motion.quietAt(0,0)&&!Motion.quietAt(0,1)&&Motion.quietAt(R-1,C-1), Motion.tags());
+      Motion.release('test-narrow');
+      ok('motion · release(tag) drops exactly that claim', !Motion.busy(), Motion.tags());
+      Motion.claim('a',[[1,1]]); Motion.claim('b',[[2,2]]);
+      ok('motion · claims compose — a cell is busy if ANY claim covers it',
+         !Motion.quietAt(1,1)&&!Motion.quietAt(2,2)&&Motion.quietAt(3,3), Motion.tags());
+      Motion.release('a');
+      ok('motion · releasing one claim leaves the other standing', Motion.quietAt(1,1)&&!Motion.quietAt(2,2), Motion.tags());
+      Motion.releaseAll();
+
+      // Input must actually obey the registry — the reason it exists.
+      const before=JSON.stringify(board);
+      Motion.claim('test-lock');
+      playTap(1,1); playTap(1,2);
+      ok('motion · a claimed cell refuses a play tap', JSON.stringify(board)===before, 'the board moved under a claim');
+      Motion.releaseAll();
+
+      // NO CLAIM MAY OUTLIVE ITS MOVE. A leaked claim is the new shape of the old
+      // bug — a board that never accepts input again — so a real detonation is run
+      // end to end and the registry must come back empty on its own.
+      // NOTE: a real level board, deliberately NOT wipe()d — a board of one colour
+      // re-matches on every refill and cascades forever, which would read as a leak.
+      await startPlayerLevel(1,false); await wait(45);
+      ok('motion · an idle board holds no claims', !Motion.busy(), Motion.tags());
+      const hit=[]; for(let r=0;r<R&&hit.length<3;r++)for(let c=0;c<C&&hit.length<3;c++)
+        if(board[r][c].active&&board[r][c].gem!==null&&!board[r][c].obs&&!board[r][c].pu&&!board[r][c].item)hit.push([r,c]);
+      applyEffects(hit,hit[0][0],hit[0][1],[]);
+      ok('motion · firing effects claims the board', Motion.busy(), Motion.tags());
+      for(let i=0;i<60&&Motion.busy();i++) await wait(50);   // let the cascade run itself out
+      ok('motion · the claim is released when the cascade ends (no leak)', !Motion.busy(), Motion.tags());
+      ok('motion · every cell is playable again afterwards', Motion.quietAt(0,0)&&Motion.quietAt(R-1,C-1), 'a cell stayed locked');
+    }
 
     // ═══ 11. ENGINE VERSION PIN ═══════════════════════════════════════════════
     // The pin exists to make ONE failure impossible: a level authored under a
