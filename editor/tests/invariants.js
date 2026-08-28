@@ -269,6 +269,34 @@ window.runInvariants = async function(){
       ok('editor · a gem cell serializes the same whatever colour is painted', a==='g'&&b==='g', {red:a,other:b});
     })();
 
+    // ═══ 6f2. TARGETING STATE: SELF IS LEGAL, AND IT NEVER OUTLIVES THE BOARD ══
+    // Jed 2026-08-27, two bugs in one sitting. (1) The hopper's own cell was the one
+    // square the reticle refused, so "blast the orthogonals and stay put" — detonate
+    // in place — was unreachable. (2) He exited mid-choose, came back, and every cell
+    // of the FRESH board was still throbbing as a target for a hopper that no longer
+    // existed: the choosing state lives outside board data, so rebuilding the level
+    // never touched it.
+    await startPlayerLevel(14,false); await wait(60);
+    (function(){
+      const cells=[];
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+        const cd=board[r][c]; if(!cd||!cd.active)continue;
+        if(cd.gem===null)cd.gem=1; cd.pu=null; cells.push([r,c]);
+      }
+      const h=cells[Math.floor(cells.length/2)];
+      board[h[0]][h[1]].pu='helicopter'; render(); animating=false; selCell=null;
+      onCell(h[0],h[1],{clientX:0,clientY:0}); onCell(h[0],h[1],{clientX:0,clientY:0});
+      const own=document.querySelector('[data-r="'+h[0]+'"][data-c="'+h[1]+'"]');
+      ok('hopper · the reticle offers the hopper\'s OWN cell (detonate in place)',
+         !!choosingGrasshopper&&!!own&&own.classList.contains('hopper-pick'),
+         {choosing:!!choosingGrasshopper, ownPickable:!!(own&&own.classList.contains('hopper-pick'))});
+      exitToGrid();
+      ok('hopper · leaving the board drops the targeting state AND its reticle',
+         !choosingGrasshopper&&!armedBooster&&!window._pendingHopperChoose
+           &&document.querySelectorAll('.hopper-pick').length===0,
+         {choosing:!!choosingGrasshopper, throbbing:document.querySelectorAll('.hopper-pick').length});
+    })();
+
     // ═══ 6f. GRASSHOPPER TARGETS THE GOAL, INCLUDING A POWER-UP GOAL ══════════
     // Jed 2026-08-27, his own bundle: the level's only remaining goal was "fire 4
     // Grasshoppers", three hoppers spawned from a cascade, and not one of them went

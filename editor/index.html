@@ -1883,6 +1883,7 @@ function openNewLevel(){
 }
 
 function openEditor(){
+  clearChoosing();   // a fresh editor board never inherits the last run's reticle
   document.getElementById('setup-wrap').classList.remove('open');
   document.getElementById('home').style.display='none';
   document.getElementById('editor').style.display='flex';
@@ -1951,7 +1952,8 @@ async function openTemplate(n){
 function goHome(){
   document.getElementById('editor').style.display='none';
   document.getElementById('home').style.display='flex';
-  playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;animating=false;selCell=null;
+  playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;animating=false;
+  clearChoosing(); // Esc out of the editor drops the reticle with the board it belonged to
   GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
   editorBundle=null; // left the editor — no origin bundle to go back to
   saveTargetBundle=null; bundleEditNum=null; updateBundleSaveBtn(); // clear any bundle save-target
@@ -3240,7 +3242,8 @@ function togglePlay(sandbox=true){
   // the grid into a specific test condition, and resume the SAME run — 3 swaps then
   // an edit then Play resumes on move #4 (Jed 2026-08-06). They reset only on a
   // total reset: opening/reopening a level (openTemplate) or New Level.
-  playing=!playing;selCell=null;animating=false;
+  playing=!playing;animating=false;
+  clearChoosing(); // Play<->Edit is a hard boundary: no half-finished targeting crosses it
   document.getElementById('mbadge').textContent=playing?'Play':'Editor';
   document.getElementById('mbadge').className='mbadge'+(playing?' play':'');
   document.getElementById('playstats').style.display=playing?'block':'none';
@@ -4096,7 +4099,7 @@ function startPUCombo(dr,dc,sr,sc){
     const hop=pick('hopper'),partner=hop===a?b:a;
     consume(partner); // hopper stays visible until the jump commits (solo behavior)
     animating=false;  // choosing state needs player input
-    choosingGrasshopper={r:hop.r,c:hop.c,excluded:new Set([hop.r+','+hop.c]),
+    choosingGrasshopper={r:hop.r,c:hop.c,excluded:new Set(),   // own cell included: detonate in place
       orthCells:grasshopperOrthCells(hop.r,hop.c),comboPartner:partner.pu};
     render(); // vibe opens
   }else if(key==='ball+ball'){    // #10 — one hit point to the ENTIRE board
@@ -4503,13 +4506,18 @@ function playTap(r,c){
         applyEffects([],r,c,[{pu:'rocket_v',r,c}]); // beams race outward via the queue
       } else if(cd.pu==='helicopter'){
         // The jump can't happen until the destination is known: vibe FIRST
-        // (all cells eligible except the hopper's own — orthogonals included).
+        // (every occupied cell is eligible — the hopper's own included, which is
+        // how you detonate in place; orthogonals too).
         // The Grasshopper STAYS on the board while choosing — the PU is only
         // consumed (and the goal event fired) when the player commits the jump.
         moves++;
         updatePlayerHUD();
         const orthCells=grasshopperOrthCells(r,c);
-        choosingGrasshopper={r,c,excluded:new Set([r+','+c]),orthCells};
+        // DETONATE IN PLACE IS A LEGAL CHOICE (Jed 2026-08-27). The hopper's own
+        // cell used to be the one square the reticle refused, so "blast the
+        // orthogonals and stay put" was unreachable — picking yourself is a real
+        // tactic, not a mis-click. `excluded` stays as the mechanism, now empty.
+        choosingGrasshopper={r,c,excluded:new Set(),orthCells};
         render(); // starts vibe on eligible cells
       }
     } else render();
@@ -4563,7 +4571,7 @@ function playTap(r,c){
         // Hopper swapped with a gem: stays visible on its landed cell while
         // choosing — consumed (and goal event fired) only when the jump commits.
         // Choosing opens at cascadeEnd, after simultaneous swap effects settle.
-        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set([pr+','+pc]),orthCells:grasshopperOrthCells(pr,pc)};
+        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set(),orthCells:grasshopperOrthCells(pr,pc)}; // own cell included: detonate in place
       }
     }
     // Also collect any normal pattern matches formed by the swap
@@ -5796,7 +5804,7 @@ function resetAllStars(){
   renderGrid(); // grid re-locks everything past L1 immediately
 }
 
-function playerBack(){renderBundles();}
+function playerBack(){clearChoosing();renderBundles();}
 
 // ── BACK NAVIGATION ─────────────────────────────────────────────────────────
 // Jed 2026-08-26: "at every step, every human UX choice, need to go one step
@@ -6055,6 +6063,7 @@ function loadLevelData(json,num){
 // (how-to-earn-the-next-star instructions) shows. Retries/star-resets pass false
 // so the splash doesn't nag between attempts of the same level (Jed 2026-08-07).
 async function startPlayerLevel(num,fromGrid=true){
+  clearChoosing();   // entering a level starts with no reticle, whatever the last one left behind
   let json;
   try{
     // no-cache = revalidate against the server's ETag every load — level data
@@ -6808,7 +6817,21 @@ function pwinContinue(){
   else startPlayerLevel(curLevelNum,false);
 }
 
+// Every "waiting for the player to point at something" state, dropped in ONE place.
+// These live outside the board data, so rebuilding a level never cleared them: Jed
+// exited mid-Grasshopper-choose, came back, and every cell on the fresh board was
+// still throbbing as a target for a hopper that no longer existed (2026-08-27).
+function clearChoosing(){
+  choosingRainbow=null; choosingGrasshopper=null; armedBooster=null;
+  window._pendingHopperChoose=null; selCell=null;
+  // The state is only half of it — the CELLS carry the reticle as classes, and they
+  // keep throbbing until something re-renders. Strip them here rather than depend on
+  // a render that may not come (or may come after the player has already seen it).
+  document.querySelectorAll('.hopper-pick,.rainbow-pick,.booster-pick,.throb')
+    .forEach(e=>e.classList.remove('hopper-pick','rainbow-pick','booster-pick','throb'));
+}
 function exitToGrid(){
+  clearChoosing();   // no reticle survives leaving the board
   stopFlowPreview(); // leaving the board — kill the loop and its idle timer
   playing=false; animating=false; playerMode=false;
   flyTeardown(); // clear any flyover camera window/transform
