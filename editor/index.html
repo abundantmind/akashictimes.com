@@ -4639,8 +4639,36 @@ function playTap(r,c){
 }
 
 function resolve(pats,dr,dc,snap,sr,sc){
-  const p=pats[0];const toClear=[];
-  SFX.play('match'); // one sound per matched pattern (initial swap + every cascade)
+  // ── RULE A (Engine 2): SIMULTANEOUS RESOLUTION ─────────────────────────────
+  // Engine 1 resolved pats[0] and made every other match on the board wait a full
+  // settle beat — one 4-match here, one 4-match in the far corner, two beats. That
+  // one-at-a-time queue IS the stop-and-go feel Township doesn't have.
+  // Now every pattern that does not OVERLAP a higher-priority one resolves in this
+  // same pass. Overlapping patterns still wait: they describe the same gems (a
+  // 5-run also shows up inside find3's board-wide basic3 set), and resolving both
+  // would clear cells twice — so the ambiguous cases behave exactly as Engine 1 did
+  // and only genuinely independent matches gain. Priority order is unchanged, so
+  // which pattern WINS an overlap is unchanged too.
+  const used=new Set(), chosen=[];
+  for(const cand of pats){
+    // basic3 is a single board-wide bag of every plain 3-match, so an overlap with
+    // ONE special would strand all the others. Re-derive it against what's already
+    // taken instead: whole runs that touch nothing claimed still go now.
+    if(cand.type==='basic3'){
+      const rest=find3Excluding(used);
+      if(!rest.length)continue;
+      rest.forEach(([r,c])=>used.add(r+','+c));
+      chosen.push({...cand,cells:rest});
+      continue;
+    }
+    const keys=cand.cells.map(([r,c])=>r+','+c);
+    if(keys.some(k=>used.has(k)))continue;      // same gems as a pattern already taken
+    keys.forEach(k=>used.add(k));
+    chosen.push(cand);
+  }
+  const toClear=[];
+  SFX.play('match'); // ONE sound for the pass — simultaneous matches are one event, not a stutter
+  chosen.forEach(p=>{
   // SPREAD CLOVER: the match is one clear event — if any matched cell sits on
   // clover, the whole matched set plants (anchor cell included: a PU created
   // on clover keeps the clover under it).
@@ -4676,6 +4704,7 @@ function resolve(pats,dr,dc,snap,sr,sc){
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
+  });
   // NOTE: a PU born on clover is NOT pre-charged. The clover-charge is EPHEMERAL —
   // set only by the DRAG that moves a PU off a clover cell, consumed by that
   // detonation (see the swap). A PU sitting on the board (however it got there) is
@@ -4684,26 +4713,30 @@ function resolve(pats,dr,dc,snap,sr,sc){
   // a plain double-tap — wrong; the drag is what carries the clover.)
   // Any PU caught by the match clear is ENQUEUED — its cinematic plays out
   // (lasers and all) before gravity runs. Same visuals as player-fired.
+  // Anchors for EVERY chosen pattern are placed before a single cell is cleared,
+  // so one pattern's new power-up can never be swept up by another's clear.
   const phase=new Set();
   const detQueue=[];
   toClear.forEach(([r,c])=>clearCellD(r,c,phase,detQueue));
   // SPLASH DAMAGE: leaves AND crates (unlike chains, which need their own gem
   // matched) take one hit from any orthogonally adjacent match — a crate has no
   // gem to match, so adjacency is the ONLY way to break it. Once per obstacle
-  // per match event.
+  // per match event — and a pass that resolves several matches is ONE event, so
+  // a crate touched by two of them still takes exactly one hit.
   const splashed=new Set();
-  p.cells.forEach(([r,c])=>{
+  chosen.forEach(p=>p.cells.forEach(([r,c])=>{
     for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
       const k=nr+','+nc;
       if(nr<0||nr>=R||nc<0||nc>=C||splashed.has(k))continue;
       if(board[nr][nc].active&&(isLeafy(nr,nc)||isCrate(nr,nc))){splashed.add(k);damageChain(nr,nc);}
     }
-  });
+  }));
   if(playerMode) updatePlayerHUD();
   render(null);
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
-  window.moveHistory.push({move:moves,src:[sr,sc],dest:[dr,dc],pattern:p.type,cleared:toClear.length,boardBefore:snap});
-  document.getElementById('lastmove').textContent=`#${moves} ${p.type} +${toClear.length}`;
+  const label=chosen.map(p=>p.type).join('+'); // several matches in one pass read as one entry
+  window.moveHistory.push({move:moves,src:[sr,sc],dest:[dr,dc],pattern:label,patterns:chosen.length,cleared:toClear.length,boardBefore:snap});
+  document.getElementById('lastmove').textContent=`#${moves} ${label} +${toClear.length}`;
   // Pop beat → play out queued detonations → gravity → rescan (settleAndCascade)
   setTimeout(()=>{
     processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc));
@@ -5246,6 +5279,36 @@ function find3(){
     }
   }
   return[...s].map(k=>k.split(',').map(Number));
+}
+
+// RULE A helper: the plain 3-matches that DON'T touch a run some special pattern
+// already claimed this pass. A whole run is admitted or refused — never trimmed:
+// a run half-eaten by a Scarab or Dragonfly is that power-up's business, and its
+// 1-2 cell remnant is not a match. That keeps every ambiguous case behaving as
+// Engine 1 did, while a 3-match across the board from a special stops having to
+// wait a whole settle beat for its turn.
+function find3Excluding(used){
+  const runs=[];
+  const push=cells=>{ if(!cells.some(([r,c])=>used.has(r+','+c)))runs.push(cells); };
+  for(let r=0;r<R;r++)for(let c=0;c<C-2;c++){
+    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const ok=cc=>cc<C&&inPlayWindow(r,cc)&&board[r][cc].active&&board[r][cc].gem===g&&!board[r][cc].pu;
+    if(ok(c+1)&&ok(c+2)){
+      let l=3;while(ok(c+l))l++;
+      if(c===0||!ok(c-1)){const cells=[];for(let i=0;i<l;i++)cells.push([r,c+i]);push(cells);} // run START only, so it isn't counted at every offset
+    }
+  }
+  for(let c=0;c<C;c++)for(let r=0;r<R-2;r++){
+    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const ok=rr=>rr<R&&inPlayWindow(rr,c)&&board[rr][c].active&&board[rr][c].gem===g&&!board[rr][c].pu;
+    if(ok(r+1)&&ok(r+2)){
+      let l=3;while(ok(r+l))l++;
+      if(r===0||!ok(r-1)){const cells=[];for(let i=0;i<l;i++)cells.push([r+i,c]);push(cells);}
+    }
+  }
+  const seen=new Set(),out=[];
+  runs.forEach(cells=>cells.forEach(([r,c])=>{const k=r+','+c;if(!seen.has(k)){seen.add(k);out.push([r,c]);}}));
+  return out;
 }
 
 function findPatterns(dr,dc,sr,sc){
