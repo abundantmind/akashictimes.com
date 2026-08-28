@@ -659,6 +659,64 @@ window.runInvariants = async function(){
       ok('community · exitToGrid also returns to the COMMUNITY grid', document.getElementById('pgrid-title').textContent===curBundle.title, document.getElementById('pgrid-title').textContent);
       playerBack();
       ok('community · playerBack resets to native context (bundle 0, curBundle null)', PlayerProgress.bundle===0&&curBundle===null, {bundle:PlayerProgress.bundle,curBundle});
+
+    // ═══ 11. ENGINE VERSION PIN ═══════════════════════════════════════════════
+    // The pin exists to make ONE failure impossible: a level authored under a
+    // later engine being silently misread by an earlier one after a rollback.
+    // These tests are the teeth — without them the pin is a comment.
+    {
+      const _alert=window.alert; let alerts=[]; window.alert=m=>alerts.push(m); // a refusal must never block a headless run
+      try{
+        ok('pin · ENGINE_VERSION is a positive integer', Number.isInteger(ENGINE_VERSION)&&ENGINE_VERSION>=1, ENGINE_VERSION);
+        await startPlayerLevel(1,false); await wait(45);
+        const ser=serializeLevel();
+        ok('pin · serializeLevel emits this build\'s engineVersion', ser.engineVersion===ENGINE_VERSION, ser.engineVersion);
+        ok('pin · a loaded level reports the version it declared', levelEngineVersion===ENGINE_VERSION, levelEngineVersion);
+
+        // A file from BEFORE the pin existed is Engine 1 data — it must still load.
+        const legacy=JSON.parse(JSON.stringify(ser)); delete legacy.engineVersion;
+        ok('pin · a level with NO engineVersion still loads (absent = 1)', loadLevelData(legacy,1)===true, 'refused a legacy file');
+
+        // The whole point: a level from a NEWER engine is refused, loudly, and the
+        // board it refused is left exactly as it was — not half-clobbered.
+        await startPlayerLevel(3,false); await wait(45);
+        const beforeR=R, beforeC=C, beforeNum=curLevelNum, beforeBoard=JSON.stringify(board);
+        const future=JSON.parse(JSON.stringify(ser)); future.engineVersion=ENGINE_VERSION+1;
+        future.board={rows:2,cols:2}; // different geometry, so a partial load would be obvious
+        alerts=[];
+        const took=loadLevelData(future,99);
+        ok('pin · a level from a NEWER engine is refused', took===false, took);
+        ok('pin · the refusal is visible to the player, not silent', alerts.length===1, alerts);
+        ok('pin · a refused load leaves the current board untouched',
+           R===beforeR&&C===beforeC&&curLevelNum===beforeNum&&JSON.stringify(board)===beforeBoard, {R,C,curLevelNum});
+
+        // Garbage in the field must not read as "playable" — only 1..ENGINE_VERSION does.
+        // `null` is NOT garbage: JSON round-trips an absent field to null, and absent
+        // means Engine 1 by definition, so it must load like any pre-pin file.
+        for(const bad of [0,-1,'two',NaN,ENGINE_VERSION+0.5]){
+          const j=JSON.parse(JSON.stringify(ser)); j.engineVersion=bad;
+          ok('pin · engineVersion '+JSON.stringify(bad)+' is refused', loadLevelData(j,99)===false, bad);
+        }
+        const nulled=JSON.parse(JSON.stringify(ser)); nulled.engineVersion=null;
+        ok('pin · an explicitly null engineVersion reads as 1, like an absent one', loadLevelData(nulled,1)===true, 'refused a null');
+
+        // Round-trip stability: the pin must not break the Scrutinizer's fixed point.
+        await startPlayerLevel(1,false); await wait(45);
+        const s1=JSON.stringify(serializeLevel());
+        loadLevelData(JSON.parse(s1),1);
+        ok('pin · serialize→load→serialize is still a fixed point', s1===JSON.stringify(serializeLevel()), 'round-trip diverged');
+
+        // Every shipped level file must be playable by the build that ships with it.
+        let unplayable=[];
+        for(let L=1;L<=((typeof MAX_BUILT_LEVEL!=='undefined')?MAX_BUILT_LEVEL:25);L++){
+          const j=await (await fetch('levels/level-'+String(L).padStart(3,'0')+'.json',{cache:'no-cache'})).json();
+          const v=(j.engineVersion==null)?1:Number(j.engineVersion);
+          if(!(v>=1&&v<=ENGINE_VERSION))unplayable.push(L+':'+j.engineVersion);
+        }
+        ok('pin · every shipped level declares an engine THIS build plays', unplayable.length===0, unplayable);
+        await startPlayerLevel(1,false); await wait(45); // leave the board on a real level
+      } finally { window.alert=_alert; }
+    }
     } finally {
       PlayerProgress.set=_realSet;
       PlayerProgress.data=_savedData; PlayerProgress.save();
