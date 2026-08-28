@@ -1160,6 +1160,7 @@ en:{
   community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
   lvl_qualifying:'Qualifying',lvl_prefix:'Level ',
   alert_na:n=>'Level '+n+' is not available yet.',
+  alert_engine:(n,need,have)=>'Level '+n+' was built for a newer version of the game (engine '+need+'; this app plays '+have+'). Update the app to play it.',
   toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
   toast_shuffle:'No moves — reshuffling the board',
   win_title:'Well done!',lose_title:'Out of moves',
@@ -1262,6 +1263,7 @@ ko:{
   community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
   lvl_qualifying:'자격 레벨',lvl_prefix:'레벨 ',
   alert_na:n=>'레벨 '+n+' — 아직 준비되지 않았습니다.',
+  alert_engine:(n,need,have)=>'레벨 '+n+' — 더 새로운 버전의 게임에서 만들어졌습니다 (엔진 '+need+', 이 앱은 '+have+'). 앱을 업데이트하면 플레이할 수 있어요.',
   toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
   toast_shuffle:'움직임 없음 — 보드를 섞었어요',
   win_title:'잘했어요!',lose_title:'이동 횟수 소진',
@@ -1369,6 +1371,7 @@ es:{
   community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
   lvl_qualifying:'Clasificación',lvl_prefix:'Nivel ',
   alert_na:n=>'El nivel '+n+' aún no está disponible.',
+  alert_engine:(n,need,have)=>'El nivel '+n+' se creó para una versión más nueva del juego (motor '+need+'; esta app usa '+have+'). Actualiza la app para jugarlo.',
   toast_new_version:'Nueva versión — toca para recargar',bug_btn:'🐛 Reportar un error',
   toast_shuffle:'Sin movimientos — reorganizando el tablero',
   win_title:'¡Bien hecho!',lose_title:'Sin movimientos',
@@ -1819,6 +1822,19 @@ let editorFlyover=null; // level's flyover spec, persisted across flyTeardown() 
 // gemTypes list (Township L1–5 use 5 colors, no Amethyst), entrance uses 0–4.
 let GEM_POOL=[0,1,2,3,4,5];
 const randGem=()=>GEM_POOL[~~(Math.random()*GEM_POOL.length)];
+// ── ENGINE VERSION PIN ───────────────────────────────────────────────────────
+// A level's JSON declares the engine it was authored AND VERIFIED against; this
+// build refuses to load anything newer than it can honestly play. The one class of
+// damage git cannot undo is a level authored under a later engine being SILENTLY
+// misread by an earlier one after a rollback — and a marketplace bundle that plays
+// differently under a new engine was never immutable, which is the promise money
+// rides on. Loud refusal beats a quiet misread.
+// ABSENT = 1: every level file written before this pin existed IS Engine 1 data.
+// BUMP only when a change alters how EXISTING data plays. An additive mechanic a
+// level opts into through its own data does NOT bump it (that is the additive-gate
+// regime; the pin is for the fork regime).
+const ENGINE_VERSION=1;
+let levelEngineVersion=1;   // engine declared by the currently-loaded level (1..ENGINE_VERSION)
 let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null,choosingGrasshopper=null;
 // Architect's STICKY play/edit choice (Jed 2026-08-06): the mode is Architect-
 // directed, never a per-open gamble. Default PLAY — opening a saved level, the
@@ -1919,7 +1935,7 @@ async function openTemplate(n){
     if(!resp.ok)throw new Error('http '+resp.status);
     json=await resp.json();
   }catch(e){alert('Template '+n+' is not available.');return;}
-  loadLevelData(json,n); // board/flow/gem palette/objectives from the JSON
+  if(!loadLevelData(json,n))return; // engine pin refused it — leave the editor where it was
   playerMode=false;playing=false;entranceMode=false;animating=false;
   flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
   fitEditorBoard(); // scale the grid to fill the viewport (device-independent), not a fixed 44px
@@ -2165,7 +2181,7 @@ async function editUserBundleLevel(id,fn){
   try{ const fh=await b.dir.getFileHandle(fn); json=JSON.parse(await (await fh.getFile()).text()); num=+fn.match(/(\d+)/)[1]; }
   catch(e){ alert('Could not open that level: '+e.message); return; }
   saveTargetBundle=id; bundleEditNum=num; editorBundle=null; closeProducts();
-  loadLevelData(json,num);                                   // parsed JSON → editor board (same loader as templates)
+  if(!loadLevelData(json,num))return;                        // parsed JSON → editor board (same loader as templates); pin can refuse
   playerMode=false;playing=false;entranceMode=false;animating=false; flyTeardown(); fitEditorBoard();
   document.body.classList.remove('player-playing');
   for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
@@ -2750,6 +2766,8 @@ function serializeLevel(){
     :                {type:'collect',item:o.item,count:o.count});
   const out={
     schema:'akashic-level/1',
+    engineVersion:ENGINE_VERSION,                              // the engine that verified this file, not the one that first drew it
+
     board:{rows:R,cols:C},
     gemTypes:GEM_POOL.map(i=>GEM_JSON[i]),                     // carried Township palette
     seeding:'random',                                          // color policy (only option for now)
@@ -2842,7 +2860,7 @@ window.roundTrip25=async function(max){
       const resp=await fetch('levels/level-'+String(n).padStart(3,'0')+'.json',{cache:'no-cache'});
       if(!resp.ok){rec.note='http '+resp.status;results.push(rec);continue;}
       const json=await resp.json();
-      loadLevelData(json,n);
+      if(!loadLevelData(json,n)){rec.note='refused by engine pin (declares '+json.engineVersion+')';results.push(rec);continue;}
       const s1=JSON.stringify(serializeLevel());   // old|canonical → canonical
       loadLevelData(JSON.parse(s1),n);             // canonical → board
       const s2=JSON.stringify(serializeLevel());   // canonical → canonical (must equal s1)
@@ -5737,7 +5755,7 @@ function renderCommunityGrid(){
 // startPlayerLevel, but the level JSON is already in memory (curBundle.levels)
 // — no fetch, since community levels aren't files on disk.
 function startCommunityLevel(idx){
-  loadLevelData(curBundle.levels[idx-1],idx);
+  if(!loadLevelData(curBundle.levels[idx-1],idx))return;      // a community bundle can carry a level this build must not guess at
   entranceMode=false;
   beginPlaySession();
 }
@@ -5968,7 +5986,21 @@ function loadCanonicalLayers(json){
   }
 }
 
+// Returns TRUE when the level was loaded, FALSE when this build refused it.
+// Every caller must honour the false — the board is deliberately left untouched.
 function loadLevelData(json,num){
+  // ENGINE PIN — checked BEFORE a single byte of board state moves, so a refusal
+  // leaves the current level intact instead of half-clobbered.
+  // Absent (or JSON's null for absent) = 1. Anything that isn't a whole number in
+  // 1..ENGINE_VERSION is refused rather than coerced — a version we can't read is
+  // precisely the case where guessing is the damage.
+  const want=(json.engineVersion==null)?1:Number(json.engineVersion);
+  if(!Number.isInteger(want)||want<1||want>ENGINE_VERSION){
+    console.warn('engine pin: level '+num+' declares engineVersion '+json.engineVersion+' — this build plays '+ENGINE_VERSION);
+    alert(TXT('alert_engine')(num,json.engineVersion,ENGINE_VERSION));
+    return false;
+  }
+  levelEngineVersion=want;
   R=json.board.rows; C=json.board.cols;
   // Flyover camera spec (L20+): camera-only presentation of big boards.
   // axis 'y' = tall board, camera window viewRows tall, scrolls DOWN (L20).
@@ -6047,6 +6079,7 @@ function loadLevelData(json,num){
     return n;
   });
   renderObjectives();
+  return true;
 }
 
 // fromGrid=true → a deliberate open from the level grid, so the star splash
@@ -6064,7 +6097,7 @@ async function startPlayerLevel(num,fromGrid=true){
     json=await resp.json();
   }catch(e){ alert(TXT('alert_na')(num)); return; }
 
-  loadLevelData(json,num);
+  if(!loadLevelData(json,num))return;
   entranceMode=false; // a bundle level is never the Qualifying level — combos live here
   beginPlaySession();
   if(fromGrid) showStarSplash(num); // opening instructions for the next star
