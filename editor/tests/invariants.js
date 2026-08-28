@@ -714,6 +714,41 @@ window.runInvariants = async function(){
       ok('motion · every cell is playable again afterwards', Motion.quietAt(0,0)&&Motion.quietAt(R-1,C-1), 'a cell stayed locked');
     }
 
+    // ═══ 11d. CHAIN IDENTITY — a cascade may only release its OWN claims ══════
+    // One player action plus everything that cascades from it is a CHAIN. The
+    // moment two cascades can overlap (Still Water), an end-of-move releaseAll()
+    // would free the OTHER cascade's claims and unlock a board that is still
+    // moving. These tests pin the ownership rule BEFORE anything relies on it.
+    {
+      await startPlayerLevel(1,false); await wait(45);
+      Motion.releaseAll();
+      const c1=Motion.newChain('test'), c2=Motion.newChain('test');
+      ok('chain · every chain id is unique', c1!==c2, [c1,c2]);
+      Motion.claim(c1+'/a',[[0,0]]); Motion.claim(c1+'/b',[[0,1]]); Motion.claim(c2+'/a',[[5,5]]);
+      Motion.releaseChain(c1);
+      ok('chain · releasing a chain drops ALL of that chain\'s claims', Motion.quietAt(0,0)&&Motion.quietAt(0,1), Motion.tags());
+      ok('chain · releasing a chain leaves ANOTHER chain\'s claims standing', !Motion.quietAt(5,5), Motion.tags());
+      Motion.releaseChain(c2);
+      ok('chain · the second chain still releases its own', !Motion.busy(), Motion.tags());
+      // A chain id must not be a prefix-match hazard ('swap#1' vs 'swap#11').
+      Motion._chain=0; const a1=Motion.newChain('x'); for(let i=0;i<10;i++)Motion.newChain('x');
+      const a11=Motion.newChain('x');
+      Motion.claim(a1+'/one',[[0,0]]); Motion.claim(a11+'/one',[[1,1]]);
+      Motion.releaseChain(a1);
+      ok('chain · a similarly-named chain is not released by prefix accident', !Motion.quietAt(1,1), Motion.tags());
+      Motion.releaseAll();
+
+      // End to end: a real cascade claims under its own chain and gives it all back.
+      await startPlayerLevel(1,false); await wait(45);
+      const hit=[]; for(let r=0;r<R&&hit.length<3;r++)for(let c=0;c<C&&hit.length<3;c++)
+        if(board[r][c].active&&board[r][c].gem!==null&&!board[r][c].obs&&!board[r][c].pu&&!board[r][c].item)hit.push([r,c]);
+      applyEffects(hit,hit[0][0],hit[0][1],[]);
+      const tag=Motion.tags()[0]||'';
+      ok('chain · a cascade claims under a chain id, not a bare name', /#\d+\//.test(tag), tag);
+      for(let i=0;i<60&&Motion.busy();i++) await wait(50);
+      ok('chain · the chain releases itself when its cascade ends', !Motion.busy(), Motion.tags());
+    }
+
     // ═══ 11c. RULE A — MATCHES RESOLVE SIMULTANEOUSLY ═════════════════════════
     // Engine 1 resolved ONE pattern per settle beat, so a second match across the
     // board waited its turn — the stop-and-go. These tests pin both halves of the
