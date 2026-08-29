@@ -4000,8 +4000,16 @@ function settleAndCascade(phase,sr,sc,chain){
       else if(gotKey){render(null);settleAndCascade(new Set(),sr,sc,chain);} // refill the vacated exit cells
       else{cascadeEnd(chain);}
     });
-  },160);
+  },SETTLE_MS);
 }
+
+// ── THE TWO BEATS BEFORE GEMS MOVE ───────────────────────────────────────────
+// Jed, by eye, 2026-08-29: "gems still do not fall immediately." Measured, the wait
+// on a plain match was POP_MS + SETTLE_MS = 390ms of dead air before a single gem
+// moved. Township pops and refills almost together. These are the two constants —
+// named here, in one place, so the rhythm can be tuned by feel instead of hunted.
+const POP_MS   = 140;   // let the pop read (was 230)
+const SETTLE_MS= 60;    // ...then gravity, promptly (was 160)
 
 // ═══ DETONATION ENGINE ════════════════════════════════════════════════════════
 // One sequential queue for ALL power-up detonations — player-fired and
@@ -4029,13 +4037,34 @@ function clearCellD(r,c,phase,queue){
   splashObstacle(r,c,phase);  // a detonation clearing this cell cracks bordering crates/leaves
 }
 
+// ── OVERLAP SOURCING (Township parity) ───────────────────────────────────────
+// Engine 1 held ALL gravity until the detonation queue drained: three chained
+// power-ups meant three full cinematics end to end before a single gem fell, which
+// is what Jed felt as "after a swap that creates a lot of cascades, it takes a
+// while". Township sources fresh gems while the tail of the blast is still playing
+// (his own Township L11 capture @0:15).
+// So the refill now runs BETWEEN detonations. The model stays strictly serial — one
+// gravity pass, fully applied, between two cinematics — while the ANIMATION overlaps
+// the next blast, which is exactly the eye candy. A gem that falls into the path of
+// the next beam simply gets blasted; that is Township behaviour, not a race.
+// One pass at a time per chain: a pump already animating is left to finish.
+const _pumping=new Set();
+function refillPump(chain){
+  if(!chain||_pumping.has(chain)||Motion.isDead(chain))return;
+  const moves=gravityWithMap();
+  if(!moves.length)return;
+  _pumping.add(chain);
+  Motion.claim(chain+'/pump',fallCells(moves));   // its own tag — never clobbers the final settle's claim
+  animateFall(moves,()=>{ _pumping.delete(chain); Motion.release(chain+'/pump'); Motion.touch(chain); });
+}
+
 // Play queued detonations one at a time; each may enqueue more (chains).
 function processDetonations(queue,phase,onDone,chain){
   Motion.touch(chain);   // a detonation sequence can run for seconds without claiming
                          // anything new — say so, or the stall watchdog reads it as dead
   if(!queue.length){onDone();return;}
   const det=queue.shift();
-  const next=()=>processDetonations(queue,phase,onDone,chain);
+  const next=()=>{ refillPump(chain); processDetonations(queue,phase,onDone,chain); }; // refill flows while the blast continues
   // CLOVER-CHARGE (project_clover_model, unified): a PU is charged if it was
   // DRAGGED off a clover cell (puClover) OR is firing IN PLACE from a clover cell
   // (its own sub==='clover'). Keying the in-place case off the cell's real
@@ -4658,7 +4687,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
   // pop beat first, then play out every queued detonation, THEN settle once
   setTimeout(()=>{
     processDetonations(queue,phase,()=>settleAndCascade(phase,pivotR,pivotC,chain),chain);
-  },queue.length||phase.size?230:0);
+  },queue.length||phase.size?POP_MS:0);
 }
 
 function playTap(r,c){
@@ -4997,7 +5026,7 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
   // Pop beat → play out queued detonations → gravity → rescan (settleAndCascade)
   setTimeout(()=>{
     processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc,chain),chain);
-  },230);
+  },POP_MS);
 }
 
 // gravityWithMap — FLOW-AWARE gravity: applies gravity to board data and returns

@@ -771,6 +771,35 @@ window.runInvariants = async function(){
       Motion.releaseAll(); playing=false;
     }
 
+    // ═══ 11k. THE REFILL DOES NOT WAIT FOR THE WHOLE BLAST ════════════════════
+    // Jed by eye: "gems still do not fall immediately." Engine 1 held ALL gravity
+    // until the detonation queue drained, so a chain of power-ups meant every
+    // cinematic played end to end before one gem moved. The refill now runs BETWEEN
+    // detonations — model serial, animation overlapping, which is the Township look.
+    {
+      await startPlayerLevel(1,false); await wait(45); Motion.releaseAll(); wipe(GEM_POOL[1]); playing=true;
+      // Three power-ups queued from one input, with a hole under them to fill.
+      const t0=performance.now(); let firstFill=0;
+      const realGrav=window.gravityWithMap;
+      window.gravityWithMap=function(){ if(!firstFill)firstFill=performance.now(); return realGrav.apply(this,arguments); };
+      try{
+        applyEffects([],2,2,[{pu:'bomb',r:2,c:2},{pu:'rocket_h',r:4,c:4},{pu:'rocket_v',r:1,c:5}]);
+        for(let i=0;i<200&&!firstFill;i++) await wait(20);
+        const untilFill=firstFill-t0;
+        // The queue alone takes far longer than one cinematic; the refill must not
+        // have waited for all three. Generous bound — this is a rhythm guard, not a
+        // stopwatch: it fails loudly if gravity goes back to waiting for the drain.
+        ok('refill · gravity runs before the whole detonation queue has drained', untilFill<2000, Math.round(untilFill)+'ms to first refill');
+        for(let i=0;i<200&&Motion.busy();i++) await wait(50);
+        let holes=0; for(let r=0;r<R;r++)for(let c=0;c<C;c++){const cd=board[r][c];
+          if(cd.active&&!cd.obs&&!cd.item&&!cd.pu&&cd.gem===null&&!cd.startEmpty)holes++;}
+        ok('refill · overlapping the blast still leaves a fully filled board', holes===0, holes+' cells empty');
+        ok('refill · and nothing is left claimed', !Motion.busy(), Motion.tags());
+      } finally { window.gravityWithMap=realGrav; }
+      ok('refill · the two beats are named and short', POP_MS<=160&&SETTLE_MS<=80, {POP_MS,SETTLE_MS});
+      Motion.releaseAll(); playing=false;
+    }
+
     // ═══ 11i. A LONG SEQUENCE IS NOT A STALL (Jed's L23 console, 2026-08-29) ═══
     // The freeze he caught was the WATCHDOG killing a healthy Grasshopper swarm:
     // combo-convert claims the board once and then runs for seconds, and progress
