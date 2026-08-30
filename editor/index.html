@@ -4061,6 +4061,7 @@ function clearCellD(r,c,phase,queue){
 const _pumping=new Set();
 function refillPump(chain){
   if(!chain||_pumping.has(chain)||Motion.isDead(chain))return;
+  if(choosingRainbow||choosingGrasshopper)return;   // the player is aiming — hold the board still
   if(_fallActive||_fallQueue.length)return;   // a wave is already in the air — let it land first
   const moves=gravityWithMap();
   if(!moves.length)return;
@@ -4443,10 +4444,16 @@ function startPUCombo(dr,dc,sr,sc,chain){
   }else if(key==='fly+hopper'||key==='hopper+scarab'){ // #1/#4 — jump first, partner fires at the landing
     const hop=pick('hopper'),partner=hop===a?b:a;
     consume(partner); // hopper stays visible until the jump commits (solo behavior)
-    Motion.releaseChain(chain);  // choosing state needs player input
+    // THE BOARD HOLDS STILL FOR A HUMAN DECISION. Set the choosing state BEFORE
+    // letting go of the board: consume() just emptied a cell, and releasing first
+    // let the quiet sweep pour gems into it — so the reticle opened over a board
+    // already sliding, and there was nothing steady to aim at (Jed, 2026-08-30:
+    // "when I'm trying to aim at a cell position, it's already moving").
+    // Same rule as a blast never firing into moving water, from the player's side.
     choosingGrasshopper={r:hop.r,c:hop.c,excluded:new Set(),   // own cell included: detonate in place
       orthCells:grasshopperOrthCells(hop.r,hop.c),comboPartner:partner.pu};
-    render(); // vibe opens
+    Motion.releaseChain(chain);  // now it is safe to let go — the sweep stands down while choosing
+    afterFallsLand(()=>render()); // and the vibe lands on cells that have stopped
   }else if(key==='ball+ball'){    // #10 — one hit point to the ENTIRE board
     consume(a);consume(b);
     ballBallSmoke(dr,dc); // eye-candy: charcoal circle swells to cover the whole grid, then collapses (overlay only)
@@ -4458,10 +4465,12 @@ function startPUCombo(dr,dc,sr,sc,chain){
   }else{                          // #3/#5/#6 — Ball family: vibe → chosen color BECOMES the partner
     const ball=pick('ball'),partner=ball===a?b:a;
     consume(a);consume(b);
-    Motion.releaseChain(chain); // waiting on the color pick
+    // Choosing state first, THEN release — see the note above: the other order let
+    // the refill start under the player's own colour pick.
     choosingRainbow={r:ball.r,c:ball.c,
       convertTo:partner.pu==='helicopter'?'helicopter':partner.pu==='bomb'?'bomb':'rocket'};
-    render();
+    Motion.releaseChain(chain);
+    afterFallsLand(()=>render());
   }
 }
 
