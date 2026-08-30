@@ -806,6 +806,41 @@ window.runInvariants = async function(){
       } finally { setPlaybackSpeed(wasArch); playerMode=wasPM; editorSandboxPlay=wasSB; }
     }
 
+    // ═══ 11p. YOU CANNOT AIM AT A MOVING TARGET ═══════════════════════════════
+    // Jed, 2026-08-30, and he was delighted about it: swap a Ball into a Grasshopper
+    // and "it clears — so when I'm trying to aim at a cell position, it's already
+    // moving. Reticle can't function properly." The combo consumed both power-ups,
+    // released the board, the quiet sweep poured gems into the fresh holes, and THEN
+    // the reticle opened over a board in motion. The same rule as a blast never
+    // firing into moving water, seen from the player's side of the glass.
+    {
+      await startPlayerLevel(1,false); await wait(45); Motion.releaseAll();
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){const cd=board[r][c];
+        cd.active=true;cd.obs=null;cd.item=null;cd.pu=null;cd.puClover=false;cd.startEmpty=false;cd.sub=null;
+        cd.gem=GEM_POOL[(r+c)%3];}
+      playing=true; playerMode=true; selCell=null;
+      choosingRainbow=null; choosingGrasshopper=null;
+      // Ball ⇄ Grasshopper: the combo that asks the player a question.
+      board[3][3].gem=null; board[3][3].pu='rainbow';
+      board[3][4].gem=null; board[3][4].pu='helicopter';
+      const chain=Motion.newChain('swap');
+      startPUCombo(3,4,3,3,chain);
+      await wait(120);
+      ok('aim · the combo really did stop to ask the player something',
+         !!(choosingRainbow||choosingGrasshopper), {choosingRainbow,choosingGrasshopper});
+      // While the question stands, the board must not move under the answer.
+      let moved=0;
+      const before=board.map(row=>row.map(x=>x.gem));
+      for(let i=0;i<12;i++){
+        await wait(60);
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem!==before[r][c])moved++;
+        if(moved)break;
+      }
+      ok('aim · the board holds still while the player is choosing', moved===0, moved+' cells changed under the reticle');
+      ok('aim · and no refill is running underneath it', !_fallActive&&!_fallQueue.length, {_fallActive,q:_fallQueue.length});
+      choosingRainbow=null; choosingGrasshopper=null; Motion.releaseAll(); playing=false;
+    }
+
     // ═══ 11m. ONE RIVER, ONE SPRING ═══════════════════════════════════════════
     // Jed, 2026-08-30: "gems are filling from the top right cell. But the only
     // source of new gems should be the top left cell." Every TURN in a river had its
