@@ -853,7 +853,59 @@ window.runInvariants = async function(){
         ok('physics · L'+L+': no two gems overlap on a real clear', dirty===0, dirty+'/6 passes overlapped');
       }
 
-      // (d) and one wave at a time, board-wide: a second fall queues, never overlaps.
+      // (d) A SHORT FALL MUST STAY SHORT. Jed's second report: "empty cells scattered
+      //     throughout, not being refilled" — I had given every gem in a convoy one
+      //     shared duration, so a one-cell drop was held airborne as long as a
+      //     seven-cell spawn and its column read as empty the whole time. The gem's
+      //     own √span duration is what makes a convoy rigid AND quick: same
+      //     acceleration for everyone, each stopping at its own cell.
+      await startPlayerLevel(1,false); await wait(45);
+      {
+        const A=GEM_POOL[0],B=GEM_POOL[1],D=GEM_POOL[2];
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++){const cd=board[r][c];
+          cd.active=true;cd.obs=null;cd.item=null;cd.pu=null;cd.startEmpty=false;cd.sub=null;
+          cd.gem=[A,B,D][(r+c)%3];}
+        // TWO gaps at different heights in one column: the gems between them move 1
+        // cell, the ones above move more. A single match-3 makes every gem in the
+        // column travel the SAME distance, which compares nothing — that fixture
+        // passed while the bug was live.
+        board[5][3].gem=null; board[2][3].gem=null;
+        const plan=fallFlightPlan(gravityWithMap());
+        const spans=plan.map(f=>f.span), durs=plan.map(f=>f.dur);
+        const shortest=plan.reduce((a,b)=>a.span<=b.span?a:b), longest=plan.reduce((a,b)=>a.span>=b.span?a:b);
+        ok('physics · a vertical match-3 really does mix travel distances',
+           Math.max(...spans)-Math.min(...spans)>0.9, spans);
+        ok('physics · a short drop is NOT held to the longest fall in its convoy',
+           shortest.dur < longest.dur - 1, {shortSpan:shortest.span,shortDur:Math.round(shortest.dur),
+                                            longSpan:longest.span,longDur:Math.round(longest.dur)});
+        // and the whole column must not sit empty: the first gem lands early.
+        const arrive=plan.map(f=>f.delay+f.dur);
+        ok('physics · the first gem lands well before the last (the column refills as it goes)',
+           Math.min(...arrive) < Math.max(...arrive)-80, {first:Math.round(Math.min(...arrive)),last:Math.round(Math.max(...arrive))});
+      }
+
+      // (e) THE STAGGER TAIL IS CAPPED. A serpentine is one long corridor; 84 gems at
+      //     40ms each put the last one 3.3 SECONDS behind the first and the board sat
+      //     there draining. Capped, the same wave finishes in about a second.
+      {
+        const _R2=R,_C2=C,_b2=board,_f2=flow;
+        R=9;C=11;board=[];flow=[];
+        for(let r=0;r<R;r++){board.push([]);flow.push([]);
+          for(let c=0;c<C;c++){board[r].push({gem:GEM_POOL[(r*3+c)%GEM_POOL.length],active:true,obs:null,pu:null,sub:null,item:null});flow[r].push('down');}}
+        for(let r=0;r<R;r++){const rt=r%2===0;
+          for(let c=0;c<C;c++)flow[r][c]=rt?'right':'left';
+          if(r<R-1)flow[r][rt?C-1:0]='down';}
+        [[4,3],[4,4],[4,7],[6,2],[6,8],[8,5]].forEach(([r,c])=>{board[r][c].gem=null;});
+        const plan=fallFlightPlan(gravityWithMap());
+        const last=Math.max(...plan.map(f=>f.delay+f.dur));
+        ok('physics · a big serpentine wave finishes in about a second, not four',
+           plan.length>40 && last<1600, {gems:plan.length,lastLandsMs:Math.round(last)});
+        ok('physics · the stagger never runs away', Math.max(...plan.map(f=>f.delay))<=8*(40/playbackSpeed)+0.01,
+           Math.round(Math.max(...plan.map(f=>f.delay))));
+        R=_R2;C=_C2;board=_b2;flow=_f2;
+      }
+
+      // (f) and one wave at a time, board-wide: a second fall queues, never overlaps.
       await startPlayerLevel(1,false); await wait(45);
       ok('physics · the fall queue exists and starts empty', typeof _fallActive==='boolean'&&_fallQueue.length===0, {_fallActive,q:_fallQueue.length});
     }
