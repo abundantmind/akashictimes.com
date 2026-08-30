@@ -771,6 +771,41 @@ window.runInvariants = async function(){
       Motion.releaseAll(); playing=false;
     }
 
+    // ═══ 11o. THE SLOW-MO DIAL IS THE ARCHITECT'S, NOT THE PLAYER'S ═══════════
+    // Jed set ½× while building a serpentine, went to Explore → Go with the Flow →
+    // L23, and played it at half speed. The dial is an editor tool for inspecting
+    // animations; it was one global serving both worlds AND persisted, so an
+    // architect who ever touched it had every real session on that device slowed
+    // forever, with no control in the player shell to undo it.
+    {
+      const wasArch=architectSpeed, wasPM=playerMode, wasSB=editorSandboxPlay;
+      try{
+        setPlaybackSpeed(0.5);
+        playerMode=true; editorSandboxPlay=false;
+        ok('speed · a REAL player always runs at 1x, whatever the dial says', spd()===1, spd());
+        playerMode=false; editorSandboxPlay=false;
+        ok('speed · the editor honours the dial', spd()===0.5, spd());
+        playerMode=true; editorSandboxPlay=true;
+        ok('speed · editor sandbox play honours it too (that is where slow-mo is for)', spd()===0.5, spd());
+        setPlaybackSpeed(2);
+        playerMode=true; editorSandboxPlay=false;
+        ok('speed · and 2x cannot leak into a real session either', spd()===1, spd());
+        // the fall plan must be built from the effective speed, not the raw dial
+        playerMode=false; setPlaybackSpeed(0.5);
+        await startPlayerLevel(1,false); await wait(45);
+        playerMode=false;
+        board[3][3].gem=null;
+        const slow=fallFlightPlan(gravityWithMap());
+        await startPlayerLevel(1,false); await wait(45);
+        playerMode=true; editorSandboxPlay=false;
+        board[3][3].gem=null;
+        const real=fallFlightPlan(gravityWithMap());
+        ok('speed · a real session\'s fall really is faster than a half-speed editor one',
+           slow.length&&real.length&&real[0].dur<slow[0].dur,
+           {editorDur:Math.round((slow[0]||{}).dur),playerDur:Math.round((real[0]||{}).dur)});
+      } finally { setPlaybackSpeed(wasArch); playerMode=wasPM; editorSandboxPlay=wasSB; }
+    }
+
     // ═══ 11m. ONE RIVER, ONE SPRING ═══════════════════════════════════════════
     // Jed, 2026-08-30: "gems are filling from the top right cell. But the only
     // source of new gems should be the top left cell." Every TURN in a river had its
@@ -965,7 +1000,7 @@ window.runInvariants = async function(){
         const last=Math.max(...plan.map(f=>f.delay+f.dur));
         ok('physics · a big serpentine wave finishes in about a second, not four',
            plan.length>40 && last<1600, {gems:plan.length,lastLandsMs:Math.round(last)});
-        ok('physics · the stagger never runs away', Math.max(...plan.map(f=>f.delay))<=8*(40/playbackSpeed)+0.01,
+        ok('physics · the stagger never runs away', Math.max(...plan.map(f=>f.delay))<=8*(40/spd())+0.01,
            Math.round(Math.max(...plan.map(f=>f.delay))));
         R=_R2;C=_C2;board=_b2;flow=_f2;
       }
