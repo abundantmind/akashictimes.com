@@ -4059,13 +4059,28 @@ function refillPump(chain){
   animateFall(moves,()=>{ _pumping.delete(chain); Motion.release(chain+'/pump'); Motion.touch(chain); });
 }
 
+// A DETONATION MAY NOT FIRE INTO MOVING WATER. The refill pump lets the MODEL run
+// ahead of the picture: a gem the player can still see falling is already sitting at
+// its destination in the data. A blast resolving in that window clears the cells the
+// data says are occupied and leaves alone the ones the player was aiming at — Jed,
+// 2026-08-30: "when I fire a dragonfly at a scarab when the row above him is in
+// motion, the cells within his range do not get cleared."
+// So the next blast waits for the airborne gems to land. The refill still happens
+// BETWEEN detonations, which is the whole gain (gems fall during a chain instead of
+// after all of it); what it no longer does is overlap a blast that is picking targets.
+function afterFallsLand(cb){
+  if(!_fallActive&&!_fallQueue.length){cb();return;}
+  setTimeout(()=>afterFallsLand(cb),30);
+}
+
 // Play queued detonations one at a time; each may enqueue more (chains).
 function processDetonations(queue,phase,onDone,chain){
   Motion.touch(chain);   // a detonation sequence can run for seconds without claiming
                          // anything new — say so, or the stall watchdog reads it as dead
   if(!queue.length){onDone();return;}
   const det=queue.shift();
-  const next=()=>{ refillPump(chain); processDetonations(queue,phase,onDone,chain); }; // refill flows while the blast continues
+  // Refill between blasts, then let the gems LAND before the next one picks targets.
+  const next=()=>{ refillPump(chain); Motion.touch(chain); afterFallsLand(()=>processDetonations(queue,phase,onDone,chain)); };
   // CLOVER-CHARGE (project_clover_model, unified): a PU is charged if it was
   // DRAGGED off a clover cell (puClover) OR is firing IN PLACE from a clover cell
   // (its own sub==='clover'). Keying the in-place case off the cell's real
@@ -5147,6 +5162,22 @@ function gravityWithMap(){
       let grew=false;
       for(let r=0;r<R;r++)for(let c=0;c<C;c++){
         if(!board[r][c].active||feed[r][c])continue;
+        // FED = SOME NEIGHBOUR RELEASES INTO ME (Jed's river model, the same
+        // question the entry test asks via fedByNeighbor). This used to ask a
+        // DIFFERENT question — "is the cell directly upstream ALONG MY OWN FLOW
+        // fed?" — which is the same thing only while every cell flows the same way.
+        // On a serpentine the turn cell flows DOWN, so "directly upstream" is the
+        // cell above it, off the board: it was declared starved and PROMOTED TO A
+        // SOURCE, and gems spawned out of the top-right corner (Jed, 2026-08-30:
+        // "the only source of new gems should be the top left cell"). Every turn in
+        // every river had its own private spring.
+        let fedIn=false;
+        for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+          if(!inGrid(nr,nc)||!board[nr][nc].active||!feed[nr][nc])continue;
+          const [ndr,ndc]=vecAt(nr,nc);
+          if(nr+ndr===r&&nc+ndc===c){fedIn=true;break;}   // that neighbour releases INTO this cell
+        }
+        if(fedIn){feed[r][c]=true;grew=true;continue;}
         const [dr,dc]=vecAt(r,c);
         const ur=r-dr,uc=c-dc;
         if(inGrid(ur,uc)&&board[ur][uc].active){          // straight feed
@@ -5181,7 +5212,15 @@ function gravityWithMap(){
         const rid=region[r][c];
         const bodyUp=(pr,pc)=>inGrid(pr,pc)&&board[pr][pc].active&&region[pr][pc]===rid;
         const diag=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
-        if(!(bodyUp(ur,uc)||diag.some(([pr,pc])=>bodyUp(pr,pc)))){
+        // A cell someone POINTS AT is never a spring, whatever direction it flows —
+        // the root test has to use the same feed model as the growth loop above or a
+        // turn cell qualifies as its own source.
+        const pointedAt=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc])=>{
+          if(!bodyUp(nr,nc))return false;
+          const [ndr,ndc]=vecAt(nr,nc);
+          return nr+ndr===r&&nc+ndc===c;
+        });
+        if(!pointedAt&&!(bodyUp(ur,uc)||diag.some(([pr,pc])=>bodyUp(pr,pc)))){
           entry[r][c]=true;feed[r][c]=true;promoted=true;
         }
       }

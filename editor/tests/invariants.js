@@ -771,6 +771,57 @@ window.runInvariants = async function(){
       Motion.releaseAll(); playing=false;
     }
 
+    // ═══ 11m. ONE RIVER, ONE SPRING ═══════════════════════════════════════════
+    // Jed, 2026-08-30: "gems are filling from the top right cell. But the only
+    // source of new gems should be the top left cell." Every TURN in a river had its
+    // own private spring: the feedability fixpoint asked "is the cell directly
+    // upstream ALONG MY OWN FLOW fed?", which is the same question as the entry test
+    // only while the whole board flows one way. A serpentine's turn cell flows DOWN,
+    // so its "upstream" is the cell above it — off the board — and it was declared
+    // starved and PROMOTED TO A SOURCE. Both now ask Jed's river question: does some
+    // neighbour RELEASE INTO me?
+    {
+      const _R=R,_C=C,_b=board,_f=flow;
+      R=9;C=11;board=[];flow=[];
+      for(let r=0;r<R;r++){board.push([]);flow.push([]);
+        for(let c=0;c<C;c++){board[r].push({gem:GEM_POOL[(r*3+c)%GEM_POOL.length],active:true,obs:null,pu:null,sub:null,item:null});flow[r].push('down');}}
+      for(let r=0;r<R;r++){const rt=r%2===0;
+        for(let c=0;c<C;c++)flow[r][c]=rt?'right':'left';
+        if(r<R-1)flow[r][rt?C-1:0]='down';}
+      for(let c=0;c<C;c++)board[0][c].gem=null;      // drain the top row
+      board[1][C-1].gem=null;                        // and the cell past the first turn
+      const spawns=gravityWithMap().filter(m=>m.isNew);
+      const origins=[...new Set(spawns.map(m=>m.path[0].r+','+(m.path[0].c<0?'offLeft':m.path[0].c)))];
+      ok('river · a serpentine has exactly ONE spring', origins.length===1, origins);
+      ok('river · and it is the top-left cell, not a turn', origins[0]==='0,offLeft', origins);
+      ok('river · the drained row really was refilled', spawns.length>=C, spawns.length+' spawns for '+C+' cells');
+      R=_R;C=_C;board=_b;flow=_f;
+    }
+
+    // ═══ 11n. A BLAST NEVER FIRES INTO MOVING WATER ═══════════════════════════
+    // Jed: "when I fire a dragonfly at a scarab when the row above him is in motion,
+    // the cells within his range do not get cleared." The refill pump let the MODEL
+    // run ahead of the picture — a gem still visibly falling is already at its
+    // destination in the data, so a blast resolving in that window clears what the
+    // data says and misses what the player aimed at. Blasts now wait for the air to
+    // clear. (The refill still happens BETWEEN blasts; that is the whole gain.)
+    {
+      await startPlayerLevel(1,false); await wait(45); Motion.releaseAll();
+      wipe(GEM_POOL[1]); playing=true;
+      let firedMidAir=0, firedTotal=0;
+      const realPD=window.processDetonations;
+      window.processDetonations=function(q,ph,cb,ch){
+        if(q&&q.length){ firedTotal++; if(_fallActive||_fallQueue.length)firedMidAir++; }
+        return realPD.apply(this,arguments);
+      };
+      try{
+        applyEffects([],2,2,[{pu:'bomb',r:2,c:2},{pu:'rocket_h',r:4,c:4},{pu:'rocket_v',r:1,c:5},{pu:'bomb',r:3,c:1}]);
+        for(let i=0;i<200&&Motion.busy();i++) await wait(50);
+      } finally { window.processDetonations=realPD; }
+      ok('blast · a chain of power-ups really did play', firedTotal>=3, firedTotal);
+      ok('blast · none of them fired while gems were still in the air', firedMidAir===0, firedMidAir+'/'+firedTotal+' fired mid-air');
+    }
+
     // ═══ 11l. GEMS MAY NEVER OVERLAP ══════════════════════════════════════════
     // Jed, 2026-08-30, on Stellar Dancing Pangolin's serpentine: gems drawing through
     // each other even at half speed — "that would defy basic laws of physics, and
