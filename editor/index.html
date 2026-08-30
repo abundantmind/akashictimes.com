@@ -4594,8 +4594,14 @@ function hopperSequence(cells,src,chain){
   let inFlight=0, allActivated=false;
   // settle only once EVERY hopper has activated AND every flight has landed —
   // otherwise the board would settle out from under airborne hoppers.
+  // SETTLE WHEN THE LAST ONE IS AIRBORNE, NOT WHEN THE LAST ONE LANDS (Jed's rule,
+  // 2026-08-30, applied to the swarm as well as the single hopper). The blast work is
+  // finished once every creature has taken off; making the whole board wait out a
+  // dozen overlapping flights is what left his upper-left region sitting empty
+  // mid-combo. Each landing is now its own small event — it clears whatever is on
+  // that cell when it arrives, and anything it catches fires as its own chain.
   const maybeFinish=()=>{
-    if(!allActivated||inFlight>0)return;
+    if(!allActivated)return;
     const rest=chainQueue.filter(d=>d.pu!=='helicopter'); // never re-detonate an absorbed hopper (the empty-grid cross)
     processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c,chain),chain);
   };
@@ -4627,14 +4633,22 @@ function hopperSequence(cells,src,chain){
       const t=randomHopperTarget(r,c,phase); // combo target stays chaotic (Jed 07-09)
       if(t){
         inFlight++;
+        const bornLevel=curLevelNum, bornR=R, bornC=C;   // he must not outlive his board
         hopperFlight(makeHopperActor(r,c),r,c,t[0],t[1],()=>{
+          inFlight--; Motion.touch(chain);
+          if(curLevelNum!==bornLevel||R!==bornR||C!==bornC)return;
           if(hopCharged)plantClover([[t[0],t[1]]],true); // landing seeds only if it took off charged
-          clearCellD(t[0],t[1],phase,chainQueue);
+          // A LATE ARRIVAL OWNS ITS OWN EVENT. The group's queue may already have
+          // been drained by the time he lands, so anything he catches has to fire
+          // as its own chain or it would never fire at all.
+          const late=[];
+          clearCellD(t[0],t[1],phase,late);
           if(playerMode)updatePlayerHUD();
           render(null);
           const el=document.querySelector(`[data-r="${t[0]}"][data-c="${t[1]}"]`);
           if(el)el.classList.add('popping');
-          inFlight--; Motion.touch(chain); maybeFinish();
+          if(late.length)applyEffects([],t[0],t[1],late);
+          maybeFinish();
         });
       }
       activateNext(); // the swarm builds: next one launches while this one is still in the air
