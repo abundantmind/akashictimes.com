@@ -3819,43 +3819,6 @@ function boardQuiet(){
 }
 Motion.onQuiet=boardQuiet;
 
-// ── window.freezeReport() — everything I need, in one paste ──────────────────
-// When the board stops and it shouldn't have, run `copy(freezeReport())` in the
-// console and paste it. It carries the state a screenshot can't: what is CLAIMED
-// (and by which chain), what the engine thinks is still moving, whether a reticle
-// or the flyover camera has the input, and the last six moves with the pattern each
-// one resolved. Board legend: digit = gem colour, '.' = empty active cell,
-// ' ' = hole, X crate, B chain, L leaf, k key, a acorn, PU chars per LEVEL-JSON-KEY.
-// A breakpoint cannot get this — pausing the thread IS a stall, and the watchdog
-// would clean up the evidence before you looked at it.
-window.freezeReport=function(){
-  const ch=(r,c)=>{const cd=board[r][c];
-    if(!cd.active)return ' ';
-    if(cd.obs&&/crate/.test(cd.obs))return 'X';
-    if(cd.obs&&/bind/.test(cd.obs))return 'B';
-    if(cd.obs&&/leaf/.test(cd.obs))return 'L';
-    if(cd.pu)return PU_CH[cd.pu]||'?';
-    if(cd.item==='key')return 'k';
-    if(cd.item==='acorn')return 'a';
-    return cd.gem===null?'.':String(cd.gem);};
-  const FL={down:'v',up:'^',left:'<',right:'>'};
-  const rows=[],fl=[];
-  for(let r=0;r<R;r++){let a='',b='';
-    for(let c=0;c<C;c++){a+=ch(r,c);b+=board[r][c].active?(FL[flow[r][c]]||'v'):' ';}
-    rows.push(a);fl.push(b);}
-  return JSON.stringify({
-    when:new Date().toISOString(), level:curLevelNum, engineVersion:ENGINE_VERSION,
-    moves, claims:Motion.tags(), chains:Motion.chains(), gemsInFlight:inFlight.size,
-    waitingOnPlayer:{ball:!!choosingRainbow,hopper:!!choosingGrasshopper,booster:armedBooster||null},
-    camera:{flyStop,flyLock,axis:(flyover&&flyover.axis)||null},
-    matchesOnBoard:find3().length, holeThatShouldFill:fillableGap(), hasValidMove:hasValidMove(),
-    stalls:window.stallCount||0, lastStall:window.__lastStall||null,
-    board:rows, flow:fl,
-    lastMoves:(window.moveHistory||[]).slice(-6).map(m=>
-      ({move:m.move,src:m.src,dest:m.dest,pattern:m.pattern,patterns:m.patterns,cleared:m.cleared}))
-  },null,1);
-};
-
 // ── STALL WATCHDOG ───────────────────────────────────────────────────────────
 // Still Water made a STUCK CLAIM the new way to break the game: a chain that dies
 // between clearing cells and running gravity leaves its claim standing, and a
