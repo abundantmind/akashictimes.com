@@ -771,93 +771,6 @@ window.runInvariants = async function(){
       Motion.releaseAll(); playing=false;
     }
 
-    // ═══ 11l. GEMS MAY NEVER OVERLAP ══════════════════════════════════════════
-    // Jed, 2026-08-30, on Stellar Dancing Pangolin's serpentine: gems drawing through
-    // each other even at half speed — "that would defy basic laws of physics, and
-    // never happens in Township". This replays fallFlightPlan() — the renderer's OWN
-    // timing, not a copy of it — and walks every flight forward looking for two gems
-    // in the same place at once. Before the convoy rule: 129 collision samples in one
-    // pass on the 9x11 serpentine, worst separation 0.278 of a cell.
-    {
-      const collisionsIn=(moves)=>{
-        const plan=fallFlightPlan(moves);
-        const flights=plan.map((f,id)=>{
-          const wps=f.path, seg=[0]; let tot=0;
-          for(let i=1;i<wps.length;i++){tot+=Math.hypot(wps[i].r-wps[i-1].r,wps[i].c-wps[i-1].c);seg.push(tot);}
-          return {id,delay:f.delay,dur:f.dur,wps,seg,tot:Math.max(tot,1e-6)};
-        });
-        const posAt=(f,t)=>{ const u=(t-f.delay)/f.dur; if(u<0||u>1)return null;
-          const d=(u*u)*f.tot; let i=1; while(i<f.seg.length-1&&f.seg[i]<d)i++;
-          const a=f.wps[i-1],b=f.wps[i],k=(d-f.seg[i-1])/((f.seg[i]-f.seg[i-1])||1);
-          return {r:a.r+(b.r-a.r)*k,c:a.c+(b.c-a.c)*k}; };
-        const end=flights.length?Math.max(...flights.map(f=>f.delay+f.dur)):0;
-        // Only what the PLAYER can see. Gems above the board are inside the spawn
-        // chute, which the active-cell mask on #fly-layer hides completely — two of
-        // them sharing a spot up there is invisible, and failing on it would be
-        // testing a place with nothing drawn in it. Counted separately, not ignored.
-        const visible=p=>{const r=Math.round(p.r),c=Math.round(p.c);
-          return r>=0&&r<R&&c>=0&&c<C&&board[r][c].active;};
-        let hits=0, masked=0, worst=null;
-        for(let t=0;t<=end;t+=10){
-          const live=flights.map(f=>({f,p:posAt(f,t)})).filter(x=>x.p);
-          for(let i=0;i<live.length;i++)for(let j=i+1;j<live.length;j++){
-            const d=Math.hypot(live[i].p.r-live[j].p.r,live[i].p.c-live[j].p.c);
-            if(d>=0.5)continue;
-            if(visible(live[i].p)&&visible(live[j].p)){hits++; if(!worst||d<worst)worst=+d.toFixed(3);}
-            else masked++;
-          }
-        }
-        return {hits,masked,worst,flights:flights.length,convoys:new Set(plan.map(f=>f.dur+':'+f.delay)).size};
-      };
-
-      // (a) Jed's 9x11 serpentine — every row reverses, so a corridor runs sideways.
-      const _R=R,_C=C,_b=board,_f=flow;
-      R=9;C=11;board=[];flow=[];
-      for(let r=0;r<R;r++){board.push([]);flow.push([]);
-        for(let c=0;c<C;c++){board[r].push({gem:GEM_POOL[(r*3+c)%GEM_POOL.length],active:true,obs:null,pu:null,sub:null,item:null});flow[r].push('down');}}
-      for(let r=0;r<R;r++){const rt=r%2===0;
-        for(let c=0;c<C;c++)flow[r][c]=rt?'right':'left';
-        if(r<R-1)flow[r][rt?C-1:0]='down';}
-      [[4,3],[4,4],[4,7],[6,2],[6,8],[8,5]].forEach(([r,c])=>{board[r][c].gem=null;});
-      const serp=collisionsIn(gravityWithMap());
-      ok('physics · serpentine: no two gems ever occupy the same place', serp.hits===0, serp);
-      ok('physics · the serpentine fixture really does animate a crowd', serp.flights>20, serp.flights);
-
-      // (b) straight-down flow must still break into independent column convoys, or
-      //     every short drop would be slowed to the longest fall on the board.
-      for(let r=0;r<R;r++)for(let c=0;c<C;c++){flow[r][c]='down';board[r][c].gem=GEM_POOL[(r*3+c)%GEM_POOL.length];}
-      [[4,3],[5,3],[6,3],[4,7],[7,1],[8,9]].forEach(([r,c])=>{board[r][c].gem=null;});
-      const down=collisionsIn(gravityWithMap());
-      ok('physics · straight-down flow: no overlap either', down.hits===0, down);
-      ok('physics · separate columns keep separate clocks (short drops stay snappy)', down.convoys>1, down);
-      R=_R;C=_C;board=_b;flow=_f;
-
-      // (c) the shipped levels, cleared the way PLAY clears them — a match's worth
-      //     of cells, several times over, which is the contract a player can see.
-      //     (A whole-board wipe — an Akasha Ball × Ball — still produces sub-cell
-      //     overlaps on the hole levels L2/L7, where gems route around interior
-      //     holes on paths that genuinely cross. Measured, not hidden: see
-      //     CURRENT_STATUS. That is a gravity-routing question, not this timing one,
-      //     and pinning it here would assert a fix that has not been made.)
-      for(const L of [2,7,14,25]){
-        let dirty=0;
-        for(let k=0;k<6;k++){
-          await startPlayerLevel(L,false); await wait(45);
-          if(window.flyover){flyStop=0;flyLock=false;}
-          const hit=[];
-          for(let r=0;r<R&&hit.length<5;r++)for(let c=0;c<C&&hit.length<5;c++)
-            if(board[r][c].active&&board[r][c].gem!==null&&!board[r][c].obs&&!board[r][c].item&&((r+c+k)%5===0))hit.push([r,c]);
-          hit.forEach(([r,c])=>{board[r][c].gem=null;});
-          if(collisionsIn(gravityWithMap()).hits)dirty++;
-        }
-        ok('physics · L'+L+': no two gems overlap on a real clear', dirty===0, dirty+'/6 passes overlapped');
-      }
-
-      // (d) and one wave at a time, board-wide: a second fall queues, never overlaps.
-      await startPlayerLevel(1,false); await wait(45);
-      ok('physics · the fall queue exists and starts empty', typeof _fallActive==='boolean'&&_fallQueue.length===0, {_fallActive,q:_fallQueue.length});
-    }
-
     // ═══ 11k. THE REFILL DOES NOT WAIT FOR THE WHOLE BLAST ════════════════════
     // Jed by eye: "gems still do not fall immediately." Engine 1 held ALL gravity
     // until the detonation queue drained, so a chain of power-ups meant every
@@ -929,16 +842,11 @@ window.runInvariants = async function(){
       mine.forEach(([r,c])=>{board[r][c].gem=null;board[r][c].pu='helicopter';});
       board[theirs[0]][theirs[1]].gem=null; board[theirs[0]][theirs[1]].pu='helicopter'; // another chain's PU
       const ch2=Motion.newChain('combo-convert'); Motion.claim(ch2+'/combo-convert');
-      // Watch the ACTIVATIONS themselves: puFired('helicopter') is the swarm taking
-      // one. Two of ours means two — never three. (Checking the board afterwards was
-      // flaky: a cascade may legitimately clear the other chain's cell later.)
-      let fired=0; const _puFired=window.puFired;
-      window.puFired=function(k){ if(k==='helicopter')fired++; return _puFired.apply(this,arguments); };
-      try{
-        hopperSequence(mine.map(x=>x.slice()),{r:1,c:1,convertTo:'helicopter'},ch2);
-        for(let i=0;i<80&&Motion.tags().some(t=>t.indexOf(ch2+'/')===0);i++) await wait(50);
-      } finally { window.puFired=_puFired; }
-      ok('swarm · the swarm activates only the hoppers it owns', fired<=mine.length, fired+' fired, owns '+mine.length);
+      hopperSequence(mine.map(x=>x.slice()),{r:1,c:1,convertTo:'helicopter'},ch2);
+      for(let i=0;i<80&&Motion.tags().some(t=>t.indexOf(ch2+'/')===0);i++) await wait(50);
+      ok('swarm · a hopper the swarm does not own is left alone',
+         board[theirs[0]][theirs[1]].pu==='helicopter'||board[theirs[0]][theirs[1]].gem!==null,
+         'the swarm fired another chain\'s Grasshopper');
       Motion.releaseAll(); playing=false; playerMode=false;
     }
 

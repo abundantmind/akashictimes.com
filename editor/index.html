@@ -4051,7 +4051,6 @@ function clearCellD(r,c,phase,queue){
 const _pumping=new Set();
 function refillPump(chain){
   if(!chain||_pumping.has(chain)||Motion.isDead(chain))return;
-  if(_fallActive||_fallQueue.length)return;   // a wave is already in the air — let it land first
   const moves=gravityWithMap();
   if(!moves.length)return;
   _pumping.add(chain);
@@ -5206,13 +5205,6 @@ function gravityWithMap(){
   let guard=0;
   while(guard++<R*C*4){
     let progress=false;
-    // TWO GEMS MAY NOT SWAP PAST EACH OTHER. Diagonal slips are the one move that
-    // can CROSS: (r-1,c) → (r,c+1) and (r-1,c+1) → (r,c) trade places through the
-    // same point, and no amount of shared timing can stop two crossing paths from
-    // meeting in the middle — they would visibly pass through one another. Whichever
-    // slip is issued first this step wins; the other waits for the next one, which
-    // is also Jed's river rule (one in, one out per cell).
-    const slipped=new Set();
     // 1) STRAIGHT — bottom-up scan so a down-flow column compacts slinky-style.
     // Chained gems are IMMOVABLE: they never fall, never vacate — which is
     // also what seals the cells beneath a chain wall (promotion stays
@@ -5273,10 +5265,7 @@ function gravityWithMap(){
         return !emptyActive(pr+ddr,pc+ddc); // resting — cannot fall straight
       });
       if(!donors.length)continue;
-      const pick=donors.filter(([pr,pc])=>!slipped.has(pr+','+c+'>'+r+','+pc)); // its crossing partner already went
-      if(!pick.length)continue;
-      const [pr,pc]=pick[Math.floor(Math.random()*pick.length)];
-      slipped.add(pr+','+pc+'>'+r+','+c);
+      const [pr,pc]=donors[Math.floor(Math.random()*donors.length)];
       step(pr,pc,r,c);progress=true;
     }
     // 3) SPAWN — entry cells pull new gems in from stacked off-grid cells;
@@ -5375,107 +5364,7 @@ function gravityWithMap(){
 // snapping back to identity on arrival. No bounce.
 //
 // onDone fires only after ALL columns have finished — chain scan timing preserved.
-// ── FALL FLIGHT PLAN: who moves when, and for how long ───────────────────────
-// GEMS MAY NEVER OVERLAP (Jed, 2026-08-30, on a serpentine: "that would defy basic
-// laws of physics, and never happens in Township").
-//
-// The old timing grouped by SOURCE COLUMN and gave each gem a duration from its own
-// path length (BASE·√span). That is only ever right for straight-down flow. On a
-// serpentine a corridor runs sideways, so gems sharing one corridor landed in
-// different groups and ran on different clocks: a gem crossing 1 cell finished in
-// 260ms while one crossing 6 was still travelling the same corridor at 637ms — and
-// drew straight through it. Measured on Jed's 9x11 serpentine: 129 collision samples
-// in a single pass, worst separation 0.278 of a cell.
-//
-// THE RULE: gems that share any cell of their paths are a CONVOY, and a convoy
-// shares one clock — each gem travels its own distance over the SAME duration with
-// the same easing. Separation then runs d → e(t)·(d−1) → exactly 1 cell and never
-// less, so the trailing gem provably cannot reach the leader. (Gravity compacts, so
-// an upstream gem's span is always ≥ the gem ahead of it; that is what makes the
-// algebra hold.) The slinky stagger only ever delays the upstream gem, widening the
-// gap further, so the Township look survives.
-//
-// Separate convoys keep their own clocks, so a one-cell drop in a quiet column stays
-// snappy instead of being slowed to the longest fall on the board.
-// This is the SINGLE SOURCE OF TRUTH for fall timing: the renderer draws from it and
-// the invariants replay it looking for collisions. Change the rhythm here or nowhere.
-function fallFlightPlan(fallMoves){
-  const animated=fallMoves.filter(m=>m.isNew||m.fr!==m.tr||m.fc!==m.tc);
-  if(!animated.length)return [];
-  const pathOf=m=>(m.path&&m.path.length>1?m.path:[{r:m.fr,c:m.fc},{r:m.tr,c:m.tc}]);
-  const spanOf=m=>{const w=pathOf(m);let t=0;
-    for(let i=1;i<w.length;i++)t+=Math.hypot(w[i].r-w[i-1].r,w[i].c-w[i-1].c);
-    return Math.max(t,1);};
-  // Union-find over every cell a gem passes THROUGH — not just its endpoints, since
-  // the middle of a 6-cell run is exactly where it would overtake somebody.
-  const parent=animated.map((_,i)=>i);
-  const find=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;};
-  const union=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a;};
-  const owner=new Map();
-  animated.forEach((m,i)=>{
-    const w=pathOf(m);
-    for(let k=0;k<w.length;k++){
-      const a=w[k], b=w[Math.min(k+1,w.length-1)];
-      const steps=Math.max(Math.abs(b.r-a.r),Math.abs(b.c-a.c),1);
-      for(let st=0;st<=steps;st++){
-        const key=Math.round(a.r+(b.r-a.r)*st/steps)+','+Math.round(a.c+(b.c-a.c)*st/steps);
-        if(owner.has(key))union(owner.get(key),i); else owner.set(key,i);
-      }
-    }
-  });
-  const groups=new Map();
-  animated.forEach((m,i)=>{const k=find(i);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(m);});
-  // LEAD = THE GEM FURTHEST DOWNSTREAM, measured by how few steps its destination
-  // is from the exit. Ordering by span looked right (in a compacting column the
-  // shortest fall IS the lowest gem) and was wrong the moment a gem BRANCHED: on L2
-  // a spawn entering at row -2 passes through (2,1) and slips on to (3,0), so it
-  // travels FARTHER than the gem that merely lands at (2,1) — yet it is ahead in
-  // the queue and must leave first. Sorting by span launched the one behind it
-  // first, and it overtook. Steps-to-exit is the honest measure and it works on any
-  // flow, serpentine included.
-  const distToExit=(r,c)=>{
-    let n=0,rr=r,cc=c; const seen=new Set();
-    while(rr>=0&&rr<R&&cc>=0&&cc<C&&board[rr][cc].active&&!seen.has(rr+','+cc)&&n<=R*C){
-      seen.add(rr+','+cc);
-      const [dr,dc]=FLOW_VEC[(flow[rr]&&flow[rr][cc])||'down']; rr+=dr; cc+=dc; n++;
-    }
-    return n;
-  };
-  const BASE=260/playbackSpeed, STAGGER=40/playbackSpeed;
-  const plan=[];
-  groups.forEach(ms=>{
-    const dur=BASE*Math.sqrt(Math.max(...ms.map(spanOf)));   // the convoy's clock
-    [...ms].sort((a,b)=>distToExit(a.tr,a.tc)-distToExit(b.tr,b.tc)||spanOf(a)-spanOf(b))
-      .forEach((m,rank)=>plan.push({move:m,delay:rank*STAGGER,dur,span:spanOf(m),path:pathOf(m)}));
-  });
-  return plan;
-}
-window.fallFlightPlan=fallFlightPlan;
-
-// ── ONE FALLING WAVE AT A TIME, BOARD-WIDE ───────────────────────────────────
-// GEMS MAY NEVER OVERLAP (Jed, 2026-08-30, on a serpentine level: "that would defy
-// basic laws of physics, and never happens in Township"). Two fall passes animating
-// at once break that rule: each pass times its gems from its own start, so a gem on
-// a short path from the LATER pass overtakes and draws straight through a gem still
-// travelling a long path from the earlier one. On a serpentine they share the same
-// corridor, so it is not even rare.
-// The refill pump made this reachable by starting a gravity pass between detonations
-// while the previous pass was still in the air. Rather than police the callers, a
-// fall now QUEUES: the wave that is airborne finishes, then the next one starts. The
-// refill still overlaps the DETONATIONS (that is where the Township feel came from);
-// it just never overlaps another fall.
-let _fallActive=false; const _fallQueue=[];
 function animateFall(fallMoves,onDone){
-  _fallQueue.push([fallMoves,onDone]);
-  if(!_fallActive)_runNextFall();
-}
-function _runNextFall(){
-  if(!_fallQueue.length){_fallActive=false;return;}
-  _fallActive=true;
-  const [moves,cb]=_fallQueue.shift();
-  animateFallNow(moves,()=>{ try{ if(cb)cb(); } finally { _runNextFall(); } });
-}
-function animateFallNow(fallMoves,onDone){
   const wrap=document.getElementById('board-wrap');
   const boardEl=document.getElementById('board');
   // Base duration for a 1-row fall; multi-row falls scale by sqrt(rows).
@@ -5514,14 +5403,37 @@ function animateFallNow(fallMoves,onDone){
     flyLayer.style.clipPath=rects.length?`path('${rects.join('')}')`:'none';
   })();
 
-  const plan=fallFlightPlan(fallMoves);
-  if(!plan.length){onDone();return;}
-  const STAGGER_MS=40/playbackSpeed;   // (kept for reference; the plan carries the delays)
+  // Group moves by column so each column animates independently.
+  const byCol={};
+  fallMoves.forEach(m=>{
+    if(!m.isNew&&m.fr===m.tr&&m.fc===m.tc)return; // gem didn't move — skip
+    if(!byCol[m.fc])byCol[m.fc]=[];
+    byCol[m.fc].push(m);
+  });
+
+  const cols=Object.keys(byCol);
+  if(!cols.length){onDone();return;}
+
+  // Slinky stagger: 40ms between each gem in a column (measured from Township L28 slowmo).
+  // Scaled by playbackSpeed so 2× speed halves the delay. No horizontal column stagger
+  // detected in measurements — columns start simultaneously.
+  const STAGGER_MS=40/playbackSpeed;
+
+  // Track completion per gem (not per column) since each gem now runs its own loop.
   let doneGems=0;
-  const totalGems=plan.length;
-  plan.forEach(({move:m,delay,dur})=>{
-    {
-      // (the convoy rule lives in fallFlightPlan — see the note there)
+  let totalGems=0;
+  cols.forEach(col=>{ totalGems+=byCol[col].length; });
+
+  cols.forEach(col=>{
+    const moves=byCol[col];
+
+    // Sort descending by from-row: gem closest to the gap (highest fr) gets delay 0,
+    // each gem above it adds one stagger interval.
+    const sorted=[...moves].sort((a,b)=>b.fr-a.fr);
+
+    sorted.forEach((m,rank)=>{
+      const delay=rank*STAGGER_MS;
+
       // Every gem — cascade, slip, or self-source spawn — FALLS along its path;
       // the active-cell mask on #fly-layer hides the part of the flight that is
       // over a hole or off-board, so a source under a hole-notch simply drops in
@@ -5538,7 +5450,8 @@ function animateFallNow(fallMoves,onDone){
         totalLen+=Math.hypot(wps[i].x-wps[i-1].x,wps[i].y-wps[i-1].y);
         segLen.push(totalLen);
       }
-      // dur + delay come from the shared plan (fallFlightPlan) — this loop only draws.
+      const cellSpan=Math.max(totalLen/(CELL_SIZE+CELL_GAP),1);
+      const dur=BASE_DUR*Math.sqrt(cellSpan);
 
       const originPos=wps[0];
 
@@ -5599,7 +5512,7 @@ function animateFallNow(fallMoves,onDone){
         }
         requestAnimationFrame(step);
       },delay);
-    }
+    });
   });
 }
 
@@ -6473,7 +6386,7 @@ function loadLevelData(json,num){
     return false;
   }
   levelEngineVersion=want;
-  inFlight.clear(); _fallQueue.length=0; _fallActive=false;   // a new board has nothing in the air
+  inFlight.clear();   // a new board has nothing in the air
   R=json.board.rows; C=json.board.cols;
   // Flyover camera spec (L20+): camera-only presentation of big boards.
   // axis 'y' = tall board, camera window viewRows tall, scrolls DOWN (L20).
