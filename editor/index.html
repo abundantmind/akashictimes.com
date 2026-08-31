@@ -1864,10 +1864,7 @@ const Motion={
   newChain(tag){ const id=(tag||'chain')+'#'+(++this._chain); this._seen.set(id,Date.now());
     if((tag||'').indexOf('sweep')!==0)_sweptThisEpisode=false;   // real activity — the board may need sweeping again
     return id; },
-  touch(chain){ if(chain&&!this._dead.has(chain))this._seen.set(chain,Date.now()); },  // "this chain is still working"
-  _dead:new Set(),                                    // chains the watchdog gave up on
-  kill(chain){ this._dead.add(chain); this.releaseChain(chain); },
-  isDead(chain){ return this._dead.has(chain); },
+  touch(chain){ if(chain)this._seen.set(chain,Date.now()); },   // "this chain is still working"
   chains(){ return [...new Set([...this._claims.keys()].map(k=>k.split('/')[0]))]; },
   lastSeen(chain){ return this._seen.get(chain)||0; },
   releaseChain(chain){
@@ -3871,11 +3868,7 @@ window.freezeReport=function(){
 // Log the whole state loudly (window.__lastStall — paste it to me), release the
 // dead chain, and finish its unfinished work so the player plays on.
 // This RESCUES; it does not excuse. Every stall recorded is a bug to find.
-// 10s, not 6: with every long sequence now reporting progress every ~170ms, a chain
-// that says nothing for ten seconds really is gone. The old 6s killed a HEALTHY
-// Grasshopper swarm mid-flight (Jed's L23, combo-convert#102) and ran a recovery
-// settle underneath it — the watchdog itself became the freeze.
-const STALL_MS=10000;
+const STALL_MS=6000;
 window.__lastStall=null; window.stallCount=0;
 function stallTick(){
   if(!playing)return;
@@ -3892,8 +3885,7 @@ function stallTick(){
       matches:find3().length,pendingHopper:!!window._pendingHopperChoose,
       lastMove:(window.moveHistory||[]).slice(-1)[0]};
     console.error('[stall] chain '+ch+' made no progress for '+STALL_MS+'ms — releasing it',window.__lastStall);
-    if(typeof _captureFreeze==='function')_captureFreeze(true);   // file it before we clean up the evidence
-    Motion.kill(ch);   // and it stays dead: a late callback must not settle the board twice
+    Motion.releaseChain(ch);
     if(window._pendingHopperChoose&&window._pendingHopperChoose.chain===ch)window._pendingHopperChoose=null;
     if(empties||find3().length){                    // it died mid-clear: finish its work
       inFlight.clear(); render();
@@ -3980,7 +3972,6 @@ function fallCells(fallMoves){
 // Shared tail for detonation sequences: count the phase, settle, scan, cascade
 function settleAndCascade(phase,sr,sc,chain){
   chain=chain||Motion.newChain('settle');
-  if(Motion.isDead(chain))return;   // the watchdog already finished this chain's work
   cleared+=phase.size;
   setTimeout(()=>{
     const fallMoves=gravityWithMap();
@@ -4398,7 +4389,6 @@ function comboConvertAndDetonate(src,gemIdx){
   const convertNext=()=>{
     if(i>=cells.length){setTimeout(deploy,180/playbackSpeed);return;}
     const [r,c]=cells[i++];
-    Motion.touch(chain);   // a long sweep is WORKING, not stalled — say so every step
     animateLaser(src.r,src.c,r,c,()=>{});
     setTimeout(()=>{
       if(playerMode){playerTally(gemIdx);updatePlayerHUD();} // conversion consumes the gem
@@ -4517,17 +4507,11 @@ function hopperSequence(cells,src,chain){
     const rest=chainQueue.filter(d=>d.pu!=='helicopter'); // never re-detonate an absorbed hopper (the empty-grid cross)
     processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c,chain),chain);
   };
-  // THIS COMBO'S OWN cells, in reading order — never the whole board. The old scan
-  // took any Grasshopper anywhere, which was safe only because Engine 1 froze the
-  // board: nothing else could create one mid-swarm. Under Still Water another chain
-  // makes a Grasshopper, this swarm fires it, that clears more, which makes more —
-  // a runaway that showed up in Jed's log as "34 PUs in sequence from one move".
-  const mine=cells.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
   const activateNext=()=>{
-    Motion.touch(chain);   // the swarm is alive between detonations — say so
-    // next LIVE helicopter of OURS (re-scanned, so absorbed ones drop out)
+    // next LIVE helicopter in reading order (re-scanned, so absorbed ones drop out)
     let hop=null;
-    for(const [r,c] of mine){ if(board[r][c].active&&board[r][c].pu==='helicopter'){hop=[r,c];break;} }
+    for(let r=0;r<R&&!hop;r++)for(let c=0;c<C&&!hop;c++)
+      if(board[r][c].active&&board[r][c].pu==='helicopter')hop=[r,c];
     if(!hop){ allActivated=true; maybeFinish(); return; } // no more to launch; wait on the airborne ones
     const [r,c]=hop;
     const hopCharged=!!(board[r][c].puClover||board[r][c].sub==='clover'); // charged? (capture before consuming)
@@ -4552,7 +4536,7 @@ function hopperSequence(cells,src,chain){
           render(null);
           const el=document.querySelector(`[data-r="${t[0]}"][data-c="${t[1]}"]`);
           if(el)el.classList.add('popping');
-          inFlight--; Motion.touch(chain); maybeFinish();
+          inFlight--; maybeFinish();
         });
       }
       activateNext(); // the swarm builds: next one launches while this one is still in the air
@@ -7274,46 +7258,6 @@ function _generateReporterId() {
   return `${rand(_BUG_ADJ1)}-${rand(_BUG_ADJ2)}-${rand(_BUG_NOUNS)}`;
 }
 
-// ── LOCAL FREEZE CAPTURE (dev machine only) ─────────────────────────────────
-// The badge on a real player's screen opens the Google Form. On localhost it does
-// something more useful: it grabs freezeReport() and POSTs it to the dev server,
-// which writes it to bug-reports/. Click the badge when the board looks wrong —
-// that is the whole procedure. No console, no typing, no form.
-// It also paints the report on screen, so a screenshot carries the same evidence
-// if the save fails (production, server restarted, whatever).
-const _IS_DEV = ['localhost','127.0.0.1','::1'].indexOf(location.hostname)>=0;
-async function _captureFreeze(auto){
-  let txt;
-  try{ txt = freezeReport(); }
-  catch(e){ txt = JSON.stringify({freezeReportThrew:String(e&&e.message||e)}); }
-  let saved=null;
-  try{
-    const r = await fetch('/_freeze',{method:'POST',headers:{'Content-Type':'application/json'},body:txt});
-    if(r.ok) saved = (await r.json()).saved;
-  }catch(e){ /* no dev server — the on-screen copy is the fallback */ }
-  if(!auto) _showFreezePanel(txt,saved);
-  else if(saved) console.log('[stall] report saved:',saved);
-  return saved;
-}
-function _showFreezePanel(txt,saved){
-  let ov=document.getElementById('freeze-ov');
-  if(!ov){
-    ov=document.createElement('div'); ov.id='freeze-ov';
-    ov.style.cssText='position:fixed;inset:0;background:rgba(10,8,18,.94);z-index:10000;display:flex;flex-direction:column;padding:20px;box-sizing:border-box;';
-    ov.innerHTML='<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">'
-      +'<strong id="freeze-head" style="color:#c8a8ff;font-family:monospace;flex:1;font-size:15px"></strong>'
-      +'<button class="tb" id="freeze-close">✕ Close</button></div>'
-      +'<pre id="freeze-pre" style="flex:1;overflow:auto;background:#0d0a14;color:#cfe6ff;padding:12px;border-radius:8px;font-size:11px;line-height:1.4;white-space:pre;margin:0"></pre>';
-    document.body.appendChild(ov);
-    document.getElementById('freeze-close').onclick=()=>{ov.style.display='none';};
-  }
-  ov.style.display='flex';
-  document.getElementById('freeze-head').textContent = saved
-    ? 'Freeze report saved → '+saved+'   (Claude can read it. Nothing else to do.)'
-    : 'Freeze report (NOT saved — no dev server). Screenshot this panel.';
-  document.getElementById('freeze-pre').textContent = txt;
-}
-
 function _openBugReport() {
   const base   = "https://docs.google.com/forms/d/e/1FAIpQLScgCSDp9VM766fnAswlI9hEUJ4YanJ_jBKLkcLrHCyUydqf5Q/viewform";
   const id     = _generateReporterId();
@@ -7329,10 +7273,7 @@ function _openBugReport() {
   btn.id          = "bug-report-btn";
   btn.innerText   = TXT('bug_btn');
   btn.dataset.i18n= "bug_btn"; // language switch relabels it via applyLang
-  btn.onclick     = _IS_DEV ? (()=>_captureFreeze(false)) : _openBugReport;
-  // Dev machine: the badge saves state instead of opening a form — and it must SAY
-  // so. Drop the i18n hook or the language pass relabels it back on the next render.
-  if(_IS_DEV){ btn.innerText = '🐛 Capture Freeze'; delete btn.dataset.i18n; }
+  btn.onclick     = _openBugReport;
   btn.style.cssText = [
     "position:fixed","bottom:16px","right:16px","z-index:9999",
     "padding:8px 14px","background:#1a1a2e","color:#e0e0e0",

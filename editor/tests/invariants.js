@@ -771,56 +771,6 @@ window.runInvariants = async function(){
       Motion.releaseAll(); playing=false;
     }
 
-    // ═══ 11i. A LONG SEQUENCE IS NOT A STALL (Jed's L23 console, 2026-08-29) ═══
-    // The freeze he caught was the WATCHDOG killing a healthy Grasshopper swarm:
-    // combo-convert claims the board once and then runs for seconds, and progress
-    // was only ever reported on a claim or a detonation. It was declared dead at
-    // 6s and a recovery settle ran underneath it — 29 empty cells and 3 unresolved
-    // matches, which is exactly what his screenshot showed.
-    {
-      await startPlayerLevel(1,false); await wait(45); Motion.releaseAll(); playing=true;
-      const ch=Motion.newChain('combo-convert');
-      Motion.claim(ch+'/combo-convert');
-      Motion._seen.set(ch,Date.now()-(STALL_MS-1500));   // quiet for a while, but not dead
-      Motion.touch(ch);                                   // ...and then it reports in, like a swarm step
-      const before=window.stallCount;
-      window._stallTick();
-      ok('stall · a sequence that reports progress is never killed',
-         window.stallCount===before&&Motion.tags().some(t=>t.indexOf(ch+'/')===0), Motion.tags());
-
-      // A chain the watchdog DID give up on must stay dead — a late callback from it
-      // must not settle the board a second time, on top of the recovery.
-      Motion._seen.set(ch,Date.now()-99999);
-      window._stallTick();
-      ok('stall · a silent chain is still killed', !Motion.tags().some(t=>t.indexOf(ch+'/')===0), Motion.tags());
-      ok('stall · and it is marked dead, not merely released', Motion.isDead(ch), 'not marked');
-      const claimsBefore=Motion.tags().length;
-      settleAndCascade(new Set(),0,0,ch);                 // the late callback arrives
-      await wait(250);
-      ok('stall · a dead chain\'s late callback does nothing', Motion.tags().length===claimsBefore, Motion.tags());
-      Motion.releaseAll(); playing=false;
-    }
-
-    // ═══ 11j. THE SWARM OWNS ONLY ITS OWN HOPPERS ═════════════════════════════
-    // Same console log: "34 PUs in sequence from one move". The swarm scanned the
-    // WHOLE BOARD for its next Grasshopper — safe under Engine 1, where nothing
-    // else could be running, and a runaway under Still Water: it fires a hopper
-    // another chain just made, which clears more, which makes more.
-    {
-      await startPlayerLevel(1,false); await wait(45); Motion.releaseAll();
-      wipe(GEM_POOL[1]); playing=true; playerMode=true;
-      const mine=[[1,1],[1,2]], theirs=[4,4];
-      mine.forEach(([r,c])=>{board[r][c].gem=null;board[r][c].pu='helicopter';});
-      board[theirs[0]][theirs[1]].gem=null; board[theirs[0]][theirs[1]].pu='helicopter'; // another chain's PU
-      const ch2=Motion.newChain('combo-convert'); Motion.claim(ch2+'/combo-convert');
-      hopperSequence(mine.map(x=>x.slice()),{r:1,c:1,convertTo:'helicopter'},ch2);
-      for(let i=0;i<80&&Motion.tags().some(t=>t.indexOf(ch2+'/')===0);i++) await wait(50);
-      ok('swarm · a hopper the swarm does not own is left alone',
-         board[theirs[0]][theirs[1]].pu==='helicopter'||board[theirs[0]][theirs[1]].gem!==null,
-         'the swarm fired another chain\'s Grasshopper');
-      Motion.releaseAll(); playing=false; playerMode=false;
-    }
-
     // ═══ 11h. THE GRID THAT BREAKS IT — upstream swap, then downstream swap ═══
     // Jed's repro, in words: swap a gem near the entry point, then — before that
     // cascade finishes — swap a gem downstream of it. Both are legal. The board
