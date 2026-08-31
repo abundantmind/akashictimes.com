@@ -841,6 +841,38 @@ window.runInvariants = async function(){
       choosingRainbow=null; choosingGrasshopper=null; Motion.releaseAll(); playing=false;
     }
 
+    // ═══ 11q. A WON LEVEL STOPS THE SHOW ══════════════════════════════════════
+    // Jed, 2026-08-30, from Township: all but one gem collected, the player fires a
+    // Ball+Grasshopper as his last move — "the animation ends once the FIRST
+    // Grasshopper clears it. There is no reason to continue showing 18 more
+    // Grasshoppers land — the level is won." Ours judged the result only after every
+    // cinematic finished, so a swarm launched on the winning move made the player sit
+    // through the rest of a decided game.
+    {
+      const _set=PlayerProgress.set; PlayerProgress.set=()=>{};   // never touch the real save
+      try{
+        await startPlayerLevel(1,false); await wait(45); Motion.releaseAll();
+        wipe(GEM_POOL[1]); playing=true; playerMode=true;
+        playerGoals=[{kind:'collect',gemIdx:GEM_POOL[1],need:1,have:0,name:'test'}];
+        let fired=0;
+        const _sfx=SFX.play.bind(SFX);
+        SFX.play=function(k){ if(k==='detonate')fired++; return _sfx(k); };
+        const q=[]; for(let i=0;i<12;i++)q.push({pu:'helicopter',r:1+(i%4),c:1+((i*2)%5)});
+        const queued=q.length;   // applyEffects SHIFTS the queue it is given — read the count first
+        try{
+          applyEffects([],2,2,q);
+          for(let i=0;i<120&&playing;i++) await wait(50);
+        } finally { SFX.play=_sfx; }
+        ok('won · the level ends the moment the goal is met', playing===false, {playing,fired});
+        ok('won · the remaining power-ups are NOT played out', fired<queued, fired+' of '+queued+' detonations played');
+        ok('won · nothing is left claimed or in the air',
+           Motion.tags().every(t=>t==='overlay')&&(document.getElementById('fly-layer')||{children:[]}).children.length===0,
+           {claims:Motion.tags()});
+      } finally {
+        PlayerProgress.set=_set; playerGoals=[]; playing=false; Motion.releaseAll();
+      }
+    }
+
     // ═══ 11m. ONE RIVER, ONE SPRING ═══════════════════════════════════════════
     // Jed, 2026-08-30: "gems are filling from the top right cell. But the only
     // source of new gems should be the top left cell." Every TURN in a river had its

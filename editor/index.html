@@ -3991,8 +3991,10 @@ function fallCells(fallMoves){
 function settleAndCascade(phase,sr,sc,chain){
   chain=chain||Motion.newChain('settle');
   if(Motion.isDead(chain))return;   // the watchdog already finished this chain's work
+  const myShow=showGen;             // if the level ends mid-cascade, this stops here
   cleared+=phase.size;
   setTimeout(()=>{
+    if(showIsOver(myShow))return;   // the level was won while this was pending
     const fallMoves=gravityWithMap();
     // STILL WATER: the pop is over and the board data is already settled — from
     // here the only thing actually in motion is the fall. Drop this chain's
@@ -4061,6 +4063,7 @@ function clearCellD(r,c,phase,queue){
 const _pumping=new Set();
 function refillPump(chain){
   if(!chain||_pumping.has(chain)||Motion.isDead(chain))return;
+  if(!playing)return;                               // the show is over
   if(choosingRainbow||choosingGrasshopper)return;   // the player is aiming — hold the board still
   if(_fallActive||_fallQueue.length)return;   // a wave is already in the air — let it land first
   const moves=gravityWithMap();
@@ -4104,7 +4107,9 @@ function processDetonations(queue,phase,onDone,chain){
   let running=0, over=false;
   const finish=()=>{ if(over)return; over=true; onDone(); };
   const memberDone=()=>{ running--; drain(); if(running===0&&!queue.length)finish(); };
+  const myShow=showGen;
   const fire=(det)=>{
+    if(showIsOver(myShow)){ finish(); return; }     // won mid-blast: no more cinematics
     running++;
     const next=()=>{ Motion.touch(chain); memberDone(); };
     // CLOVER-CHARGE (project_clover_model, unified): a PU is charged if it was
@@ -4145,7 +4150,7 @@ function processDetonations(queue,phase,onDone,chain){
   // Drain everything waiting, then keep watching: a blast that catches a power-up
   // mid-cinematic pushes it onto the same queue, and it must go NOW, not next beat.
   const drain=()=>{ while(queue.length)fire(queue.shift()); };
-  const watch=()=>{ if(over)return; drain(); if(running>0)setTimeout(watch,30); else finish(); };
+  const watch=()=>{ if(over)return; if(showIsOver(myShow)){finish();return;} drain(); if(running>0)setTimeout(watch,30); else finish(); };
   watch();
 }
 
@@ -4376,10 +4381,10 @@ function detHopper(r,c,phase,queue,next,charged){
   // He outlives his own detonation now, so he must not outlive his BOARD. If the
   // level changed while he was in the air, the cell he was aiming at belongs to a
   // different game — he simply doesn't arrive.
-  const bornGen=boardGen;
+  const bornGen=boardGen, bornShow=showGen;
   setTimeout(()=>{
     hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
-      if(boardGen!==bornGen)return;   // he came down on somebody else's board
+      if(boardGen!==bornGen||showIsOver(bornShow))return;   // wrong board, or the level is already won
       if(charged)plantClover([[t[0],t[1]]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model — kills L7's "clover before any hopper fires" leak)
       const late=[];                              // a PU under him fires as its own event
       clearCellD(t[0],t[1],phase,late);
@@ -4652,10 +4657,10 @@ function hopperSequence(cells,src,chain){
       const t=randomHopperTarget(r,c,phase); // combo target stays chaotic (Jed 07-09)
       if(t){
         inFlight++;
-        const bornGen=boardGen;                          // he must not outlive his board
+        const bornGen=boardGen, bornShow=showGen;        // not his board, not his win
         hopperFlight(makeHopperActor(r,c),r,c,t[0],t[1],()=>{
           inFlight--; Motion.touch(chain);
-          if(boardGen!==bornGen)return;   // he came down on somebody else's board
+          if(boardGen!==bornGen||showIsOver(bornShow))return;   // wrong board, or already won
           if(hopCharged)plantClover([[t[0],t[1]]],true); // landing seeds only if it took off charged
           // A LATE ARRIVAL OWNS ITS OWN EVENT. The group's queue may already have
           // been drained by the time he lands, so anything he catches has to fire
@@ -7186,6 +7191,10 @@ function dismissQIntro(){
 function playerTally(gemIdx){ playerGoals.forEach(g=>{ if(g.gemIdx===gemIdx) g.have++; }); }
 
 function updatePlayerHUD(){
+  // A goal may have just been met by whatever called us — end it here rather than
+  // waiting for the board to go quiet, which on a swarm is many seconds of a decided
+  // game (see winNow / Jed's Township note).
+  if(typeof winNow==='function'&&winNow())return;
   // Sandbox play never shows #phud (that's real-Explore chrome) — mirror every
   // tick onto the editor's own visible frame instead. Real play is untouched:
   // updEditorFrame() no-ops there since #ehud/#eboost are display:none.
@@ -7228,6 +7237,43 @@ function updatePlayerHUD(){
 
 // 'rocket' is the goal key for Dragonfly; puSVG needs a concrete engine type for the icon.
 function goalPuIcon(pu){return pu==='rocket'?'rocket_h':pu;}
+
+// ── THE LEVEL IS WON THE MOMENT THE GOALS ARE MET ────────────────────────────
+// Jed, 2026-08-30, from Township: "if all but one gem is collected and the player
+// fires a Ball+Grasshopper as his last move, the animation ends once the FIRST
+// Grasshopper clears it. There is no reason to continue showing 18 more Grasshoppers
+// land — the level is won."
+// Our engine judged the result only once every cinematic had finished, so a swarm
+// launched on the winning move made the player sit through the rest of a decided
+// game. Now the goals are checked as they tick, and a win CANCELS THE SHOW.
+//
+// One generation counter does the cancelling. Everything that outlives the moment
+// it was started — a detonation group, a settle, a refill, a Grasshopper in flight —
+// already had to learn that its context can disappear; this reuses that lesson
+// instead of inventing a second kind of "never mind".
+let showGen=0;
+function showIsOver(gen){ return gen!==showGen; }
+function endShowNow(){
+  showGen++;                                  // every pending callback now knows to stand down
+  _fallQueue.length=0; _fallActive=false;
+  inFlight.clear();
+  Motion.releaseAll();
+  const fly=document.getElementById('fly-layer'); if(fly)fly.innerHTML='';
+  const vfx=document.getElementById('vfx-layer'); if(vfx)vfx.innerHTML='';
+  document.querySelectorAll('.popping').forEach(el=>el.classList.remove('popping'));
+  choosingRainbow=null; choosingGrasshopper=null; window._pendingHopperChoose=null;
+  render();
+}
+// Called wherever a goal can tick. Cheap, idempotent, and it must never fire in the
+// editor's paint mode — only in a live session with goals to meet.
+let _ending=false;
+function winNow(){
+  if(_ending||!playing||!playerMode)return false;
+  if(!playerGoals.length||!playerGoals.every(goalDone))return false;
+  _ending=true;
+  try{ endShowNow(); playerFinish(true); } finally { _ending=false; }
+  return true;
+}
 
 function checkPlayerEnd(){
   updatePlayerHUD();
