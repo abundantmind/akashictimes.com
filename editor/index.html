@@ -1852,17 +1852,7 @@ const Motion={
   _claims:new Map(),                                  // tag -> Set('r,c') | null (null = board-wide)
   claim(tag,cells){ this._claims.set(tag, cells?new Set(cells.map(x=>x[0]+','+x[1])):null); },
   release(tag){ this._claims.delete(tag); },
-  releaseAll(){ this._claims.clear(); },               // teardown only: a level change ends EVERYTHING
-  // CHAIN IDENTITY. One player action and everything that cascades from it is a
-  // CHAIN. Claims are keyed 'chain/what', and a chain may only release its own —
-  // the moment two cascades can overlap, an end-of-move releaseAll() would free
-  // the OTHER cascade's claims and unlock a board that is still moving.
-  _chain:0,
-  newChain(tag){ return (tag||'chain')+'#'+(++this._chain); },
-  releaseChain(chain){
-    if(!chain){this.releaseAll();return;}              // no chain given = legacy caller = old behaviour
-    for(const k of [...this._claims.keys()]) if(k.slice(0,chain.length+1)===chain+'/') this._claims.delete(k);
-  },
+  releaseAll(){ this._claims.clear(); },               // what the old false meant: everything is done
   busy(){ return this._claims.size>0; },               // what the old true meant, board-wide
   quietAt(r,c){                                        // may the player act HERE?
     const k=r+','+c;
@@ -3739,14 +3729,14 @@ function maybeShuffle(silent){
   }
 }
 
-function cascadeEnd(chain){
+function cascadeEnd(){
   updStats();
   // If a player-activated Grasshopper is waiting for fly-to target, enter choosing state
   if(window._pendingHopperChoose){
     const h=window._pendingHopperChoose;
     window._pendingHopperChoose=null;
     choosingGrasshopper={r:h.r,c:h.c,excluded:h.excluded,orthCells:h.orthCells};
-    Motion.releaseChain(chain);  // the jump waits on the player — this chain's board is theirs again
+    Motion.releaseAll();        // the jump waits on the player — the board is theirs again
     render();
     if(playerMode)updatePlayerHUD();
     return;
@@ -3758,7 +3748,7 @@ function cascadeEnd(chain){
   window.lastMovePUs=Math.max(0,(window._swapPU||0)-(window._comboSwap?1:0));
   window.runMaxSeq=Math.max(window.runMaxSeq||0,window.lastMovePUs);
   if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs in sequence from one move');
-  Motion.releaseChain(chain);render(); // this move is fully resolved — its claims, and only its claims, go
+  Motion.releaseAll();render(); // the move is fully resolved — nothing is moving
   if(playerMode){updatePlayerHUD();checkPlayerEnd();maybeShuffle();}
 }
 
@@ -3784,8 +3774,7 @@ function collectExitedKeys(){
 }
 
 // Shared tail for detonation sequences: count the phase, settle, scan, cascade
-function settleAndCascade(phase,sr,sc,chain){
-  chain=chain||Motion.newChain('settle');
+function settleAndCascade(phase,sr,sc){
   cleared+=phase.size;
   setTimeout(()=>{
     const fallMoves=gravityWithMap();
@@ -3794,9 +3783,9 @@ function settleAndCascade(phase,sr,sc,chain){
       flyScrollCheck(); // flyover: key at the current view's bottom row scrolls the camera down
       if(gotKey&&playerMode)updatePlayerHUD();
       const np=findPatterns(sr,sc,sr,sc);
-      if(np.length){resolve(np,sr,sc,JSON.parse(JSON.stringify(board)),sr,sc,chain);}
-      else if(gotKey){render(null);settleAndCascade(new Set(),sr,sc,chain);} // refill the vacated exit cells
-      else{cascadeEnd(chain);}
+      if(np.length){resolve(np,sr,sc,JSON.parse(JSON.stringify(board)),sr,sc);}
+      else if(gotKey){render(null);settleAndCascade(new Set(),sr,sc);} // refill the vacated exit cells
+      else{cascadeEnd();}
     });
   },160);
 }
@@ -4125,26 +4114,25 @@ function startPUCombo(dr,dc,sr,sc){
   const consume=m=>{board[m.r][m.c].pu=null;puFired(m.pu);}; // goal event on consumption
   window._comboSwap=true; // star sensor: the swapped pair counts as ONE initiator
   moves++;updatePlayerHUD();
-  const chain=Motion.newChain('combo');
-  Motion.claim(chain+'/combo-swap');
+  Motion.claim('combo-swap');   // board-wide today
 
   if(key==='fly+fly'){            // #7 — cross: full row + full column from the destination
     consume(a);consume(b);
-    applyEffects([],dr,dc,[{pu:'rocket_h',r:dr,c:dc},{pu:'rocket_v',r:dr,c:dc}],chain);
+    applyEffects([],dr,dc,[{pu:'rocket_h',r:dr,c:dc},{pu:'rocket_v',r:dr,c:dc}]);
   }else if(key==='fly+scarab'){   // #2 — Scarab widens the Fly: 3 lines on the Fly's own axis
     const flyM=pick('fly');consume(a);consume(b);
-    applyEffects([],dr,dc,[{pu:flyM.pu,r:dr,c:dc,wide:true}],chain);
+    applyEffects([],dr,dc,[{pu:flyM.pu,r:dr,c:dc,wide:true}]);
   }else if(key==='scarab+scarab'){// #9 — one bigger blast: 5×5 at the destination
     consume(a);consume(b);
-    applyEffects([],dr,dc,[{pu:'bomb',r:dr,c:dc,rad:2}],chain);
+    applyEffects([],dr,dc,[{pu:'bomb',r:dr,c:dc,rad:2}]);
   }else if(key==='hopper+hopper'){// #8 — 3×3 origin blast + 3 auto-picked jumps (auto per Jed 07-08)
     consume(a);consume(b);
     applyEffects([],dr,dc,[{pu:'bomb',r:dr,c:dc},
-      {pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc}],chain);
+      {pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc}]);
   }else if(key==='fly+hopper'||key==='hopper+scarab'){ // #1/#4 — jump first, partner fires at the landing
     const hop=pick('hopper'),partner=hop===a?b:a;
     consume(partner); // hopper stays visible until the jump commits (solo behavior)
-    Motion.releaseChain(chain);  // choosing state needs player input
+    Motion.releaseAll();  // choosing state needs player input
     choosingGrasshopper={r:hop.r,c:hop.c,excluded:new Set(),   // own cell included: detonate in place
       orthCells:grasshopperOrthCells(hop.r,hop.c),comboPartner:partner.pu};
     render(); // vibe opens
@@ -4155,11 +4143,11 @@ function startPUCombo(dr,dc,sr,sc){
     // gems-only version first, per spec. Any PU caught on board chains normally.
     const all=[];
     for(let rr=0;rr<R;rr++)for(let cc=0;cc<C;cc++)if(board[rr][cc].active)all.push([rr,cc]);
-    applyEffects(all,dr,dc,[],chain);
+    applyEffects(all,dr,dc,[]);
   }else{                          // #3/#5/#6 — Ball family: vibe → chosen color BECOMES the partner
     const ball=pick('ball'),partner=ball===a?b:a;
     consume(a);consume(b);
-    Motion.releaseChain(chain); // waiting on the color pick
+    Motion.releaseAll(); // waiting on the color pick
     choosingRainbow={r:ball.r,c:ball.c,
       convertTo:partner.pu==='helicopter'?'helicopter':partner.pu==='bomb'?'bomb':'rocket'};
     render();
@@ -4174,8 +4162,7 @@ function startPUCombo(dr,dc,sr,sc){
 //   scarabs/dragonflies likewise stay on the board until their cinematic.
 // Fly conversions get a random H/V axis each (spec silent on axis).
 function comboConvertAndDetonate(src,gemIdx){
-  const chain=Motion.newChain('combo-convert');   // the colour pick starts a new chain
-  Motion.claim(chain+'/combo-convert');
+  Motion.claim('combo-convert');
   const cells=rainbowCells(gemIdx);
   // CLOVER INHERITANCE (Jed 2026-07-23): a combo that TOUCHES clover (e.g. L16's
   // Ball+Dragonfly, both born on clover) spreads it through the whole conversion.
@@ -4206,13 +4193,13 @@ function comboConvertAndDetonate(src,gemIdx){
     // consume-on-play queue: each converted PU is consumed (and its cell
     // cleared) only when ITS cinematic starts — chains catching it earlier
     // turn its entry into a no-op (cycle-safe both ways).
-    if(src.convertTo==='helicopter'){hopperSequence(cells,src,chain);return;}
+    if(src.convertTo==='helicopter'){hopperSequence(cells,src);return;}
     const phase=new Set(),queue=[];
     cells.forEach(([r,c])=>{
       if(!board[r][c].pu)return; // already chained away (shouldn't happen pre-deploy)
       queue.push({pu:board[r][c].pu,r,c,consumeOnPlay:true,combo:true});
     });
-    processDetonations(queue,phase,()=>settleAndCascade(phase,src.r,src.c,chain));
+    processDetonations(queue,phase,()=>settleAndCascade(phase,src.r,src.c));
   };
   convertNext();
 }
@@ -4298,7 +4285,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
 // its cross on an already-empty grid after every jump had finished. A hopper
 // absorbed by another's blast/landing is simply consumed (it leaves the board, so
 // the re-scan skips it) — never re-detonated on empty cells.
-function hopperSequence(cells,src,chain){
+function hopperSequence(cells,src){
   const phase=new Set(),chainQueue=[];
   const TAKEOFF_MS=170;      // stagger between activations = one hopper's cross-read + takeoff
   let inFlight=0, allActivated=false;
@@ -4307,7 +4294,7 @@ function hopperSequence(cells,src,chain){
   const maybeFinish=()=>{
     if(!allActivated||inFlight>0)return;
     const rest=chainQueue.filter(d=>d.pu!=='helicopter'); // never re-detonate an absorbed hopper (the empty-grid cross)
-    processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c,chain));
+    processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c));
   };
   const activateNext=()=>{
     // next LIVE helicopter in reading order (re-scanned, so absorbed ones drop out)
@@ -4428,9 +4415,8 @@ function detHopperCombo(r,c,phase,queue,next,charged){
 // ── Apply a combined set of cleared cells: pop, run detonation queue, settle ──
 // initialQueue lets callers enqueue already-consumed PUs (e.g. a swap-fired
 // Dragonfly) so their cinematics play through the same engine.
-function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
-  chain=chain||Motion.newChain('effects');   // a caller with no chain gets its own
-  Motion.claim(chain+'/effects');            // the cascade lock — board-wide until the fall claims narrow it
+function applyEffects(cellsToClear,pivotR,pivotC,initialQueue){
+  Motion.claim('effects');      // the cascade lock — the claim Rule A will narrow
   const phase=new Set();
   const queue=initialQueue||[];
   if(cellsToClear.length)plantClover(cellsToClear); // direct clears = one event (e.g. Ball×Ball board wipe)
@@ -4440,7 +4426,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
   // pop beat first, then play out every queued detonation, THEN settle once
   setTimeout(()=>{
-    processDetonations(queue,phase,()=>settleAndCascade(phase,pivotR,pivotC,chain));
+    processDetonations(queue,phase,()=>settleAndCascade(phase,pivotR,pivotC));
   },queue.length||phase.size?230:0);
 }
 
@@ -4469,8 +4455,7 @@ function playTap(r,c){
     if(!cd2||!cd2.active||choosingGrasshopper.excluded.has(k)||(cd2.gem===null&&!cd2.pu&&!cd2.obs)) return;
     const hop=choosingGrasshopper;
     choosingGrasshopper=null;
-    const chain=Motion.newChain('hopper');
-    Motion.claim(chain+'/hopper-jump');
+    Motion.claim('hopper-jump');
     // The Grasshopper stayed visible while the player chose — NOW he jumps:
     // consume the PU and fire the goal event at the moment of takeoff.
     const hopCharged=!!(board[hop.r][hop.c].puClover||board[hop.r][hop.c].sub==='clover'); // player-fired: charged iff origin was clover (capture before consuming)
@@ -4499,7 +4484,7 @@ function playTap(r,c){
         if(playerMode)updatePlayerHUD();
         render(null);
         // Step 3: play out every chained detonation, then settle once
-        processDetonations(queue,phase,()=>settleAndCascade(phase,r,c,chain));
+        processDetonations(queue,phase,()=>settleAndCascade(phase,r,c));
       });
     },230);
     return;
@@ -4578,8 +4563,7 @@ function playTap(r,c){
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
   window._swapPU=0;window._comboSwap=false; // star sensor: new move, new count
-  const chain=Motion.newChain('swap');
-  Motion.claim(chain+'/swap');
+  Motion.claim('swap');
   animateSwap(sr,sc,r,c,html1,html2,()=>{
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
@@ -4600,7 +4584,7 @@ function playTap(r,c){
     if(board[r][c].pu&&board[sr][sc].pu){
       if(entranceMode){
         const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
-        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;        render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseChain(chain);render();});return;
+        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;        render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseAll();render();});return;
       }
       startPUCombo(r,c,sr,sc);
       return;
@@ -4630,7 +4614,7 @@ function playTap(r,c){
       // Nothing happened — revert swap
       const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
       const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
-      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too      render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseChain(chain);render();});return;
+      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too      render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseAll();render();});return;
     }
     moves++;
     updatePlayerHUD();
@@ -4642,23 +4626,19 @@ function playTap(r,c){
         const phase=new Set();
         processDetonations(detQueue,phase,()=>{
           cleared+=phase.size;
-          resolve(pats,r,c,snap,sr,sc,chain);
+          resolve(pats,r,c,snap,sr,sc);
         });
       } else {
-        resolve(pats,r,c,snap,sr,sc,chain);
+        resolve(pats,r,c,snap,sr,sc);
       }
     } else {
       // PU-only swap (or hopper pending): everything through the detonation queue
-      applyEffects([],r,c,detQueue,chain);
+      applyEffects([],r,c,detQueue);
     }
   });
 }
 
-function resolve(pats,dr,dc,snap,sr,sc,chain){
-  // A caller with no chain of its own (a direct call, e.g. the suite) gets one —
-  // AND the board lock that its caller would normally be holding, so the cascade
-  // it kicks off is claimed like any other.
-  if(!chain){ chain=Motion.newChain('resolve'); Motion.claim(chain+'/resolve'); }
+function resolve(pats,dr,dc,snap,sr,sc){
   // ── RULE A (Engine 2): SIMULTANEOUS RESOLUTION ─────────────────────────────
   // Engine 1 resolved pats[0] and made every other match on the board wait a full
   // settle beat — one 4-match here, one 4-match in the far corner, two beats. That
@@ -4759,7 +4739,7 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
   document.getElementById('lastmove').textContent=`#${moves} ${label} +${toClear.length}`;
   // Pop beat → play out queued detonations → gravity → rescan (settleAndCascade)
   setTimeout(()=>{
-    processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc,chain));
+    processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc));
   },230);
 }
 
@@ -5763,15 +5743,14 @@ function applyBooster(r,c){
   window._swapPU=0;window._comboSwap=false; // star sensor: booster = its own initiator
   const def=BOOSTERS.find(x=>x.id===b);
   const cells=drillCells(r,c,def&&def.dirs);      // no dirs (jackhammer) → just the tapped cell
-  const chain=Motion.newChain('booster');
-  Motion.claim(chain+'/booster');
+  Motion.claim('booster');
   const phase=new Set(),queue=[];
   plantClover(cells);                             // a hit is a clear event — plants through clover contact
   cells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue)); // chains/leaves/crates absorb; PUs enqueue
   if(playerMode)updatePlayerHUD();
   render(null);
   phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-  processDetonations(queue,phase,()=>settleAndCascade(phase,r,c,chain));
+  processDetonations(queue,phase,()=>settleAndCascade(phase,r,c));
 }
 
 function showPlayerShell(){
