@@ -1851,9 +1851,7 @@ let levelEngineVersion=1;   // engine declared by the currently-loaded level (1.
 const Motion={
   _claims:new Map(),                                  // tag -> Set('r,c') | null (null = board-wide)
   claim(tag,cells){ this._claims.set(tag, cells?new Set(cells.map(x=>x[0]+','+x[1])):null); this.touch(tag.split('/')[0]); },
-  release(tag){ this._claims.delete(tag); this._maybeQuiet(); },
-  onQuiet:null,                                       // set once, below: what to do when the board stops moving
-  _maybeQuiet(){ if(this._claims.size===0&&this.onQuiet)this.onQuiet(); },
+  release(tag){ this._claims.delete(tag); },
   releaseAll(){ this._claims.clear(); },               // teardown only: a level change ends EVERYTHING
   // CHAIN IDENTITY. One player action and everything that cascades from it is a
   // CHAIN. Claims are keyed 'chain/what', and a chain may only release its own —
@@ -1861,16 +1859,13 @@ const Motion={
   // the OTHER cascade's claims and unlock a board that is still moving.
   _chain:0,
   _seen:new Map(),                                    // chain -> last time it made progress
-  newChain(tag){ const id=(tag||'chain')+'#'+(++this._chain); this._seen.set(id,Date.now());
-    if((tag||'').indexOf('sweep')!==0)_sweptThisEpisode=false;   // real activity — the board may need sweeping again
-    return id; },
+  newChain(tag){ const id=(tag||'chain')+'#'+(++this._chain); this._seen.set(id,Date.now()); return id; },
   touch(chain){ if(chain)this._seen.set(chain,Date.now()); },   // "this chain is still working"
   chains(){ return [...new Set([...this._claims.keys()].map(k=>k.split('/')[0]))]; },
   lastSeen(chain){ return this._seen.get(chain)||0; },
   releaseChain(chain){
     if(!chain){this.releaseAll();return;}              // no chain given = legacy caller = old behaviour
     for(const k of [...this._claims.keys()]) if(k.slice(0,chain.length+1)===chain+'/') this._claims.delete(k);
-    this._maybeQuiet();
   },
   busy(){ return this._claims.size>0; },               // what the old true meant, board-wide
   // May something act HERE? `ignoreChain` asks "is anyone ELSE moving here?" —
@@ -3771,54 +3766,6 @@ function maybeShuffle(silent){
   }
 }
 
-// Is there a hole on this board that should not be there? A plain cell must NEVER
-// sit empty on a settled board. A canal cell (field.empty) is gem-free BY DESIGN and
-// is never a gap — it fills through the ordinary settle when its flow feeds it, and
-// treating it as unfinished business would pre-fill L25's canal before the first move.
-function fillableGap(){
-  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-    const cd=board[r][c];
-    if(!cd.active||cd.obs||cd.item||cd.pu||cd.gem!==null||cd.startEmpty)continue;
-    if(!inPlayWindow(r,c))continue;              // the frozen zone fills when the camera reaches it
-    return true;
-  }
-  return false;
-}
-
-// ── THE BOARD JUST WENT QUIET ────────────────────────────────────────────────
-// This is an EVENT, raised by the motion registry the moment its last claim goes —
-// not something a chain remembers to check on its way out. That distinction is the
-// whole bug Jed hit twice: a chain reaching cascadeEnd while ANOTHER chain still
-// held a claim skipped the sweep, and the chain that actually finished last left by
-// a path with no cascadeEnd at all (a bounced swap just releases and returns). So
-// the board was left holding an unresolved match, or a hole, with nobody coming back
-// for it — and the win/loss check never ran either. Now every release routes here,
-// so it cannot be skipped by any path, present or future.
-let _sweptThisEpisode=false;   // reset by Motion.newChain on any real activity
-let _inQuiet=false;
-function boardQuiet(){
-  if(_inQuiet||!playing)return;                      // re-entrancy: the sweep claims immediately
-  if(choosingRainbow||choosingGrasshopper)return;    // waiting on the PLAYER is not "done"
-  _inQuiet=true;
-  try{
-    if(!_sweptThisEpisode){
-      const left=findPatterns(0,0,0,0);
-      const gap=fillableGap();
-      if(left.length||gap){
-        _sweptThisEpisode=true;                      // one sweep per episode — no sweep→sweep loop
-        const sweep=Motion.newChain('sweep');
-        Motion.claim(sweep+'/resolve');
-        if(left.length) resolve(left,0,0,JSON.parse(JSON.stringify(board)),0,0,sweep);
-        else            settleAndCascade(new Set(),0,0,sweep);  // no match — just fill the holes
-        return;                                      // the sweep will raise this event again when IT is done
-      }
-    }
-    window._moveOverlapped=false;
-    if(playerMode){ updatePlayerHUD(); checkPlayerEnd(); maybeShuffle(); }
-  } finally { _inQuiet=false; }
-}
-Motion.onQuiet=boardQuiet;
-
 // ── STALL WATCHDOG ───────────────────────────────────────────────────────────
 // Still Water made a STUCK CLAIM the new way to break the game: a chain that dies
 // between clearing cells and running gravity leaves its claim standing, and a
@@ -3895,9 +3842,21 @@ function cascadeEnd(chain){
   // freeze Jed hit on the first hand-test: entry-point swap, then a fast
   // downstream swap into the first one's falling water).
   // So: the last chain standing sweeps. Anything left over becomes its own chain.
-  // NOTE: sweeping and the end checks are NOT done here. They belong to the moment
-  // the BOARD goes quiet, which is not the same thing as a chain reaching cascadeEnd
-  // — see boardQuiet(). The releaseChain above is what raises that event.
+  // A sweep never sweeps again: its own cascade rescans normally, and this makes a
+  // sweep→cascadeEnd→sweep loop structurally impossible rather than merely unlikely.
+  // (We are here to stop the board hanging; a hang in the fix would be a poor joke.)
+  if(!Motion.busy()&&chain.indexOf('sweep#')!==0){
+    const left=findPatterns(0,0,0,0);
+    if(left.length){
+      const sweep=Motion.newChain('sweep');
+      Motion.claim(sweep+'/resolve');
+      resolve(left,0,0,JSON.parse(JSON.stringify(board)),0,0,sweep);
+      return;                       // the sweep's own cascadeEnd runs the end checks
+    }
+  }
+  // A win/loss is judged on a board at REST. With Still Water another chain may
+  // still be cascading; the last one standing runs the end checks.
+  if(playerMode&&!Motion.busy()){ window._moveOverlapped=false; checkPlayerEnd(); maybeShuffle(); }
 }
 
 // KEY EXIT: after a settle, any key that has reached the bottom edge of its
