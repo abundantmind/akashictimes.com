@@ -1850,7 +1850,7 @@ let levelEngineVersion=1;   // engine declared by the currently-loaded level (1.
 //   Rule B ("Still Water")       — accept a swap wherever quietAt() says yes.
 const Motion={
   _claims:new Map(),                                  // tag -> Set('r,c') | null (null = board-wide)
-  claim(tag,cells){ this._claims.set(tag, cells?new Set(cells.map(x=>x[0]+','+x[1])):null); this.touch(tag.split('/')[0]); },
+  claim(tag,cells){ this._claims.set(tag, cells?new Set(cells.map(x=>x[0]+','+x[1])):null); },
   release(tag){ this._claims.delete(tag); },
   releaseAll(){ this._claims.clear(); },               // teardown only: a level change ends EVERYTHING
   // CHAIN IDENTITY. One player action and everything that cascades from it is a
@@ -1858,11 +1858,7 @@ const Motion={
   // the moment two cascades can overlap, an end-of-move releaseAll() would free
   // the OTHER cascade's claims and unlock a board that is still moving.
   _chain:0,
-  _seen:new Map(),                                    // chain -> last time it made progress
-  newChain(tag){ const id=(tag||'chain')+'#'+(++this._chain); this._seen.set(id,Date.now()); return id; },
-  touch(chain){ if(chain)this._seen.set(chain,Date.now()); },   // "this chain is still working"
-  chains(){ return [...new Set([...this._claims.keys()].map(k=>k.split('/')[0]))]; },
-  lastSeen(chain){ return this._seen.get(chain)||0; },
+  newChain(tag){ return (tag||'chain')+'#'+(++this._chain); },
   releaseChain(chain){
     if(!chain){this.releaseAll();return;}              // no chain given = legacy caller = old behaviour
     for(const k of [...this._claims.keys()]) if(k.slice(0,chain.length+1)===chain+'/') this._claims.delete(k);
@@ -3766,52 +3762,10 @@ function maybeShuffle(silent){
   }
 }
 
-// ── STALL WATCHDOG ───────────────────────────────────────────────────────────
-// Still Water made a STUCK CLAIM the new way to break the game: a chain that dies
-// between clearing cells and running gravity leaves its claim standing, and a
-// claimed board refuses every tap — the player is frozen with no error on screen.
-// A game must never do that. Every chain reports progress (a claim, a release, or
-// the next detonation in its queue); a chain holding a claim that has said nothing
-// for STALL_MS is dead. Per-CHAIN on purpose — a board-wide "is anything happening"
-// signature hides exactly the bug this is for: a leaked claim on two cells while
-// other chains keep the board looking busy (that is how the L16 combo leak hid).
-// Log the whole state loudly (window.__lastStall — paste it to me), release the
-// dead chain, and finish its unfinished work so the player plays on.
-// This RESCUES; it does not excuse. Every stall recorded is a bug to find.
-const STALL_MS=6000;
-window.__lastStall=null; window.stallCount=0;
-function stallTick(){
-  if(!playing)return;
-  if(choosingRainbow||choosingGrasshopper)return;   // waiting on the PLAYER is not a stall
-  const now=Date.now();
-  for(const ch of Motion.chains()){
-    if(now-Motion.lastSeen(ch)<STALL_MS)continue;   // this chain is still working
-    let empties=0;
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++){const cd=board[r][c];
-      if(cd.active&&!cd.obs&&!cd.item&&!cd.pu&&cd.gem===null&&!cd.startEmpty)empties++;}
-    window.stallCount++;
-    window.__lastStall={when:new Date().toISOString(),level:curLevelNum,deadChain:ch,
-      claims:Motion.tags(),inFlight:inFlight.size,moves,cleared,emptyActive:empties,
-      matches:find3().length,pendingHopper:!!window._pendingHopperChoose,
-      lastMove:(window.moveHistory||[]).slice(-1)[0]};
-    console.error('[stall] chain '+ch+' made no progress for '+STALL_MS+'ms — releasing it',window.__lastStall);
-    Motion.releaseChain(ch);
-    if(window._pendingHopperChoose&&window._pendingHopperChoose.chain===ch)window._pendingHopperChoose=null;
-    if(empties||find3().length){                    // it died mid-clear: finish its work
-      inFlight.clear(); render();
-      settleAndCascade(new Set(),0,0,Motion.newChain('stall-recover'));
-    }
-  }
-}
-setInterval(stallTick,1000);
-window._stallTick=stallTick;
-
 function cascadeEnd(chain){
   updStats();
   // If a player-activated Grasshopper is waiting for fly-to target, enter choosing state
-  // Only the chain that swapped the Grasshopper may open its reticle (see the
-  // stamp in doSwap). A pending choose belonging to another chain waits for it.
-  if(window._pendingHopperChoose&&(!window._pendingHopperChoose.chain||window._pendingHopperChoose.chain===chain)){
+  if(window._pendingHopperChoose){
     const h=window._pendingHopperChoose;
     window._pendingHopperChoose=null;
     choosingGrasshopper={r:h.r,c:h.c,excluded:h.excluded,orthCells:h.orthCells};
@@ -3832,31 +3786,12 @@ function cascadeEnd(chain){
   if(!window._moveOverlapped) window.runMaxSeq=Math.max(window.runMaxSeq||0,window.lastMovePUs);
   if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs in sequence from one move'+(window._moveOverlapped?' (NOT credited — moves overlapped)':''));
   Motion.releaseChain(chain);render(); // this move is fully resolved — its claims, and only its claims, go
-  if(playerMode)updatePlayerHUD();
-  // ── A QUIET BOARD NEVER HOLDS AN UNRESOLVED MATCH ──────────────────────────
-  // Still Water lets a swap commit while ANOTHER chain owns the cells its match
-  // landed on. resolve() correctly refuses to touch them — but then that chain
-  // ends, and if the owning chain has already finished its own scan, the match
-  // sits there with nobody left to notice it. The move counted, nothing happened,
-  // and the board reads as FROZEN even though it accepts input (this is the L25
-  // freeze Jed hit on the first hand-test: entry-point swap, then a fast
-  // downstream swap into the first one's falling water).
-  // So: the last chain standing sweeps. Anything left over becomes its own chain.
-  // A sweep never sweeps again: its own cascade rescans normally, and this makes a
-  // sweep→cascadeEnd→sweep loop structurally impossible rather than merely unlikely.
-  // (We are here to stop the board hanging; a hang in the fix would be a poor joke.)
-  if(!Motion.busy()&&chain.indexOf('sweep#')!==0){
-    const left=findPatterns(0,0,0,0);
-    if(left.length){
-      const sweep=Motion.newChain('sweep');
-      Motion.claim(sweep+'/resolve');
-      resolve(left,0,0,JSON.parse(JSON.stringify(board)),0,0,sweep);
-      return;                       // the sweep's own cascadeEnd runs the end checks
-    }
-  }
   // A win/loss is judged on a board at REST. With Still Water another chain may
   // still be cascading; the last one standing runs the end checks.
-  if(playerMode&&!Motion.busy()){ window._moveOverlapped=false; checkPlayerEnd(); maybeShuffle(); }
+  if(playerMode){
+    updatePlayerHUD();
+    if(!Motion.busy()){ window._moveOverlapped=false; checkPlayerEnd(); maybeShuffle(); }
+  }
 }
 
 // KEY EXIT: after a settle, any key that has reached the bottom edge of its
@@ -3943,12 +3878,10 @@ function clearCellD(r,c,phase,queue){
 }
 
 // Play queued detonations one at a time; each may enqueue more (chains).
-function processDetonations(queue,phase,onDone,chain){
-  Motion.touch(chain);   // a detonation sequence can run for seconds without claiming
-                         // anything new — say so, or the stall watchdog reads it as dead
+function processDetonations(queue,phase,onDone){
   if(!queue.length){onDone();return;}
   const det=queue.shift();
-  const next=()=>processDetonations(queue,phase,onDone,chain);
+  const next=()=>processDetonations(queue,phase,onDone);
   // CLOVER-CHARGE (project_clover_model, unified): a PU is charged if it was
   // DRAGGED off a clover cell (puClover) OR is firing IN PLACE from a clover cell
   // (its own sub==='clover'). Keying the in-place case off the cell's real
@@ -4233,7 +4166,7 @@ function detHopperJump(r,c,phase,queue,next,charged){
 // rides the existing detonation queue, so chain rules, cycle safety and settle
 // timing are untouched. EARNED mechanic: entranceMode still bounces the
 // gesture — the Qualifying level trains solo PUs only (combo level later).
-function startPUCombo(dr,dc,sr,sc,chain){
+function startPUCombo(dr,dc,sr,sc){
   const a={pu:board[dr][dc].pu,r:dr,c:dc}; // dragged PU — landed on the destination
   const b={pu:board[sr][sc].pu,r:sr,c:sc};
   const fam=p=>p==='rainbow'?'ball':p==='bomb'?'scarab':p==='helicopter'?'hopper':'fly';
@@ -4242,10 +4175,7 @@ function startPUCombo(dr,dc,sr,sc,chain){
   const consume=m=>{board[m.r][m.c].pu=null;puFired(m.pu);}; // goal event on consumption
   window._comboSwap=true; // star sensor: the swapped pair counts as ONE initiator
   moves++;updatePlayerHUD();
-  // INHERIT the swap's chain when there is one. A combo that opened its own chain
-  // left the swap's two-cell claim standing forever — those cells never accepted
-  // another tap. Engine 1 hid this: `animating=false` cleared everyone's state.
-  chain=chain||Motion.newChain('combo');
+  const chain=Motion.newChain('combo');
   Motion.claim(chain+'/combo-swap');
 
   if(key==='fly+fly'){            // #7 — cross: full row + full column from the destination
@@ -4332,7 +4262,7 @@ function comboConvertAndDetonate(src,gemIdx){
       if(!board[r][c].pu)return; // already chained away (shouldn't happen pre-deploy)
       queue.push({pu:board[r][c].pu,r,c,consumeOnPlay:true,combo:true});
     });
-    processDetonations(queue,phase,()=>settleAndCascade(phase,src.r,src.c,chain),chain);
+    processDetonations(queue,phase,()=>settleAndCascade(phase,src.r,src.c,chain));
   };
   convertNext();
 }
@@ -4427,7 +4357,7 @@ function hopperSequence(cells,src,chain){
   const maybeFinish=()=>{
     if(!allActivated||inFlight>0)return;
     const rest=chainQueue.filter(d=>d.pu!=='helicopter'); // never re-detonate an absorbed hopper (the empty-grid cross)
-    processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c,chain),chain);
+    processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c,chain));
   };
   const activateNext=()=>{
     // next LIVE helicopter in reading order (re-scanned, so absorbed ones drop out)
@@ -4563,7 +4493,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
   // pop beat first, then play out every queued detonation, THEN settle once
   setTimeout(()=>{
-    processDetonations(queue,phase,()=>settleAndCascade(phase,pivotR,pivotC,chain),chain);
+    processDetonations(queue,phase,()=>settleAndCascade(phase,pivotR,pivotC,chain));
   },queue.length||phase.size?230:0);
 }
 
@@ -4622,7 +4552,7 @@ function playTap(r,c){
         if(playerMode)updatePlayerHUD();
         render(null);
         // Step 3: play out every chained detonation, then settle once
-        processDetonations(queue,phase,()=>settleAndCascade(phase,r,c,chain),chain);
+        processDetonations(queue,phase,()=>settleAndCascade(phase,r,c,chain));
       });
     },230);
     return;
@@ -4729,7 +4659,7 @@ function playTap(r,c){
         const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
         const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;        render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseChain(chain);render();});return;
       }
-      startPUCombo(r,c,sr,sc,chain);   // the combo IS this swap — same chain, or the swap's claim never lifts
+      startPUCombo(r,c,sr,sc);
       return;
     }
     const detQueue=[];
@@ -4748,11 +4678,7 @@ function playTap(r,c){
         // Hopper swapped with a gem: stays visible on its landed cell while
         // choosing — consumed (and goal event fired) only when the jump commits.
         // Choosing opens at cascadeEnd, after simultaneous swap effects settle.
-        // STILL WATER: stamp the chain. This is a handoff from one move to its OWN
-        // cascadeEnd, and with two moves in flight whichever chain finished first
-        // used to consume it — opening a reticle for a Grasshopper the player never
-        // touched, which locks every tap on the board (a reticle claims all input).
-        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set(),orthCells:grasshopperOrthCells(pr,pc),chain}; // own cell included: detonate in place
+        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set(),orthCells:grasshopperOrthCells(pr,pc)}; // own cell included: detonate in place
       }
     }
     // Also collect any normal pattern matches formed by the swap
@@ -4774,7 +4700,7 @@ function playTap(r,c){
         processDetonations(detQueue,phase,()=>{
           cleared+=phase.size;
           resolve(pats,r,c,snap,sr,sc,chain);
-        },chain);
+        });
       } else {
         resolve(pats,r,c,snap,sr,sc,chain);
       }
@@ -4902,7 +4828,7 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
   document.getElementById('lastmove').textContent=`#${moves} ${label} +${toClear.length}`;
   // Pop beat → play out queued detonations → gravity → rescan (settleAndCascade)
   setTimeout(()=>{
-    processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc,chain),chain);
+    processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc,chain));
   },230);
 }
 
@@ -5923,7 +5849,7 @@ function applyBooster(r,c){
   if(playerMode)updatePlayerHUD();
   render(null);
   phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-  processDetonations(queue,phase,()=>settleAndCascade(phase,r,c,chain),chain);
+  processDetonations(queue,phase,()=>settleAndCascade(phase,r,c,chain));
 }
 
 function showPlayerShell(){
