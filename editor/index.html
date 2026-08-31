@@ -1835,33 +1835,7 @@ const randGem=()=>GEM_POOL[~~(Math.random()*GEM_POOL.length)];
 // regime; the pin is for the fork regime).
 const ENGINE_VERSION=1;
 let levelEngineVersion=1;   // engine declared by the currently-loaded level (1..ENGINE_VERSION)
-// ── BOARD MOTION REGISTRY (replaces the global `animating` boolean) ──────────
-// `animating` was one hand-maintained bool separating two universes — "the board
-// is busy" vs "the player may act" — and a single flag has no way to say WHERE.
-// That is exactly why the board freezes whole while one corner cascades, which is
-// the bug Engine 2 exists to fix (project_boolean_universe_separators).
-//
-// Motion is now CLAIMED, by a named sequence, over a set of cells. `null` cells =
-// the whole board. TODAY EVERY CLAIM IS BOARD-WIDE AND EVERY RELEASE RELEASES ALL,
-// so busy()/quietAt() answer exactly what the boolean answered — same behaviour,
-// same suite, no new bugs. What changed is that "is the board busy?" became
-// "is THIS cell busy?", which is the seam the two Engine 2 rules land on:
-//   Rule A (on-arrival matching) — resolve matches inside quiet cells.
-//   Rule B ("Still Water")       — accept a swap wherever quietAt() says yes.
-const Motion={
-  _claims:new Map(),                                  // tag -> Set('r,c') | null (null = board-wide)
-  claim(tag,cells){ this._claims.set(tag, cells?new Set(cells.map(x=>x[0]+','+x[1])):null); },
-  release(tag){ this._claims.delete(tag); },
-  releaseAll(){ this._claims.clear(); },               // what the old false meant: everything is done
-  busy(){ return this._claims.size>0; },               // what the old true meant, board-wide
-  quietAt(r,c){                                        // may the player act HERE?
-    const k=r+','+c;
-    for(const cells of this._claims.values()) if(cells===null||cells.has(k))return false;
-    return true;
-  },
-  tags(){ return [...this._claims.keys()]; },          // debug/invariants view — never a decision input
-};
-let playing=false,mdown=false,selCell=null,choosingRainbow=null,choosingGrasshopper=null;
+let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null,choosingGrasshopper=null;
 // Architect's STICKY play/edit choice (Jed 2026-08-06): the mode is Architect-
 // directed, never a per-open gamble. Default PLAY — opening a saved level, the
 // impulse is to swap, not paint. togglePlay records the Architect's last choice;
@@ -1962,7 +1936,7 @@ async function openTemplate(n){
     json=await resp.json();
   }catch(e){alert('Template '+n+' is not available.');return;}
   if(!loadLevelData(json,n))return; // engine pin refused it — leave the editor where it was
-  playerMode=false;playing=false;entranceMode=false;Motion.releaseAll();
+  playerMode=false;playing=false;entranceMode=false;animating=false;
   flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
   fitEditorBoard(); // scale the grid to fill the viewport (device-independent), not a fixed 44px
   document.body.classList.remove('player-playing'); // editor styling (inactive ghost tiles)
@@ -1992,7 +1966,7 @@ async function openTemplate(n){
 function goHome(){
   document.getElementById('editor').style.display='none';
   document.getElementById('home').style.display='flex';
-  playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;Motion.releaseAll();
+  playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;animating=false;
   clearChoosing(); // Esc out of the editor drops the reticle with the board it belonged to
   GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
   editorBundle=null; // left the editor — no origin bundle to go back to
@@ -2208,7 +2182,7 @@ async function editUserBundleLevel(id,fn){
   catch(e){ alert('Could not open that level: '+e.message); return; }
   saveTargetBundle=id; bundleEditNum=num; editorBundle=null; closeProducts();
   if(!loadLevelData(json,num))return;                        // parsed JSON → editor board (same loader as templates); pin can refuse
-  playerMode=false;playing=false;entranceMode=false;Motion.releaseAll(); flyTeardown(); fitEditorBoard();
+  playerMode=false;playing=false;entranceMode=false;animating=false; flyTeardown(); fitEditorBoard();
   document.body.classList.remove('player-playing');
   for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
   clean();
@@ -2555,7 +2529,7 @@ function buildCellEl(r,c,dropping){
     if(flyLock)return; // flyover cutscene: board is camera-only until the pan rests
     mdown=true;
     // no drag tracking while a booster is armed — that tap is the TARGET tap
-    if(playing&&Motion.quietAt(r,c)&&!choosingRainbow&&!choosingGrasshopper&&!armedBooster)
+    if(playing&&!animating&&!choosingRainbow&&!choosingGrasshopper&&!armedBooster)
       dragSwap={r,c,x:e.clientX,y:e.clientY,id:e.pointerId,fired:false};
     onCell(r,c,e);
   });
@@ -3205,7 +3179,7 @@ function setFlow(f){
   render();
 }
 
-function onCell(r,c,e){if(playing&&Motion.quietAt(r,c)){playTap(r,c);}else if(!playing){paintCell(r,c);}}
+function onCell(r,c,e){if(playing&&!animating){playTap(r,c);}else if(!playing){paintCell(r,c);}}
 
 function paintCell(r,c){
   const cd=board[r][c];
@@ -3276,7 +3250,7 @@ function togglePlay(sandbox=true){
   // the grid into a specific test condition, and resume the SAME run — 3 swaps then
   // an edit then Play resumes on move #4 (Jed 2026-08-06). They reset only on a
   // total reset: opening/reopening a level (openTemplate) or New Level.
-  playing=!playing;Motion.releaseAll();
+  playing=!playing;animating=false;
   clearChoosing(); // Play<->Edit is a hard boundary: no half-finished targeting crosses it
   document.getElementById('mbadge').textContent=playing?'Play':'Editor';
   document.getElementById('mbadge').className='mbadge'+(playing?' play':'');
@@ -3718,7 +3692,7 @@ function shuffleBoard(){
 // After a settle (or at level start): if the goal isn't done and no move exists,
 // reshuffle so the player is never stuck (Township never dead-ends a board).
 function maybeShuffle(silent){
-  if(!playerMode||Motion.busy())return;
+  if(!playerMode||animating)return;
   if(playerGoals.length&&playerGoals.every(goalDone))return; // already won
   if(hasValidMove())return;
   if(shuffleBoard()){
@@ -3736,7 +3710,7 @@ function cascadeEnd(){
     const h=window._pendingHopperChoose;
     window._pendingHopperChoose=null;
     choosingGrasshopper={r:h.r,c:h.c,excluded:h.excluded,orthCells:h.orthCells};
-    Motion.releaseAll();        // the jump waits on the player — the board is theirs again
+    animating=false;
     render();
     if(playerMode)updatePlayerHUD();
     return;
@@ -3748,7 +3722,7 @@ function cascadeEnd(){
   window.lastMovePUs=Math.max(0,(window._swapPU||0)-(window._comboSwap?1:0));
   window.runMaxSeq=Math.max(window.runMaxSeq||0,window.lastMovePUs);
   if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs in sequence from one move');
-  Motion.releaseAll();render(); // the move is fully resolved — nothing is moving
+  animating=false;render();
   if(playerMode){updatePlayerHUD();checkPlayerEnd();maybeShuffle();}
 }
 
@@ -4114,7 +4088,7 @@ function startPUCombo(dr,dc,sr,sc){
   const consume=m=>{board[m.r][m.c].pu=null;puFired(m.pu);}; // goal event on consumption
   window._comboSwap=true; // star sensor: the swapped pair counts as ONE initiator
   moves++;updatePlayerHUD();
-  Motion.claim('combo-swap');   // board-wide today
+  animating=true;
 
   if(key==='fly+fly'){            // #7 — cross: full row + full column from the destination
     consume(a);consume(b);
@@ -4132,7 +4106,7 @@ function startPUCombo(dr,dc,sr,sc){
   }else if(key==='fly+hopper'||key==='hopper+scarab'){ // #1/#4 — jump first, partner fires at the landing
     const hop=pick('hopper'),partner=hop===a?b:a;
     consume(partner); // hopper stays visible until the jump commits (solo behavior)
-    Motion.releaseAll();  // choosing state needs player input
+    animating=false;  // choosing state needs player input
     choosingGrasshopper={r:hop.r,c:hop.c,excluded:new Set(),   // own cell included: detonate in place
       orthCells:grasshopperOrthCells(hop.r,hop.c),comboPartner:partner.pu};
     render(); // vibe opens
@@ -4147,7 +4121,7 @@ function startPUCombo(dr,dc,sr,sc){
   }else{                          // #3/#5/#6 — Ball family: vibe → chosen color BECOMES the partner
     const ball=pick('ball'),partner=ball===a?b:a;
     consume(a);consume(b);
-    Motion.releaseAll(); // waiting on the color pick
+    animating=false; // waiting on the color pick
     choosingRainbow={r:ball.r,c:ball.c,
       convertTo:partner.pu==='helicopter'?'helicopter':partner.pu==='bomb'?'bomb':'rocket'};
     render();
@@ -4162,7 +4136,7 @@ function startPUCombo(dr,dc,sr,sc){
 //   scarabs/dragonflies likewise stay on the board until their cinematic.
 // Fly conversions get a random H/V axis each (spec silent on axis).
 function comboConvertAndDetonate(src,gemIdx){
-  Motion.claim('combo-convert');
+  animating=true;
   const cells=rainbowCells(gemIdx);
   // CLOVER INHERITANCE (Jed 2026-07-23): a combo that TOUCHES clover (e.g. L16's
   // Ball+Dragonfly, both born on clover) spreads it through the whole conversion.
@@ -4416,7 +4390,7 @@ function detHopperCombo(r,c,phase,queue,next,charged){
 // initialQueue lets callers enqueue already-consumed PUs (e.g. a swap-fired
 // Dragonfly) so their cinematics play through the same engine.
 function applyEffects(cellsToClear,pivotR,pivotC,initialQueue){
-  Motion.claim('effects');      // the cascade lock — the claim Rule A will narrow
+  animating=true;
   const phase=new Set();
   const queue=initialQueue||[];
   if(cellsToClear.length)plantClover(cellsToClear); // direct clears = one event (e.g. Ball×Ball board wipe)
@@ -4431,7 +4405,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue){
 }
 
 function playTap(r,c){
-  if(!Motion.quietAt(r,c))return;
+  if(animating)return;
   nudgeFlowIdle(); // player acted: drop the sweep, re-arm the idle clock so it returns if they stall
   // an ARMED booster claims the next board tap (never during a choosing state)
   if(armedBooster&&!choosingRainbow&&!choosingGrasshopper){applyBooster(r,c);return;}
@@ -4455,7 +4429,7 @@ function playTap(r,c){
     if(!cd2||!cd2.active||choosingGrasshopper.excluded.has(k)||(cd2.gem===null&&!cd2.pu&&!cd2.obs)) return;
     const hop=choosingGrasshopper;
     choosingGrasshopper=null;
-    Motion.claim('hopper-jump');
+    animating=true;
     // The Grasshopper stayed visible while the player chose — NOW he jumps:
     // consume the PU and fire the goal event at the moment of takeoff.
     const hopCharged=!!(board[hop.r][hop.c].puClover||board[hop.r][hop.c].sub==='clover'); // player-fired: charged iff origin was clover (capture before consuming)
@@ -4563,7 +4537,7 @@ function playTap(r,c){
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
   window._swapPU=0;window._comboSwap=false; // star sensor: new move, new count
-  Motion.claim('swap');
+  animating=true;
   animateSwap(sr,sc,r,c,html1,html2,()=>{
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
@@ -4584,7 +4558,7 @@ function playTap(r,c){
     if(board[r][c].pu&&board[sr][sc].pu){
       if(entranceMode){
         const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
-        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;        render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseAll();render();});return;
+        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;        render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
       }
       startPUCombo(r,c,sr,sc);
       return;
@@ -4614,7 +4588,7 @@ function playTap(r,c){
       // Nothing happened — revert swap
       const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
       const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
-      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too      render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseAll();render();});return;
+      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too      render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
     }
     moves++;
     updatePlayerHUD();
@@ -5293,7 +5267,7 @@ function findPatterns(dr,dc,sr,sc){
 // threshold, exactly ONE swap fires toward the dominant axis.
 document.addEventListener('pointermove',e=>{
   if(!dragSwap||dragSwap.fired||e.pointerId!==dragSwap.id)return;
-  if(!playing||!Motion.quietAt(dragSwap.r,dragSwap.c))return;
+  if(!playing||animating)return;
   const dx=e.clientX-dragSwap.x, dy=e.clientY-dragSwap.y;
   const TH=Math.max(10,CELL_SIZE*0.3); // ~⅓ cell (min 10px): deliberate flick, not a jitter
   if(Math.max(Math.abs(dx),Math.abs(dy))<TH)return;
@@ -5661,7 +5635,7 @@ function updEditorFrame(){
 }
 
 function armBooster(id){
-  if(Motion.busy())return;
+  if(animating)return;
   armedBooster=armedBooster===id?null:id; // tap again to disarm
   renderBoosterPanel();
   if(playerMode)render(null); // paint/clear the crosshair-target reticle on the board
@@ -5680,7 +5654,7 @@ function applyBooster(r,c){
   window._swapPU=0;window._comboSwap=false; // star sensor: booster = its own initiator
   const def=BOOSTERS.find(x=>x.id===b);
   const cells=drillCells(r,c,def&&def.dirs);      // no dirs (jackhammer) → just the tapped cell
-  Motion.claim('booster');
+  animating=true;
   const phase=new Set(),queue=[];
   plantClover(cells);                             // a hit is a clear event — plants through clover contact
   cells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue)); // chains/leaves/crates absorb; PUs enqueue
@@ -6337,7 +6311,7 @@ function startFlowWatch(){
   stopFlowWatch();
   const geo=boardGeo();
   flowWatch=setInterval(()=>{
-    if(!playerMode||!playing||Motion.busy()||armedBooster||choosingRainbow||choosingGrasshopper){
+    if(!playerMode||!playing||animating||armedBooster||choosingRainbow||choosingGrasshopper){
       clearFlowHints();                                    // board went busy — stand down
       if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
       flowPreviewT=setTimeout(runFlowSweep,FLOW_CALM);     // …and look again when it rests
@@ -6368,7 +6342,7 @@ function runFlowSweep(){
   if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
   // Only sweep when the board is genuinely at rest. Mid-cascade or with a booster
   // armed, wait and look again rather than drawing over a busy board.
-  if(!playerMode||!playing||Motion.busy()||armedBooster||choosingRainbow||choosingGrasshopper){
+  if(!playerMode||!playing||animating||armedBooster||choosingRainbow||choosingGrasshopper){
     flowPreviewT=setTimeout(runFlowSweep,FLOW_CALM); return;
   }
   const bd=document.getElementById('board'); if(!bd)return;
@@ -6716,7 +6690,7 @@ function qlog(event){console.log('[qualify]',new Date().toISOString(),event);}
 
 // ── Entrance completion → survey opt-in → two-path choice ────────────────────
 function showEntranceChoice(){
-  playing=false; Motion.claim('overlay'); // lock the board under the overlay
+  playing=false; animating=true; // lock the board under the overlay
   // Qualification persists on THIS device via localStorage (re-enabled 2026-07-09,
   // Jed's call — entrance spec settled). No server/database: clearing site data
   // (or a different browser/device) re-qualifies. #dev remains the instant bypass.
@@ -6745,7 +6719,7 @@ function surveyContinue(){
 }
 function leaveEntrance(){
   // common teardown for both paths out of the entrance level
-  entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; playerMode=false; playing=false; Motion.releaseAll();
+  entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; playerMode=false; playing=false; animating=false;
   CELL_SIZE=44;
   flyTeardown(); // entrance is never a flyover, but the teardown keeps the wrap styles clean
   document.getElementById('pchoice').classList.remove('open');
@@ -6778,7 +6752,7 @@ function playerFinish(win){
   // PlayerProgress — a test bundle's level numbers collide with the real
   // "Go with the Flow" numbering (no bundle_id yet). See editorSandboxPlay.
   if(editorSandboxPlay){ sandboxPlayerFinish(win); return; }
-  playing=false; Motion.claim('overlay'); // lock the board
+  playing=false; animating=true; // lock the board
   // STAR CANON (sober, Jed 2026-07-29 — see memory project_star_canon):
   // SEQUENTIAL ENABLEMENT — stars are earned strictly in order, AT MOST ONE
   // NEW STAR PER ATTEMPT, so 3-starring on try 1 or 2 is impossible (the
@@ -6830,7 +6804,7 @@ function playerFinish(win){
 // just closes back to the editor's own board, not exitToGrid()'s real-Explore
 // teardown (that assumes a player-shell that doesn't exist here).
 function sandboxPlayerFinish(win){
-  playing=false; Motion.claim('overlay');
+  playing=false; animating=true;
   document.getElementById('pwin-title').textContent=win?TXT('win_title'):TXT('lose_title');
   document.getElementById('pwin-stars').textContent=win?'★★★':'';
   document.getElementById('pwin-msg').textContent=win?TXT('win_msg')(curLevelNum,moves):TXT('try_again');
@@ -6882,7 +6856,7 @@ function clearChoosing(){
 function exitToGrid(){
   clearChoosing();   // no reticle survives leaving the board
   stopFlowPreview(); // leaving the board — kill the loop and its idle timer
-  playing=false; Motion.releaseAll(); playerMode=false;
+  playing=false; animating=false; playerMode=false;
   flyTeardown(); // clear any flyover camera window/transform
   entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; // leaving mid-entrance also restores full gem set
   CELL_SIZE=44; // restore editor's fixed cell size
