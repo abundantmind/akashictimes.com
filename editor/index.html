@@ -1687,27 +1687,17 @@ function setFontSize(size) {
   setFontSize(saved);
 })();
 
-// ── PLAYBACK SPEED IS AN EDITOR DIAL, NOT A GAME SETTING ─────────────────────
-// Jed, 2026-08-30: he set ½× while building a serpentine, went to Explore → Go with
-// the Flow → L23, and PLAYED IT AT HALF SPEED. The dial is a slow-mo tool for
-// inspecting animations, it lives only in the editor toolbar — and it was one global
-// serving two universes, persisted in localStorage, so an architect who ever touched
-// it had every real session on that device slowed forever with no control in the
-// player shell to undo it. Same shape as editorSandboxPlay: one variable, two worlds
-// ([[project_boolean_universe_separators]]).
-// A REAL PLAYER ALWAYS RUNS AT 1×. The dial applies in the editor and its sandbox
-// play, which is where an architect actually wants to watch a cascade crawl.
-let architectSpeed = 1;                       // the toolbar dial (persisted, editor-only)
-const spd = () => (playerMode && !editorSandboxPlay) ? 1 : architectSpeed;
-function setPlaybackSpeed(mult) {   // param renamed: `spd` would shadow the accessor
-  architectSpeed = mult;
-  localStorage.setItem("akashic-playback-speed", mult);
+// Playback speed — multiplier applied to cascade BASE_DUR (1× = normal, 2× = faster)
+let playbackSpeed = 1;
+function setPlaybackSpeed(spd) {
+  playbackSpeed = spd;
+  localStorage.setItem("akashic-playback-speed", spd);
   // Update active button highlight
   ['spd-25','spd-50','spd-100','spd-200'].forEach(id => {
     document.getElementById(id).classList.remove('on');
   });
   const idMap = {0.25:'spd-25', 0.5:'spd-50', 1:'spd-100', 2:'spd-200'};
-  if(idMap[mult]) document.getElementById(idMap[mult]).classList.add('on');
+  if(idMap[spd]) document.getElementById(idMap[spd]).classList.add('on');
 }
 (function() {
   const saved = parseFloat(localStorage.getItem("akashic-playback-speed")) || 1;
@@ -4154,7 +4144,7 @@ function processDetonations(queue,phase,onDone,chain){
 // PURE overlay VFX layered over the detonation engine. These NEVER touch what
 // clears or the resolution order — they draw, animate, and self-remove. The
 // clear still happens through clearCellD in the detXxx functions below exactly
-// as before; the VFX just plays on top of it. Respect spd() like BASE_DUR.
+// as before; the VFX just plays on top of it. Respect playbackSpeed like BASE_DUR.
 
 // Shared clipped overlay layer for detonation VFX. Same principle as #fly-layer:
 // clipped to the union of active-cell rectangles so smoke/bars over a hole or
@@ -4185,7 +4175,7 @@ function vfxLayer(){
 // Township's detonation smoke). Shared by every smoke activation: scarabSmoke
 // (3×3 / 5×5) and ballBallSmoke (whole grid). Lives in the clipped vfxLayer, so
 // any part over a hole or past a board edge is masked. Durations divide by
-// spd(). Charcoal body = high contrast vs the light sand cells (Jed
+// playbackSpeed. Charcoal body = high contrast vs the light sand cells (Jed
 // 2026-08-07); the lighter rim keeps the "puff of smoke" read.
 function smokeCircle(cx,cy,fullDiameter,expandMs,holdMs,contractMs){
   const L=vfxLayer();
@@ -4194,7 +4184,7 @@ function smokeCircle(cx,cy,fullDiameter,expandMs,holdMs,contractMs){
     +'background:radial-gradient(circle,rgba(38,38,44,0.86) 0%,rgba(58,58,68,0.62) 46%,rgba(120,120,132,0.2) 76%,rgba(140,140,152,0) 100%);'
     +'left:'+cx+'px;top:'+cy+'px;width:0px;height:0px;transform:translate(-50%,-50%);opacity:0.95;';
   L.appendChild(puff);
-  const EXPAND=Math.round(expandMs/spd()), HOLD=Math.round(holdMs/spd()), CONTRACT=Math.round(contractMs/spd());
+  const EXPAND=Math.round(expandMs/playbackSpeed), HOLD=Math.round(holdMs/playbackSpeed), CONTRACT=Math.round(contractMs/playbackSpeed);
   const t0=performance.now();
   function expand(now){
     const t=Math.min((now-t0)/EXPAND,1), e=1-Math.pow(1-t,2); // ease-out
@@ -4256,7 +4246,7 @@ function grasshopperCross(r,c){
   const hBar=document.createElement('div'); // horizontal arm — grows in width
   hBar.style.cssText=barCss+'left:'+center.x+'px;top:'+center.y+'px;height:'+thick+'px;width:0px;transform:translate(-50%,-50%);';
   L.appendChild(vBar);L.appendChild(hBar);
-  const GROW=Math.round(130/spd()), HOLD=Math.round(60/spd()), SNAP=Math.round(120/spd());
+  const GROW=Math.round(130/playbackSpeed), HOLD=Math.round(60/playbackSpeed), SNAP=Math.round(120/playbackSpeed);
   const t0=performance.now();
   function grow(now){
     const t=Math.min((now-t0)/GROW,1), e=1-Math.pow(1-t,2); // ease-out
@@ -4375,10 +4365,10 @@ function detHopper(r,c,phase,queue,next,charged){
   // He outlives his own detonation now, so he must not outlive his BOARD. If the
   // level changed while he was in the air, the cell he was aiming at belongs to a
   // different game — he simply doesn't arrive.
-  const bornGen=boardGen;
+  const bornLevel=curLevelNum, bornR=R, bornC=C;
   setTimeout(()=>{
     hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
-      if(boardGen!==bornGen)return;   // he came down on somebody else's board
+      if(curLevelNum!==bornLevel||R!==bornR||C!==bornC)return;
       if(charged)plantClover([[t[0],t[1]]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model — kills L7's "clover before any hopper fires" leak)
       const late=[];                              // a PU under him fires as its own event
       clearCellD(t[0],t[1],phase,late);
@@ -4488,7 +4478,7 @@ function comboConvertAndDetonate(src,gemIdx){
   const HIT_MS=110; // same pace as the solo Ball's laser sweep
   let i=0;
   const convertNext=()=>{
-    if(i>=cells.length){setTimeout(deploy,180/spd());return;}
+    if(i>=cells.length){setTimeout(deploy,180/playbackSpeed);return;}
     const [r,c]=cells[i++];
     Motion.touch(chain);   // a long sweep is WORKING, not stalled — say so every step
     animateLaser(src.r,src.c,r,c,()=>{});
@@ -4543,7 +4533,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
   const actor=document.createElement('div');
   actor.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
     +`pointer-events:none;z-index:22;display:flex;align-items:center;justify-content:center;`
-    +`transition:transform ${Math.round(220/spd())}ms ease-out;`;
+    +`transition:transform ${Math.round(220/playbackSpeed)}ms ease-out;`;
   actor.innerHTML=puSVG('helicopter',gemSize());
   actor.style.left=(center.x-CELL_SIZE/2)+'px';
   actor.style.top =(center.y-CELL_SIZE/2)+'px';
@@ -4560,7 +4550,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
       const bite=document.createElement('div');
       bite.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
         +`pointer-events:none;z-index:21;display:flex;align-items:center;justify-content:center;`
-        +`transition:all ${Math.round(200/spd())}ms ease-in;`;
+        +`transition:all ${Math.round(200/playbackSpeed)}ms ease-in;`;
       bite.innerHTML=el.innerHTML;
       bite.style.left=(p.x-CELL_SIZE/2)+'px';
       bite.style.top =(p.y-CELL_SIZE/2)+'px';
@@ -4585,7 +4575,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
   setTimeout(()=>{
     meals.forEach(({bite})=>bite.remove());
     onFed(actor);
-  },Math.round(240/spd()));
+  },Math.round(240/playbackSpeed));
 }
 
 // SEQUENTIAL HOPPER DEPLOY (#5 / Ball×GH combo — Jed 2026-08-08, SUPERSEDES the
@@ -4643,10 +4633,10 @@ function hopperSequence(cells,src,chain){
       const t=randomHopperTarget(r,c,phase); // combo target stays chaotic (Jed 07-09)
       if(t){
         inFlight++;
-        const bornGen=boardGen;                          // he must not outlive his board
+        const bornLevel=curLevelNum, bornR=R, bornC=C;   // he must not outlive his board
         hopperFlight(makeHopperActor(r,c),r,c,t[0],t[1],()=>{
           inFlight--; Motion.touch(chain);
-          if(boardGen!==bornGen)return;   // he came down on somebody else's board
+          if(curLevelNum!==bornLevel||R!==bornR||C!==bornC)return;
           if(hopCharged)plantClover([[t[0],t[1]]],true); // landing seeds only if it took off charged
           // A LATE ARRIVAL OWNS ITS OWN EVENT. The group's queue may already have
           // been drained by the time he lands, so anything he catches has to fire
@@ -4662,7 +4652,7 @@ function hopperSequence(cells,src,chain){
         });
       }
       activateNext(); // the swarm builds: next one launches while this one is still in the air
-    },Math.round(TAKEOFF_MS/spd()));
+    },Math.round(TAKEOFF_MS/playbackSpeed));
   };
   activateNext();
 }
@@ -4693,7 +4683,7 @@ function spawnHopperTrail(x,y){
   const wrap=document.getElementById('board-wrap');
   const s=Math.max(4,Math.round(gemSize()/4));
   const bit=document.createElement('div');
-  const ms=Math.round(320/spd());
+  const ms=Math.round(320/playbackSpeed);
   bit.style.cssText='position:absolute;pointer-events:none;z-index:21;border-radius:50%;'
     +'width:'+s+'px;height:'+s+'px;left:'+(x-s/2)+'px;top:'+(y-s/2)+'px;'
     +'background:radial-gradient(circle,rgba(96,200,88,0.95),rgba(18,92,30,0.9));'
@@ -4710,7 +4700,7 @@ function spawnHopperTrail(x,y){
 function hopperFlight(actor,fr,fc,tr,tc,onLand){
   const from=cellPos(fr,fc),to=cellPos(tr,tc);
   const dist=Math.hypot(to.x-from.x,to.y-from.y);
-  const dur=Math.max(300,dist*2.2)/spd();
+  const dur=Math.max(300,dist*2.2)/playbackSpeed;
   const lift=Math.min(60,20+dist*0.15);
   const start=performance.now();
   let lastBit=0;
@@ -5541,7 +5531,7 @@ function fallFlightPlan(fallMoves){
     }
     return n;
   };
-  const BASE=260/spd(), STAGGER=40/spd();
+  const BASE=260/playbackSpeed, STAGGER=40/playbackSpeed;
   const plan=[];
   groups.forEach(ms=>{
     // ORDER IS THE WHOLE FIX — the duration was never wrong. dur = BASE·√span gives
@@ -5572,12 +5562,6 @@ function fallFlightPlan(fallMoves){
 }
 window.fallFlightPlan=fallFlightPlan;
 
-// Every board load is a new board, even a REPLAY of the same level. Anything that
-// outlives its own detonation — a Grasshopper in flight — must check this, not the
-// level number: keying on curLevelNum let a hopper born on one L1 land on the NEXT
-// L1 and churn it, which turned two flow-preview invariants red at random.
-let boardGen=0;
-
 // ── ONE FALLING WAVE AT A TIME, BOARD-WIDE ───────────────────────────────────
 // GEMS MAY NEVER OVERLAP (Jed, 2026-08-30, on a serpentine level: "that would defy
 // basic laws of physics, and never happens in Township"). Two fall passes animating
@@ -5605,8 +5589,8 @@ function animateFallNow(fallMoves,onDone){
   const wrap=document.getElementById('board-wrap');
   const boardEl=document.getElementById('board');
   // Base duration for a 1-row fall; multi-row falls scale by sqrt(rows).
-  // Divided by spd(): 2× speed = half duration = faster animation.
-  const BASE_DUR=260/spd();
+  // Divided by playbackSpeed: 2× speed = half duration = faster animation.
+  const BASE_DUR=260/playbackSpeed;
 
   // Pixel top-left of cell (r,c) relative to board-wrap; works for negative r (above board).
   function px(r,c){
@@ -5642,7 +5626,7 @@ function animateFallNow(fallMoves,onDone){
 
   const plan=fallFlightPlan(fallMoves);
   if(!plan.length){onDone();return;}
-  const STAGGER_MS=40/spd();   // (kept for reference; the plan carries the delays)
+  const STAGGER_MS=40/playbackSpeed;   // (kept for reference; the plan carries the delays)
   let doneGems=0;
   const totalGems=plan.length;
   plan.forEach(({move:m,delay,dur})=>{
@@ -6600,7 +6584,6 @@ function loadLevelData(json,num){
   }
   levelEngineVersion=want;
   inFlight.clear(); _fallQueue.length=0; _fallActive=false;   // a new board has nothing in the air
-  boardGen++;   // this is a DIFFERENT board now, even if it is the same level number
   R=json.board.rows; C=json.board.cols;
   // Flyover camera spec (L20+): camera-only presentation of big boards.
   // axis 'y' = tall board, camera window viewRows tall, scrolls DOWN (L20).
