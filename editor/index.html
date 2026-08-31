@@ -5444,29 +5444,9 @@ function fallFlightPlan(fallMoves){
   const BASE=260/playbackSpeed, STAGGER=40/playbackSpeed;
   const plan=[];
   groups.forEach(ms=>{
-    // ORDER IS THE WHOLE FIX — the duration was never wrong. dur = BASE·√span gives
-    // every gem the SAME acceleration (position = t²/BASE² regardless of how far it
-    // is going), so a convoy that starts together moves RIGIDLY: spacing is held,
-    // each gem simply stops when it reaches its own cell, nearest one first. That is
-    // both correct physics and fast — a one-cell drop still takes one cell's time.
-    // What was broken was the STAGGER: it ranked gems by SOURCE COLUMN, so on a
-    // serpentine (where a corridor spans many columns) the LEAD gem could be handed
-    // a later start than the gem behind it — and the follower drove straight through
-    // it. Rank by position along the corridor instead, lead first, and a delay can
-    // only ever hold a gem BACK from the one ahead of it.
-    // (Giving the whole convoy one shared duration also stops overtaking, but it
-    // makes every gem as slow as the slowest — a column stays visibly empty for the
-    // length of its longest fall. Jed saw that immediately: "empty cells scattered
-    // throughout, not being refilled".)
+    const dur=BASE*Math.sqrt(Math.max(...ms.map(spanOf)));   // the convoy's clock
     [...ms].sort((a,b)=>distToExit(a.tr,a.tc)-distToExit(b.tr,b.tc)||spanOf(a)-spanOf(b))
-      // The stagger is CAPPED. A column holds a handful of gems, but a serpentine is
-      // one long corridor — 84 gems at 40ms each put the last one 3.3 SECONDS behind
-      // the first, and the board sat there draining. Flattening the tail is safe: the
-      // no-overtake rule only needs the delay to never DECREASE going upstream, and a
-      // cap is still non-decreasing. Eight steps ≈ the old per-column maximum, which
-      // is where the slinky look was measured from in the first place.
-      .forEach((m,rank)=>plan.push({move:m,delay:Math.min(rank,8)*STAGGER,dur:BASE*Math.sqrt(spanOf(m)),
-                                    span:spanOf(m),path:pathOf(m)}));
+      .forEach((m,rank)=>plan.push({move:m,delay:rank*STAGGER,dur,span:spanOf(m),path:pathOf(m)}));
   });
   return plan;
 }
