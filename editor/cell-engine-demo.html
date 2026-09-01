@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Cell Engine — dev view</title>
+<style>
+  /* On-brand so any capture reads as the product, not a debug rig. */
+  :root{ --bg:#0d0a14; --panel:#130a20; --ink:#e8dcff; --muted:#8a7aa8;
+         --accent:#c792ea; --line:#2a2040; --cell:60px; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font:14px/1.4 -apple-system,system-ui,Menlo,monospace; -webkit-user-select:none; user-select:none; }
+  #wrap{ min-height:100%; display:flex; flex-direction:column; align-items:center; gap:14px; padding:22px 12px; box-sizing:border-box; }
+  header{ text-align:center; }
+  header h1{ margin:0; font:600 20px/1.1 Georgia,serif; color:var(--accent); letter-spacing:.02em; }
+  header .sub{ color:var(--muted); font-size:12px; letter-spacing:.14em; text-transform:uppercase; margin-top:4px; }
+  #hud{ display:flex; gap:16px; align-items:center; color:var(--muted); font-size:12px; }
+  #hud b{ color:var(--ink); }
+  button{ background:var(--panel); color:var(--ink); border:1px solid var(--line);
+    border-radius:8px; padding:8px 14px; cursor:pointer; font:inherit; }
+  button:hover{ background:#1b1030; }
+  canvas{ background:#0a0810; border-radius:16px; border:1px solid var(--line); touch-action:none; }
+  .note{ color:var(--muted); font-size:12px; max-width:520px; text-align:center; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>Akashic Swaps — Cell Engine</h1>
+    <div class="sub">continuous tick loop · dev view</div>
+  </header>
+  <div id="hud">
+    <span>gems <b id="ngem">0</b></span>
+    <span>cleared <b id="nclr">0</b></span>
+    <span>state <b id="state">—</b></span>
+    <button onclick="Demo.avalanche()">Avalanche ⟳</button>
+    <button onclick="Demo.toggle()"><span id="pp">Pause</span></button>
+  </div>
+  <canvas id="board"></canvas>
+  <div class="note" id="note">Click a gem, then an adjacent one, to swap. Every falling gem
+    moves at Township's measured speed (entry 2.3 → terminal 21 cells/sec).</div>
+</div>
+
+<script src="cell-engine.js"></script>
+<script>
+/* Dev view for editor/cell-engine.js. Renders the REAL engine — nothing here
+   simulates the board; it only draws whatever state the engine holds and feeds
+   it swaps and dt. Gems are drawn from the entity model: a SEATED gem at its home
+   cell, a SLIDING gem interpolated from→to by its own progress p. That is the
+   VFX-as-a-function-of-state rule (no separately dispatched effects). */
+const Demo = (function () {
+  const E = window.CellEngine;
+  const ROWS = 10, COLS = 7, SIZE = 60, GAP = 3, PAD = 8;
+  const KINDS = ['R', 'G', 'B', 'Y'];        // 4 colours — cascades are commoner
+  const COLOR = { R:'#ff5d6c', G:'#63d18a', B:'#5aa9ff', Y:'#ffcf5a', P:'#b98cff' };
+  const cv = document.getElementById('board');
+  const ctx = cv.getContext('2d');
+  cv.width  = COLS * (SIZE + GAP) - GAP + PAD * 2;
+  cv.height = ROWS * (SIZE + GAP) - GAP + PAD * 2;
+
+  let world = null, running = true, last = 0, clearedCount = 0, sel = null;
+
+  // Gems stacked in the upper rows with gaps, empty below. On load the whole
+  // stack falls at the measured speed and compacts, and the gaps + random colours
+  // throw off match after match on the way down — a long watchable avalanche,
+  // all real engine behaviour (no scripted clears, no fake refill).
+  function freshSpec() {
+    const g = Array.from({ length: ROWS }, () => Array(COLS).fill('.'));
+    const fillRows = Math.round(ROWS * 0.72);      // top ~72% seeded, rest empty
+    for (let r = 0; r < fillRows; r++) for (let c = 0; c < COLS; c++) {
+      if (Math.random() < 0.22) continue;          // the gaps that drive the cascade
+      g[r][c] = KINDS[(Math.random() * KINDS.length) | 0];   // matches allowed — that's the point
+    }
+    return g.map(row => row.join(''));
+  }
+
+  // Score a candidate by how many gems it clears when dropped — headless, on a
+  // throwaway world. makeWorld(spec) is deterministic, so the animated run of the
+  // same spec cascades identically. A random drop rarely cascades, so we sample
+  // many and keep the juiciest: real boards, filtered for the ones that avalanche.
+  function scoreSpec(spec) {
+    const w = E.makeWorld(spec);
+    let cleared = 0, t = 0;
+    while (t < 800) {
+      const tr = E.tick(w, 1/60);
+      if (tr.cleared) cleared += tr.cleared.length;
+      t++;
+      if (E.isQuiet(w, E.hasMatch(w))) break;
+    }
+    return cleared;
+  }
+
+  function avalanche() {
+    let best = null, bestScore = -1;
+    for (let i = 0; i < 80; i++) {              // best-of-80, a few ms total
+      const spec = freshSpec(), s = scoreSpec(spec);
+      if (s > bestScore) { bestScore = s; best = spec; }
+      if (bestScore >= 22) break;               // good enough, stop early
+    }
+    world = E.makeWorld(best); clearedCount = 0; running = true; ppLabel();
+  }
+
+  const parse = k => k.split(',').map(Number);
+  const cx = c => PAD + c * (SIZE + GAP) + SIZE / 2;
+  const cy = r => PAD + r * (SIZE + GAP) + SIZE / 2;
+
+  function rrect(x, y, w, h, rad) {
+    ctx.beginPath();
+    ctx.moveTo(x+rad,y); ctx.arcTo(x+w,y,x+w,y+h,rad); ctx.arcTo(x+w,y+h,x,y+h,rad);
+    ctx.arcTo(x,y+h,x,y,rad); ctx.arcTo(x,y,x+w,y,rad); ctx.closePath();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    // cell wells
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const cell = world.cells.get(E.CellKey(r, c));
+      if (!cell.active) continue;
+      ctx.fillStyle = '#141020';
+      rrect(cx(c)-SIZE/2, cy(r)-SIZE/2, SIZE, SIZE, 10); ctx.fill();
+      if (sel && sel === E.CellKey(r, c)) {
+        ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 3;
+        rrect(cx(c)-SIZE/2+2, cy(r)-SIZE/2+2, SIZE-4, SIZE-4, 9); ctx.stroke();
+      }
+    }
+    // gems, drawn from entity state
+    for (const g of world.gems.values()) {
+      let x, y;
+      if (g.state === 'SLIDING') {
+        const [fr, fc] = parse(g.from), [tr, tc] = parse(g.to);
+        x = cx(fc) + (cx(tc) - cx(fc)) * g.p;
+        y = cy(fr) + (cy(tr) - cy(fr)) * g.p;
+      } else { const [r, c] = parse(g.home); x = cx(c); y = cy(r); }
+      const s = SIZE - 12;
+      ctx.fillStyle = COLOR[g.kind] || '#fff';
+      rrect(x - s/2, y - s/2, s, s, 12); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.18)';
+      rrect(x - s/2 + 5, y - s/2 + 5, s - 10, (s-10)/2, 8); ctx.fill();
+    }
+  }
+
+  function frame(t) {
+    if (!last) last = t;
+    let dt = (t - last) / 1000; last = t;
+    if (dt > 1/30) dt = 1/30;                 // clamp so a tab stall isn't a teleport
+    if (running && world) {
+      const trace = E.tick(world, dt);
+      if (trace.cleared) clearedCount += trace.cleared.length;
+    }
+    if (world) {
+      render();
+      document.getElementById('ngem').textContent = world.gems.size;
+      document.getElementById('nclr').textContent = clearedCount;
+      document.getElementById('state').textContent =
+        E.isQuiet(world, E.hasMatch(world)) ? 'quiet' : (E.anySliding(world) ? 'falling' : 'resolving');
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // click-to-swap: pick a gem, then an adjacent gem. Applied between frames, so
+  // the swap is an input event and the engine's I5 (no teleport) still holds.
+  function hit(ev) {
+    const rect = cv.getBoundingClientRect();
+    const mx = (ev.clientX - rect.left) * (cv.width / rect.width);
+    const my = (ev.clientY - rect.top) * (cv.height / rect.height);
+    const c = Math.floor((mx - PAD) / (SIZE + GAP)), r = Math.floor((my - PAD) / (SIZE + GAP));
+    if (r < 0 || c < 0 || r >= ROWS || c >= COLS) { sel = null; return; }
+    const key = E.CellKey(r, c);
+    if (!sel) { sel = key; return; }
+    if (sel === key) { sel = null; return; }
+    E.applySwap(world, sel, key);             // returns false if illegal; harmless
+    sel = null;
+  }
+  cv.addEventListener('pointerdown', hit);
+
+  function toggle() { running = !running; ppLabel(); }
+  function ppLabel() { document.getElementById('pp').textContent = running ? 'Pause' : 'Play'; }
+
+  avalanche();
+  requestAnimationFrame(frame);
+  return { avalanche, toggle, get world(){ return world; } };
+})();
+window.Demo = Demo;
+</script>
+</body>
+</html>
