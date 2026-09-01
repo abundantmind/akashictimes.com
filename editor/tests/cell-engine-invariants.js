@@ -207,8 +207,54 @@
       return { pending: true, engine: false, scenarios,
                note: 'no CellEngine yet — invariants declared, awaiting the engine to satisfy them' };
     }
-    // (Filled in as the engine lands; each scenario drives Engine and asserts.)
-    return { pending: true, engine: true, scenarios, note: 'engine present; scenarios not yet wired' };
+
+    // Each scenario builds a world, drives ticks, and asserts the invariants
+    // after EVERY tick (via drive() below), then checks its own end state. A
+    // scenario turns green only when the engine satisfies every invariant on
+    // every tick of it — not just at the end.
+    var results = [], passed = 0;
+    var DT = 1 / 60;
+
+    // drive: run the engine to quiescence, asserting invariants each tick.
+    // Snapshots home before each tick so I5 (motion-only-by-slide) can compare.
+    function drive(w, maxTicks) {
+      var t = 0;
+      while (t < (maxTicks || 600)) {
+        var prevHome = new Map();
+        for (var g of w.gems.values()) prevHome.set(g.id, g.home);
+        var trace = Engine.tick(w, DT);
+        assertInvariants(w, { prevHome: prevHome, seatedThisTick: trace.seatedThisTick,
+                              trace: trace, hasSeatedMatch: false,
+                              reportedQuiet: Engine.isQuiet(w, false) });
+        t++;
+        if (Engine.isQuiet(w, false)) break;
+      }
+      return t;
+    }
+
+    function run(name, fn) {
+      try { fn(); results.push({ name: name, pass: true }); passed++; }
+      catch (e) { results.push({ name: name, pass: false, detail: e.message }); }
+    }
+
+    // Scenario 1 — a single gem falls into the one empty cell below it and seats
+    // exactly once. Exercises I1/I2/I3/I5/I7 across every tick of the fall.
+    run(scenarios[0], function () {
+      var w = Engine.makeWorld(['R', '.']);     // gem 'R' at (0,0), empty at (1,0)
+      var ticks = drive(w, 300);
+      var bottom = w.cells.get(Engine.CellKey(1, 0));
+      var top = w.cells.get(Engine.CellKey(0, 0));
+      if (bottom.occupant == null) throw new Error('gem never reached the bottom cell');
+      if (w.gems.get(bottom.occupant).kind !== 'R') throw new Error('wrong gem at bottom');
+      if (top.occupant != null) throw new Error('top cell still occupied — gem did not move');
+      if (w.gems.size !== 1) throw new Error('gem count changed: ' + w.gems.size);
+      if (!Engine.isQuiet(w, false)) throw new Error('board not quiet after fall');
+      if (ticks < 1) throw new Error('no ticks ran');
+    });
+
+    return { pending: passed < scenarios.length, engine: true,
+             total: scenarios.length, passed: passed, results: results,
+             note: passed + '/' + scenarios.length + ' scenarios green' };
   }
 
   const api = { assertInvariants, runCellInvariants, digest,
