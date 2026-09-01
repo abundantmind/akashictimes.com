@@ -1,0 +1,58 @@
+{
+ "when": "2026-08-30T10:13:17.580Z",
+ "level": 1,
+ "engineVersion": 1,
+ "moves": 0,
+ "claims": [
+  "swap#20/effects"
+ ],
+ "chains": [
+  "swap#20"
+ ],
+ "gemsInFlight": 0,
+ "waitingOnPlayer": {
+  "ball": false,
+  "hopper": false,
+  "booster": null
+ },
+ "camera": {
+  "flyStop": 0,
+  "flyLock": false,
+  "axis": null
+ },
+ "matchesOnBoard": 0,
+ "holeThatShouldFill": true,
+ "hasValidMove": true,
+ "stalls": 2,
+ "lastStall": {
+  "when": "2026-08-30T10:13:17.579Z",
+  "level": 1,
+  "deadChain": "swap#20",
+  "claims": [
+   "swap#20/effects"
+  ],
+  "inFlight": 0,
+  "moves": 0,
+  "cleared": 0,
+  "emptyActive": 2,
+  "matches": 0,
+  "pendingHopper": false
+ },
+ "board": [
+  "3133155",
+  "0552203",
+  "10..022",
+  "1215110",
+  "3030203",
+  "1502330"
+ ],
+ "flow": [
+  "vvvvvvv",
+  "vvvvvvv",
+  "vvvvvvv",
+  "vvvvvvv",
+  "vvvvvvv",
+  "vvvvvvv"
+ ],
+ "lastMoves": []
+}

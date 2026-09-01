@@ -1,0 +1,45 @@
+{
+ "when": "2026-08-29T15:19:28.610Z",
+ "level": 23,
+ "engineVersion": 1,
+ "moves": 0,
+ "claims": [],
+ "chains": [],
+ "gemsInFlight": 0,
+ "waitingOnPlayer": {
+  "ball": false,
+  "hopper": false,
+  "booster": null
+ },
+ "camera": {
+  "flyStop": 1,
+  "flyLock": true,
+  "axis": "x"
+ },
+ "matchesOnBoard": 0,
+ "holeThatShouldFill": false,
+ "hasValidMove": true,
+ "stalls": 0,
+ "lastStall": null,
+ "board": [
+  "  k     k         11XkX21  ",
+  " 310   020       k20X2X03k ",
+  " 1X3 k 1X2      3X220X210X3",
+  "23X00X20X01     X1X12X33X0X",
+  "21X1 X 2X10     X2X30X13X0X",
+  "33X0XXX3X01     X1X31X22X1X",
+  " 0X2XXX1X1       X010X201X ",
+  " 2X2XXX0X1        22X0X02  "
+ ],
+ "flow": [
+  "  v     v         vvvvvvv  ",
+  " vvv   vvv       vvvvvvvvv ",
+  " vvv v vvv      vvvvvvvvvvv",
+  "vvvvvvvvvvv     vvvvvvvvvvv",
+  "vvvv v vvvv     vvvvvvvvvvv",
+  "vvvvvvvvvvv     vvvvvvvvvvv",
+  " vvvvvvvvv       vvvvvvvvv ",
+  " vvvvvvvvv        vvvvvvv  "
+ ],
+ "lastMoves": []
+}

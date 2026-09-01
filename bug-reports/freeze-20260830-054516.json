@@ -1,0 +1,968 @@
+{
+ "when": "2026-08-30T09:45:16.247Z",
+ "level": 2,
+ "engineVersion": 1,
+ "moves": 2,
+ "claims": [
+  "effects#3/fall",
+  "sweep#4/fall"
+ ],
+ "chains": [
+  "effects#3",
+  "sweep#4"
+ ],
+ "gemsInFlight": 37,
+ "waitingOnPlayer": {
+  "ball": false,
+  "hopper": false,
+  "booster": null
+ },
+ "camera": {
+  "flyStop": 0,
+  "flyLock": false,
+  "axis": null
+ },
+ "matchesOnBoard": 6,
+ "holeThatShouldFill": false,
+ "hasValidMove": true,
+ "stalls": 1,
+ "lastStall": {
+  "when": "2026-08-30T09:45:16.247Z",
+  "level": 2,
+  "deadChain": "sweep#4",
+  "claims": [
+   "effects#3/fall",
+   "sweep#4/fall"
+  ],
+  "inFlight": 37,
+  "moves": 2,
+  "cleared": 98,
+  "emptyActive": 0,
+  "matches": 6,
+  "pendingHopper": false,
+  "lastMove": {
+   "move": 2,
+   "src": [
+    0,
+    0
+   ],
+   "dest": [
+    0,
+    0
+   ],
+   "pattern": "basic3",
+   "patterns": 1,
+   "cleared": 12,
+   "boardBefore": [
+    [
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ],
+    [
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ],
+    [
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ],
+    [
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ],
+    [
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ],
+    [
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": null,
+      "active": true,
+      "obs": null,
+      "pu": "helicopter",
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ],
+    [
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null,
+      "puClover": false
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null,
+      "puClover": false
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null,
+      "puClover": false
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null,
+      "puClover": false
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ],
+    [
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 2,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ],
+    [
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 4,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 1,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 3,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 5,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     },
+     {
+      "gem": 0,
+      "active": true,
+      "obs": null,
+      "pu": null,
+      "sub": null,
+      "item": null
+     }
+    ]
+   ]
+  }
+ },
+ "board": [
+  "21250421540",
+  "22205502350",
+  "30233413154",
+  "41241434211",
+  "33050523250",
+  "41S12544503",
+  "12035230231",
+  "40441250254",
+  "53141504135"
+ ],
+ "flow": [
+  ">>>>>>>>>>v",
+  "v<<<<<<<<<<",
+  ">>>>>>>>>>v",
+  "v<<<<<<<<<<",
+  ">>>>>>>>>>v",
+  "v<<<<<<<<<<",
+  ">>>>>>>>>>v",
+  "v<<<<<<<<<<",
+  ">>>>>>>>>>>"
+ ],
+ "lastMoves": [
+  {
+   "move": 1,
+   "src": [
+    6,
+    5
+   ],
+   "dest": [
+    6,
+    6
+   ],
+   "pattern": "basic3",
+   "patterns": 1,
+   "cleared": 3
+  },
+  {
+   "move": 1,
+   "src": [
+    0,
+    0
+   ],
+   "dest": [
+    0,
+    0
+   ],
+   "pattern": "basic3",
+   "patterns": 1,
+   "cleared": 12
+  },
+  {
+   "move": 1,
+   "src": [
+    0,
+    0
+   ],
+   "dest": [
+    0,
+    0
+   ],
+   "pattern": "bomb+rocket_h",
+   "patterns": 2,
+   "cleared": 7
+  },
+  {
+   "move": 1,
+   "src": [
+    0,
+    0
+   ],
+   "dest": [
+    0,
+    0
+   ],
+   "pattern": "helicopter+basic3",
+   "patterns": 2,
+   "cleared": 6
+  },
+  {
+   "move": 2,
+   "src": [
+    0,
+    0
+   ],
+   "dest": [
+    0,
+    0
+   ],
+   "pattern": "basic3",
+   "patterns": 1,
+   "cleared": 12
+  }
+ ]
+}
