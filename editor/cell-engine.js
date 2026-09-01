@@ -69,6 +69,69 @@
     return null;
   }
 
+  // The cell one step DOWNSTREAM (where this cell's gem would fall). Used by the
+  // stability guard: a gem with an empty downstream cell is about to fall and so
+  // must NOT match this tick (key rule — no matching through a passing position).
+  function downstreamOf(cell) {
+    switch (cell.flow) {
+      case 'down':  return [cell.r + 1, cell.c];
+      case 'up':    return [cell.r - 1, cell.c];
+      case 'left':  return [cell.r, cell.c - 1];
+      case 'right': return [cell.r, cell.c + 1];
+    }
+    return null;
+  }
+
+  // The kind of a cell's gem IFF it is SEATED and STABLE (can't fall this tick);
+  // else null. This single predicate is the key rule made executable: MATCH sees
+  // a gem only when it is truly at rest.
+  function stableKind(w, cell) {
+    if (!cell.active || cell.occupant == null) return null;
+    var g = w.gems.get(cell.occupant);
+    if (!g || g.state !== 'SEATED') return null;
+    var d = downstreamOf(cell);
+    if (d) {
+      var dc = w.cells.get(CellKey(d[0], d[1]));
+      if (dc && dc.active && dc.occupant == null && dc.reservedBy == null) return null; // about to fall
+    }
+    return g.kind;
+  }
+
+  // Find every 3+ run (horizontal and vertical) of one kind among stable seated
+  // gems. Returns the union of matched cell keys and the gem ids in them. (L/T
+  // clustering and power-up spawn are a later scenario; a 3-run just clears.)
+  function findMatches(w) {
+    var cellsHit = new Set(), gemIds = new Set();
+    function absorb(run) {
+      if (run.length >= 3) run.forEach(function (key) {
+        cellsHit.add(key);
+        var oc = w.cells.get(key).occupant;
+        if (oc != null) gemIds.add(oc);
+      });
+    }
+    // horizontal
+    for (var r = 0; r < w.rows; r++) {
+      var run = [], kind = null;
+      for (var c = 0; c < w.cols; c++) {
+        var key = CellKey(r, c), k = stableKind(w, w.cells.get(key));
+        if (k != null && k === kind) run.push(key);
+        else { absorb(run); run = (k != null) ? [key] : []; kind = k; }
+      }
+      absorb(run);
+    }
+    // vertical
+    for (var cc = 0; cc < w.cols; cc++) {
+      var vrun = [], vkind = null;
+      for (var rr = 0; rr < w.rows; rr++) {
+        var vkey = CellKey(rr, cc), vk = stableKind(w, w.cells.get(vkey));
+        if (vk != null && vk === vkind) vrun.push(vkey);
+        else { absorb(vrun); vrun = (vk != null) ? [vkey] : []; vkind = vk; }
+      }
+      absorb(vrun);
+    }
+    return { cells: cellsHit, gemIds: gemIds };
+  }
+
   // A gem is movable if it's SEATED and not pinned (obstacles pin later).
   function movable(g) { return g && g.state === 'SEATED'; }
 
@@ -122,7 +185,25 @@
       if (donor.vel === 0) donor.vel = ENTRY;            // start of a fall from rest
     }
 
-    // 3. SPAWN / 4. MATCH / 5. RESOLVE / 6. INPUT — stubs; filled per scenario.
+    // 3. SPAWN — stub (inlets land with the refill scenario).
+
+    // 4. MATCH — 3+ runs among stable seated gems only (key rule via stableKind).
+    var m = findMatches(w);
+
+    // 5. RESOLVE — clear exactly the matched cells. cleared IS matched, by
+    // construction: there is no second coordinate list that could drift from the
+    // match set, which is what makes the phantom clear (I4) unwritable here.
+    if (m.cells.size) {
+      trace.matched = [...m.cells];
+      trace.matchedGemIds = [...m.gemIds];
+      for (var key of m.cells) {
+        var cl = w.cells.get(key);
+        if (cl.occupant != null) { w.gems.delete(cl.occupant); cl.occupant = null; }
+      }
+      trace.cleared = [...m.cells];        // literally the same set — I4 holds
+    }
+
+    // 6. INPUT — swaps are applied by applySwap() between ticks; nothing here.
 
     return trace;
   }
@@ -131,7 +212,30 @@
   function anySliding(w) { for (var g of w.gems.values()) if (g.state === 'SLIDING') return true; return false; }
   function isQuiet(w, hasSeatedMatch) { return !anySliding(w) && !hasSeatedMatch; }
 
+  // Whether a match currently exists among stable seated gems — the second half
+  // of quiescence (I7). Derived, never cached.
+  function hasMatch(w) { return findMatches(w).cells.size > 0; }
+
+  // applySwap — the only way input mutates the board. Swaps two adjacent SEATED
+  // stable gems; returns whether it was accepted (invariant I8's legality is this
+  // predicate). The caller ticks afterward; a resulting match resolves in MATCH.
+  function applySwap(w, ka, kb) {
+    var a = w.cells.get(ka), b = w.cells.get(kb);
+    var seatedStable = function (cell) {
+      if (!cell || cell.occupant == null || cell.reservedBy != null) return false;
+      var g = w.gems.get(cell.occupant);
+      return g && g.state === 'SEATED';
+    };
+    var adjacent = a && b && (Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1);
+    if (!seatedStable(a) || !seatedStable(b) || !adjacent) return false;
+    var ga = w.gems.get(a.occupant), gb = w.gems.get(b.occupant);
+    a.occupant = gb.id; b.occupant = ga.id;
+    ga.home = kb; gb.home = ka;
+    return true;
+  }
+
   var api = { CellKey: CellKey, makeWorld: makeWorld, tick: tick,
+              applySwap: applySwap, hasMatch: hasMatch,
               isQuiet: isQuiet, anySliding: anySliding,
               constants: { ENTRY: ENTRY, ACCEL: ACCEL, TERMINAL: TERMINAL } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

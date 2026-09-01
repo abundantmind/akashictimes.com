@@ -217,18 +217,24 @@
 
     // drive: run the engine to quiescence, asserting invariants each tick.
     // Snapshots home before each tick so I5 (motion-only-by-slide) can compare.
+    // Swaps (when a scenario has them) are applied via Engine.applySwap BEFORE
+    // the prevHome snapshot, so a swap's home change is an INPUT event, not tick
+    // motion — I5 (no teleport) accounts only for what the simulation moved.
     function drive(w, maxTicks) {
-      var t = 0;
+      var t = 0, everCleared = false;
       while (t < (maxTicks || 600)) {
         var prevHome = new Map();
         for (var g of w.gems.values()) prevHome.set(g.id, g.home);
         var trace = Engine.tick(w, DT);
+        if (trace.cleared) everCleared = true;
+        var hasMatch = Engine.hasMatch(w);            // derived truth for I7
         assertInvariants(w, { prevHome: prevHome, seatedThisTick: trace.seatedThisTick,
-                              trace: trace, hasSeatedMatch: false,
-                              reportedQuiet: Engine.isQuiet(w, false) });
+                              trace: trace, hasSeatedMatch: hasMatch,
+                              reportedQuiet: Engine.isQuiet(w, hasMatch) });
         t++;
-        if (Engine.isQuiet(w, false)) break;
+        if (Engine.isQuiet(w, hasMatch)) break;
       }
+      drive.everCleared = everCleared;
       return t;
     }
 
@@ -250,6 +256,35 @@
       if (w.gems.size !== 1) throw new Error('gem count changed: ' + w.gems.size);
       if (!Engine.isQuiet(w, false)) throw new Error('board not quiet after fall');
       if (ticks < 1) throw new Error('no ticks ran');
+    });
+
+    // Scenario 2 — two columns of two gems fall into the empties below. No gem
+    // ever enters a reserved/occupied cell; order within each column is kept.
+    // Exercises I2/I3 across many parallel sliders.
+    run(scenarios[1], function () {
+      var w = Engine.makeWorld(['RG', 'RG', '..', '..']);
+      drive(w, 300);
+      var at = function (r, c) { var o = w.cells.get(Engine.CellKey(r, c)).occupant; return o ? w.gems.get(o).kind : '.'; };
+      if (at(2, 0) !== 'R' || at(3, 0) !== 'R') throw new Error('col 0 did not stack R,R at bottom');
+      if (at(2, 1) !== 'G' || at(3, 1) !== 'G') throw new Error('col 1 did not stack G,G at bottom');
+      if (at(0, 0) !== '.' || at(1, 0) !== '.') throw new Error('col 0 top not vacated');
+      if (w.gems.size !== 4) throw new Error('gem count changed: ' + w.gems.size);
+    });
+
+    // Scenario 3 — clear-on-settle. A red falls into the bottom row, completing
+    // R,R,R which clears the instant it seats — while a blue is still falling
+    // down the same column above it. The clear must take EXACTLY the three reds
+    // (I4) and never the blue (I6, wrong colour and/or still sliding).
+    run(scenarios[2], function () {
+      // (0,0)=B will trail down col 0; (2,0)=R falls to (3,0) completing row 3.
+      var w = Engine.makeWorld(['B..', '...', 'R..', '.RR']);
+      var ticks = drive(w, 400);
+      if (!drive.everCleared) throw new Error('no clear ever happened');
+      if (w.gems.size !== 1) throw new Error('expected only the blue to remain, got ' + w.gems.size);
+      var last = [...w.gems.values()][0];
+      if (last.kind !== 'B') throw new Error('the surviving gem is not the blue: ' + last.kind);
+      if (last.home !== Engine.CellKey(3, 0)) throw new Error('blue did not settle at bottom of col 0: ' + last.home);
+      if (!Engine.isQuiet(w, Engine.hasMatch(w))) throw new Error('board not quiet at end');
     });
 
     return { pending: passed < scenarios.length, engine: true,
