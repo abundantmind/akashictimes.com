@@ -113,7 +113,7 @@ satisfy these; a change that violates one is wrong by definition, not by taste.
 | I4 | **Cleared == Matched.** The set of cells cleared in RESOLVE this tick equals exactly the set the MATCH step marked. Nothing clears unmatched; nothing matched is left uncleared. | **phantom clear (bugs 1 & 3)** |
 | I5 | **Motion only by slide.** A gem's `home` changes only via a SLIDING transition that reached p≥1. No occupant jumps cells without a completed slide. | **wandering power-up (bug 2)** |
 | I6 | **Match reads rest only.** No gem in a MATCH cluster was SLIDING or unstable at MATCH time. | matching through moving water |
-| I7 | **Quiescence is derived.** "Quiet" ⇔ (no SLIDING gem) ∧ (no match among SEATED stable gems). Never remembered per-chain, always computed. | the Still Water freeze class |
+| I7 | **Quiescence is derived.** "Quiet" ⇔ (no SLIDING gem) ∧ (no gem that CAN fall) ∧ (no match among SEATED stable gems). Never remembered per-chain, always computed. | the Still Water freeze class |
 | I8 | **Input legality.** A swap is accepted ⇔ both cells SEATED & stable & adjacent. Derived from state, not a global flag. | swap accepted into moving water / refused wrongly |
 | I9 | **Determinism.** Same `(cells, gems, input, dt-sequence, seed)` ⇒ identical result. Spawns use a seeded PRNG. | non-reproducible cascades; untrustworthy tests |
 | I10 | **The accordion.** A column falls as a Slinky: the gem above a gap starts first, each gem above it delayed ~40ms (Township's measured stagger). A column may never fall as a rigid block at one speed. | the dead, "everything drops at once and at the same speed" look Jed calls the biggest tell of a cheap match-3 |
