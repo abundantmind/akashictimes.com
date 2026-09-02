@@ -203,6 +203,7 @@
       'board goes quiet iff no slider and no seated match',    // I7
       'same seed + inputs ⇒ identical board twice',            // I9
       'a column falls as an accordion, not a rigid block',     // the Slinky/stagger
+      'a gem slips diagonally around a hole to fill under it',  // the drift/diagonal rule
     ];
     if (!Engine) {
       return { pending: true, engine: false, scenarios,
@@ -308,6 +309,22 @@
       if (ticks.length < 3) throw new Error('not all three gems fell: ' + JSON.stringify(launchTick));
       if (!(ticks[0] < ticks[1] && ticks[1] < ticks[2]))
         throw new Error('gems launched together — no accordion (launch ticks ' + ticks + ')');
+    });
+
+    // Scenario 11 — diagonal slip. Board:  R #      R at (0,0), hole at (0,1)
+    //                                       B .      B at (1,0), empty at (1,1)
+    // (1,1)'s straight feed is blocked by the hole at (0,1); B can't fall (bottom
+    // row) so R is stuck too — the ONLY way (1,1) fills is R slipping diagonally
+    // around the hole. If diagonal slip is missing, R stays put and (1,1) stays
+    // empty. R and B are the same region (orthogonally connected via (1,0)).
+    run(scenarios[10], function () {
+      var w = Engine.makeWorld(['R#', 'B.']);
+      drive(w, 300);
+      var at = function (r, c) { var o = w.cells.get(Engine.CellKey(r, c)).occupant; return o ? w.gems.get(o).kind : '.'; };
+      if (at(1, 1) !== 'R') throw new Error('R did not slip diagonally into (1,1); (1,1)=' + at(1, 1));
+      if (at(0, 0) !== '.') throw new Error('(0,0) still occupied — R never moved');
+      if (at(1, 0) !== 'B') throw new Error('B moved when it should have rested at the bottom');
+      if (w.gems.size !== 2) throw new Error('gem count changed: ' + w.gems.size);
     });
 
     return { pending: passed < scenarios.length, engine: true,

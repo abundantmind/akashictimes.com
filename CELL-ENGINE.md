@@ -71,7 +71,9 @@ tick(dt):
   2. GRAVITY   each active empty & unreserved cell pulls ONE upstream donor (per
                its flow; diagonal upstream in the same gravity-region if straight
                upstream is a hole). Donor must be a SEATED movable gem → launch it
-               SLIDING. One donor per cell, one launch per gem, per tick.
+               SLIDING. One donor per cell, one launch per gem, per tick. If the
+               straight feed is hole-blocked, a RESTING diagonal donor slips in
+               instead (I11, drift), same-region only.
   3. SPAWN     each empty & unreserved INLET cell spawns a new gem SLIDING in.
   4. MATCH     scan 3+ runs among SEATED & STABLE gems ONLY (see key rule).
   5. RESOLVE   for each match cluster this tick: clear it (VFX, remove gems, spawn
@@ -117,6 +119,7 @@ satisfy these; a change that violates one is wrong by definition, not by taste.
 | I8 | **Input legality.** A swap is accepted ⇔ both cells SEATED & stable & adjacent. Derived from state, not a global flag. | swap accepted into moving water / refused wrongly |
 | I9 | **Determinism.** Same `(cells, gems, input, dt-sequence, seed)` ⇒ identical result. Spawns use a seeded PRNG. | non-reproducible cascades; untrustworthy tests |
 | I10 | **The accordion.** A column falls as a Slinky: the gem above a gap starts first, each gem above it delayed ~40ms (Township's measured stagger). A column may never fall as a rigid block at one speed. | the dead, "everything drops at once and at the same speed" look Jed calls the biggest tell of a cheap match-3 |
+| I11 | **Diagonal slip (drift).** A cell whose straight feed is blocked forever by a hole is fed from a RESTING diagonal-upstream donor in its OWN gravity region — gems flow around notches instead of leaving dead gaps, and isolated pockets never leak. | dead gaps under every hole; a gem vanishing or a corner island bleeding into the board |
 
 The old suite discovered rules by tripping over their absence. This list is the
 inverse: the rules are declared, and the tests fail until the engine obeys them.

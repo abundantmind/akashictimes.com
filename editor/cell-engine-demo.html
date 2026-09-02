@@ -71,6 +71,10 @@ const Demo = (function () {
       if (Math.random() < 0.22) continue;          // the gaps that drive the cascade
       g[r][c] = KINDS[(Math.random() * KINDS.length) | 0];   // matches allowed — that's the point
     }
+    // Two small holes forming a notch gems flow around (the diagonal-slip rule is
+    // gentle here; its dramatic showcase — gems fanning down a pyramid to the base
+    // corners — needs SPAWN/inlets, the next engine scenario).
+    [[7, 2], [7, 4]].forEach(([hr, hc]) => { if (hr < ROWS && hc < COLS) g[hr][hc] = '#'; });
     return g.map(row => row.join(''));
   }
 
@@ -115,7 +119,7 @@ const Demo = (function () {
     // cell wells
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       const cell = world.cells.get(E.CellKey(r, c));
-      if (!cell.active) continue;
+      if (!cell.active) continue;                 // holes draw nothing — gems flow around them
       ctx.fillStyle = '#141020';
       rrect(cx(c)-SIZE/2, cy(r)-SIZE/2, SIZE, SIZE, 10); ctx.fill();
       if (sel && sel === E.CellKey(r, c)) {

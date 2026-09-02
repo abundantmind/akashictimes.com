@@ -65,6 +65,28 @@
         }
       }
     }
+    // GRAVITY REGIONS (Engine 1's drift fix): orthogonal flood-fill of active
+    // cells. Diagonal slip may only pull a donor from the RECEIVER's OWN region,
+    // so an orthogonally isolated pocket (a corner island) can never leak gems
+    // into the main board — exactly like Township. Active set is fixed, so this
+    // is computed once here, not per tick.
+    var region = new Map(), rid = 0;
+    for (var rr = 0; rr < rows; rr++) for (var cc = 0; cc < cols; cc++) {
+      var k0 = CellKey(rr, cc);
+      if (!cells.get(k0).active || region.has(k0)) continue;
+      var stack = [[rr, cc]]; region.set(k0, rid);
+      while (stack.length) {
+        var q = stack.pop();
+        var nb = [[q[0]-1,q[1]],[q[0]+1,q[1]],[q[0],q[1]-1],[q[0],q[1]+1]];
+        for (var ni = 0; ni < nb.length; ni++) {
+          var nk = CellKey(nb[ni][0], nb[ni][1]), nc2 = cells.get(nk);
+          if (nc2 && nc2.active && !region.has(nk)) { region.set(nk, rid); stack.push(nb[ni]); }
+        }
+      }
+      rid++;
+    }
+    cells.forEach(function (cell, k) { cell.region = region.has(k) ? region.get(k) : -1; });
+
     return { cells: cells, gems: gems, rows: rows, cols: cols };
   }
 
@@ -147,6 +169,45 @@
   // A gem is movable if it's SEATED and not pinned (obstacles pin later).
   function movable(g) { return g && g.state === 'SEATED'; }
 
+  // Launch a donor gem SLIDING from its cell into `cell` (straight or diagonal).
+  function launch(w, donorCell, donor, cell) {
+    donorCell.occupant = null;
+    donorCell.emptyFor = 0;            // just vacated — the gem above it must now wait STAGGER
+    cell.reservedBy = donor.id;
+    donor.state = 'SLIDING';
+    donor.from = CellKey(donorCell.r, donorCell.c);
+    donor.to = CellKey(cell.r, cell.c);
+    donor.p = 0;
+    if (donor.vel === 0) donor.vel = ENTRY;   // beginning a fall from rest
+  }
+
+  // Can this cell's gem fall straight (is the cell directly downstream open)?
+  function canFallStraight(w, cell) {
+    var d = downstreamOf(cell);
+    if (!d) return false;
+    var dc = w.cells.get(CellKey(d[0], d[1]));
+    return !!(dc && dc.active && dc.occupant == null && dc.reservedBy == null);
+  }
+
+  // Is `cell`'s STRAIGHT feed blocked forever by a hole? Walk up the flow axis
+  // past empty active cells: a hole ⇒ blocked (slip around it); open sky above,
+  // or any occupied/reserved cell ⇒ a straight feed is coming, so no slip. This
+  // is what stops a gem slipping when it could simply fall straight.
+  function straightFeedBlocked(w, cell) {
+    var up = upstreamOf(cell);
+    if (!up) return false;
+    var r = up[0], c = up[1];
+    for (;;) {
+      var uc = w.cells.get(CellKey(r, c));
+      if (!uc) return false;                                 // off-board = open sky
+      if (!uc.active) return true;                           // a hole = blocked forever
+      if (uc.occupant != null || uc.reservedBy != null) return false; // straight feed coming
+      var nxt = upstreamOf(uc);                              // empty active: keep walking up
+      if (!nxt) return false;
+      r = nxt[0]; c = nxt[1];
+    }
+  }
+
   // ── the tick loop. Order is fixed (CELL-ENGINE.md §tick). Returns a trace of
   // what happened this tick, which the invariants read (matched/cleared sets,
   // the ids that seated). MATCH/RESOLVE/SPAWN are stubs until a scenario needs
@@ -195,15 +256,38 @@
       if (!donorCell || !donorCell.active) continue;
       var donor = donorCell.occupant != null ? w.gems.get(donorCell.occupant) : null;
       if (!movable(donor)) continue;
-      // launch: donor leaves its cell, reserves this one, begins sliding.
-      donorCell.occupant = null;
-      donorCell.emptyFor = 0;          // just vacated — the gem above it must now wait STAGGER
-      cell.reservedBy = donor.id;
-      donor.state = 'SLIDING';
-      donor.from = CellKey(donorCell.r, donorCell.c);
-      donor.to = CellKey(cell.r, cell.c);
-      donor.p = 0;
-      if (donor.vel === 0) donor.vel = ENTRY;            // start of a fall from rest
+      launch(w, donorCell, donor, cell);
+    }
+
+    // 2b. DIAGONAL SLIP (Engine 1's second-most-important rule). A cell whose
+    // straight feed is blocked FOREVER by a hole is fed from a diagonal-upstream
+    // donor instead — this is what makes gems flow AROUND notches and holes
+    // rather than leaving dead gaps under them. Rules ported exactly: the donor
+    // must be RESTING (cannot fall straight, or it would just do that), in the
+    // receiver's OWN region (no pocket leakage), and reached by slipping around
+    // the hole. Runs after the straight phase, on cells the straight phase left
+    // empty. No holes on a board ⇒ this phase does nothing (down-only levels
+    // behave identically), so it never disturbs scenarios 1–3.
+    for (var rc2 of order) {
+      if (!rc2.active || rc2.occupant != null || rc2.reservedBy != null) continue;
+      if (rc2.emptyFor < STAGGER) continue;
+      if (!straightFeedBlocked(w, rc2)) continue;            // a straight/spawn feed is coming — no slip
+      var up2 = upstreamOf(rc2);
+      if (!up2) continue;
+      // the two cells flanking the upstream, perpendicular to the feed axis
+      var perp = (rc2.flow === 'down' || rc2.flow === 'up')
+        ? [[up2[0], up2[1] - 1], [up2[0], up2[1] + 1]]
+        : [[up2[0] - 1, up2[1]], [up2[0] + 1, up2[1]]];
+      for (var pi = 0; pi < perp.length; pi++) {             // deterministic order (I9); seeded pick is a later refinement
+        var dk = CellKey(perp[pi][0], perp[pi][1]), dCell = w.cells.get(dk);
+        if (!dCell || !dCell.active || dCell.occupant == null) continue;
+        if (dCell.region !== rc2.region) continue;           // own region only
+        var dGem = w.gems.get(dCell.occupant);
+        if (!dGem || dGem.state !== 'SEATED') continue;
+        if (canFallStraight(w, dCell)) continue;             // resting only — if it can fall straight, it does
+        launch(w, dCell, dGem, rc2);
+        break;
+      }
     }
 
     // 3. SPAWN — stub (inlets land with the refill scenario).
@@ -241,10 +325,27 @@
       if (!cell.active || cell.occupant != null || cell.reservedBy != null) continue;
       var up = upstreamOf(cell);
       if (!up) continue;
+      // a straight donor waiting above?
       var dc = w.cells.get(CellKey(up[0], up[1]));
       if (dc && dc.active && dc.occupant != null) {
         var g = w.gems.get(dc.occupant);
         if (g && g.state === 'SEATED') return true;
+      }
+      // or a diagonal slip pending (straight feed blocked, a resting diagonal
+      // donor in region)? Without this a slip-only cell reads as "at rest" and
+      // the loop stops before the gem slips — the diagonal twin of the accordion
+      // quiescence fix.
+      if (straightFeedBlocked(w, cell)) {
+        var perp = (cell.flow === 'down' || cell.flow === 'up')
+          ? [[up[0], up[1] - 1], [up[0], up[1] + 1]]
+          : [[up[0] - 1, up[1]], [up[0] + 1, up[1]]];
+        for (var i = 0; i < perp.length; i++) {
+          var pc = w.cells.get(CellKey(perp[i][0], perp[i][1]));
+          if (pc && pc.active && pc.occupant != null && pc.region === cell.region) {
+            var pg = w.gems.get(pc.occupant);
+            if (pg && pg.state === 'SEATED' && !canFallStraight(w, pc)) return true;
+          }
+        }
       }
     }
     return false;
