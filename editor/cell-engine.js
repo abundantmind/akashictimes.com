@@ -29,6 +29,18 @@
   var ACCEL = 48.0;       // cells/sec² while falling
   var TERMINAL = 21.0;    // cells/sec hard clamp — never exceeded in the capture
 
+  // ── THE ACCORDION (Slinky) — Jed's most significant Engine-1 breakthrough,
+  // and the thing the first cell-engine cut lost. A column must NOT fall as a
+  // rigid block: the gem directly above a gap starts first, and each gem above
+  // THAT delays the start of its own fall. Township's measured stagger is 40ms
+  // (Engine 1's STAGGER_MS, from the L28 slowmo). Modelled locally: a cell must
+  // have been empty at least STAGGER before it may pull the gem above it, so
+  // each freshly-vacated cell waits its turn — the column stretches then
+  // compresses. A gem falling through already-open space is NOT delayed (that
+  // space was empty long ago), so it still falls continuously; only the START
+  // of each gem's fall is staggered, which is exactly the accordion.
+  var STAGGER = 0.040;    // seconds a cell must sit empty before it pulls a donor
+
   // ── world construction ────────────────────────────────────────────────────
   // A world is built from a compact ascii spec (array of equal-length strings):
   //   '.' active empty · '#' hole (inactive) · any letter = a SEATED gem of that
@@ -43,7 +55,7 @@
         var ch = spec[r][c];
         var cell = { r: r, c: c, active: ch !== '#', flow: 'down',
                      substrate: null, obstacle: null, source: null,
-                     occupant: null, reservedBy: null };
+                     occupant: null, reservedBy: null, emptyFor: 0 };
         cells.set(CellKey(r, c), cell);
         if (ch !== '.' && ch !== '#') {
           var id = 'g' + (++gid);
@@ -163,12 +175,20 @@
       }
     }
 
-    // 2. GRAVITY — each active, empty, unreserved cell pulls ONE upstream donor.
-    // Processed flow-downstream-first (bottom rows first for 'down') so a lower
-    // hole fills before the cell above it becomes a donor: one launch per gem.
+    // 2. GRAVITY. First advance the empty-clock: a cell empty and unreserved
+    // this tick ages; anything occupied or reserved is reset to 0, so when it
+    // next empties it starts its stagger fresh. This clock is the accordion.
+    for (var cc of w.cells.values()) {
+      if (cc.active && cc.occupant == null && cc.reservedBy == null) cc.emptyFor += dt;
+      else cc.emptyFor = 0;
+    }
+    // Then pull: each active, empty, unreserved cell that has waited its STAGGER
+    // pulls ONE upstream donor. Bottom-rows-first so a lower hole fills before
+    // the cell above becomes a donor: one launch per gem.
     var order = [...w.cells.values()].sort(function (a, b) { return b.r - a.r; });
     for (var cell of order) {
       if (!cell.active || cell.occupant != null || cell.reservedBy != null) continue;
+      if (cell.emptyFor < STAGGER) continue;         // hasn't waited its turn — the accordion
       var up = upstreamOf(cell);
       if (!up) continue;
       var donorCell = w.cells.get(CellKey(up[0], up[1]));
@@ -177,6 +197,7 @@
       if (!movable(donor)) continue;
       // launch: donor leaves its cell, reserves this one, begins sliding.
       donorCell.occupant = null;
+      donorCell.emptyFor = 0;          // just vacated — the gem above it must now wait STAGGER
       cell.reservedBy = donor.id;
       donor.state = 'SLIDING';
       donor.from = CellKey(donorCell.r, donorCell.c);
@@ -199,6 +220,7 @@
       for (var key of m.cells) {
         var cl = w.cells.get(key);
         if (cl.occupant != null) { w.gems.delete(cl.occupant); cl.occupant = null; }
+        cl.emptyFor = 0;               // a just-popped cell also waits — the beat after a clear
       }
       trace.cleared = [...m.cells];        // literally the same set — I4 holds
     }
@@ -208,9 +230,26 @@
     return trace;
   }
 
-  // ── quiescence is DERIVED (invariant I7), never remembered.
+  // ── quiescence is DERIVED (invariant I7), never remembered. A board is quiet
+  // only when NOTHING is in flight, NOTHING can still fall, and NOTHING matches.
+  // The "can still fall" clause matters now that the accordion delays a launch:
+  // a gem waiting out its stagger is not sliding yet, but the board is plainly
+  // not at rest — omitting this made the driver stop before the first drop.
   function anySliding(w) { for (var g of w.gems.values()) if (g.state === 'SLIDING') return true; return false; }
-  function isQuiet(w, hasSeatedMatch) { return !anySliding(w) && !hasSeatedMatch; }
+  function canFall(w) {
+    for (var cell of w.cells.values()) {
+      if (!cell.active || cell.occupant != null || cell.reservedBy != null) continue;
+      var up = upstreamOf(cell);
+      if (!up) continue;
+      var dc = w.cells.get(CellKey(up[0], up[1]));
+      if (dc && dc.active && dc.occupant != null) {
+        var g = w.gems.get(dc.occupant);
+        if (g && g.state === 'SEATED') return true;
+      }
+    }
+    return false;
+  }
+  function isQuiet(w, hasSeatedMatch) { return !anySliding(w) && !canFall(w) && !hasSeatedMatch; }
 
   // Whether a match currently exists among stable seated gems — the second half
   // of quiescence (I7). Derived, never cached.
@@ -236,8 +275,8 @@
 
   var api = { CellKey: CellKey, makeWorld: makeWorld, tick: tick,
               applySwap: applySwap, hasMatch: hasMatch,
-              isQuiet: isQuiet, anySliding: anySliding,
-              constants: { ENTRY: ENTRY, ACCEL: ACCEL, TERMINAL: TERMINAL } };
+              isQuiet: isQuiet, anySliding: anySliding, canFall: canFall,
+              constants: { ENTRY: ENTRY, ACCEL: ACCEL, TERMINAL: TERMINAL, STAGGER: STAGGER } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else { root.CellEngine = api; root.CellKey = CellKey; }
 })(typeof window !== 'undefined' ? window : globalThis);

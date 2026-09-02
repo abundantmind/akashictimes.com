@@ -89,7 +89,10 @@ Overlap-refill, clear-on-settle, and swaps-during-cascade are **emergent** from
 > **Matches are detected and cleared every tick — but ONLY among SEATED, STABLE
 > gems. A gem SLIDING or about-to-fall can never participate in a match.**
 
-Clear-on-settle falls out for free and correct by construction; nothing ever
+The accordion (I10) is a local per-cell rule: a cell must sit empty ~40ms
+before it may pull the gem above it, so each freshly-vacated cell waits its turn
+and the column stretches then compresses — never a rigid block. Clear-on-settle
+falls out for free and correct by construction; nothing ever
 "matches through" a cell it is only passing. Stability guard: a seated gem with
 an empty/unreserved cell beneath it (per flow) is NOT stable this tick.
 
@@ -113,6 +116,7 @@ satisfy these; a change that violates one is wrong by definition, not by taste.
 | I7 | **Quiescence is derived.** "Quiet" ⇔ (no SLIDING gem) ∧ (no match among SEATED stable gems). Never remembered per-chain, always computed. | the Still Water freeze class |
 | I8 | **Input legality.** A swap is accepted ⇔ both cells SEATED & stable & adjacent. Derived from state, not a global flag. | swap accepted into moving water / refused wrongly |
 | I9 | **Determinism.** Same `(cells, gems, input, dt-sequence, seed)` ⇒ identical result. Spawns use a seeded PRNG. | non-reproducible cascades; untrustworthy tests |
+| I10 | **The accordion.** A column falls as a Slinky: the gem above a gap starts first, each gem above it delayed ~40ms (Township's measured stagger). A column may never fall as a rigid block at one speed. | the dead, "everything drops at once and at the same speed" look Jed calls the biggest tell of a cheap match-3 |
 
 The old suite discovered rules by tripping over their absence. This list is the
 inverse: the rules are declared, and the tests fail until the engine obeys them.

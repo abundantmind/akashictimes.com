@@ -126,9 +126,9 @@
 
   // I7 — Quiescence is derived, never remembered. quiet ⇔ no slider ∧ no seated
   // match. The engine's reported `quiet` must equal the computed truth.
-  function I7_quiescenceDerived(w, reportedQuiet, hasSeatedMatch) {
+  function I7_quiescenceDerived(w, reportedQuiet, hasSeatedMatch, canFall) {
     const anySliding = liveGems(w).some(isSliding);
-    const truth = !anySliding && !hasSeatedMatch;
+    const truth = !anySliding && !hasSeatedMatch && !canFall;   // rest = no motion, none pending, no match
     if (reportedQuiet != null && reportedQuiet !== truth)
       return `I7: engine says quiet=${reportedQuiet} but truth=${truth}`;
     return null;
@@ -178,7 +178,7 @@
       I4_clearedEqualsMatched(ctx.trace),
       I5_motionOnlyBySlide(w, ctx.prevHome, ctx.seatedThisTick),
       I6_matchReadsRest(ctx.trace, w),
-      I7_quiescenceDerived(w, ctx.reportedQuiet, ctx.hasSeatedMatch),
+      I7_quiescenceDerived(w, ctx.reportedQuiet, ctx.hasSeatedMatch, ctx.canFall),
       I8_inputLegality(w, ctx.swap),
     ];
     const bad = checks.find(Boolean);
@@ -202,6 +202,7 @@
       'a power-up never changes cell without a slide',         // I5 (wandering-hopper guard)
       'board goes quiet iff no slider and no seated match',    // I7
       'same seed + inputs ⇒ identical board twice',            // I9
+      'a column falls as an accordion, not a rigid block',     // the Slinky/stagger
     ];
     if (!Engine) {
       return { pending: true, engine: false, scenarios,
@@ -228,8 +229,9 @@
         var trace = Engine.tick(w, DT);
         if (trace.cleared) everCleared = true;
         var hasMatch = Engine.hasMatch(w);            // derived truth for I7
+        var canFall = Engine.canFall(w);
         assertInvariants(w, { prevHome: prevHome, seatedThisTick: trace.seatedThisTick,
-                              trace: trace, hasSeatedMatch: hasMatch,
+                              trace: trace, hasSeatedMatch: hasMatch, canFall: canFall,
                               reportedQuiet: Engine.isQuiet(w, hasMatch) });
         t++;
         if (Engine.isQuiet(w, hasMatch)) break;
@@ -285,6 +287,27 @@
       if (last.kind !== 'B') throw new Error('the surviving gem is not the blue: ' + last.kind);
       if (last.home !== Engine.CellKey(3, 0)) throw new Error('blue did not settle at bottom of col 0: ' + last.home);
       if (!Engine.isQuiet(w, Engine.hasMatch(w))) throw new Error('board not quiet at end');
+    });
+
+    // Scenario 10 — the accordion. Three gems stacked above empty space must
+    // NOT all launch on the same tick; each must start its fall after the one
+    // below it (Township's Slinky, ~40ms stagger). This guards the exact feel
+    // the first cell-engine cut lost — a rigid-block fall would make all three
+    // launch together and fail here.
+    run(scenarios[9], function () {
+      var w = Engine.makeWorld(['R', 'G', 'B', '.', '.', '.']);  // 3 gems over 3 empties
+      var launchTick = {}, t = 0;
+      while (t < 400) {
+        Engine.tick(w, DT);
+        for (var g of w.gems.values())
+          if (g.state === 'SLIDING' && !(g.id in launchTick)) launchTick[g.id] = t;
+        t++;
+        if (Engine.isQuiet(w, Engine.hasMatch(w))) break;
+      }
+      var ticks = Object.keys(launchTick).map(function (k) { return launchTick[k]; }).sort(function (a, b) { return a - b; });
+      if (ticks.length < 3) throw new Error('not all three gems fell: ' + JSON.stringify(launchTick));
+      if (!(ticks[0] < ticks[1] && ticks[1] < ticks[2]))
+        throw new Error('gems launched together — no accordion (launch ticks ' + ticks + ')');
     });
 
     return { pending: passed < scenarios.length, engine: true,
