@@ -126,9 +126,9 @@
 
   // I7 — Quiescence is derived, never remembered. quiet ⇔ no slider ∧ no seated
   // match. The engine's reported `quiet` must equal the computed truth.
-  function I7_quiescenceDerived(w, reportedQuiet, hasSeatedMatch, canFall) {
+  function I7_quiescenceDerived(w, reportedQuiet, hasSeatedMatch, canFall, pendingSpawn) {
     const anySliding = liveGems(w).some(isSliding);
-    const truth = !anySliding && !hasSeatedMatch && !canFall;   // rest = no motion, none pending, no match
+    const truth = !anySliding && !hasSeatedMatch && !canFall && !pendingSpawn;   // rest = nothing moving, pending, or matching
     if (reportedQuiet != null && reportedQuiet !== truth)
       return `I7: engine says quiet=${reportedQuiet} but truth=${truth}`;
     return null;
@@ -178,7 +178,7 @@
       I4_clearedEqualsMatched(ctx.trace),
       I5_motionOnlyBySlide(w, ctx.prevHome, ctx.seatedThisTick),
       I6_matchReadsRest(ctx.trace, w),
-      I7_quiescenceDerived(w, ctx.reportedQuiet, ctx.hasSeatedMatch, ctx.canFall),
+      I7_quiescenceDerived(w, ctx.reportedQuiet, ctx.hasSeatedMatch, ctx.canFall, ctx.pendingSpawn),
       I8_inputLegality(w, ctx.swap),
     ];
     const bad = checks.find(Boolean);
@@ -204,6 +204,7 @@
       'same seed + inputs ⇒ identical board twice',            // I9
       'a column falls as an accordion, not a rigid block',     // the Slinky/stagger
       'a gem slips diagonally around a hole to fill under it',  // the drift/diagonal rule
+      'an empty inlet refills a column from open sky',          // SPAWN
     ];
     if (!Engine) {
       return { pending: true, engine: false, scenarios,
@@ -231,8 +232,10 @@
         if (trace.cleared) everCleared = true;
         var hasMatch = Engine.hasMatch(w);            // derived truth for I7
         var canFall = Engine.canFall(w);
+        var pendingSpawn = Engine.anyPendingSpawn(w);
         assertInvariants(w, { prevHome: prevHome, seatedThisTick: trace.seatedThisTick,
                               trace: trace, hasSeatedMatch: hasMatch, canFall: canFall,
+                              pendingSpawn: pendingSpawn,
                               reportedQuiet: Engine.isQuiet(w, hasMatch) });
         t++;
         if (Engine.isQuiet(w, hasMatch)) break;
@@ -325,6 +328,20 @@
       if (at(0, 0) !== '.') throw new Error('(0,0) still occupied — R never moved');
       if (at(1, 0) !== 'B') throw new Error('B moved when it should have rested at the bottom');
       if (w.gems.size !== 2) throw new Error('gem count changed: ' + w.gems.size);
+    });
+
+    // Scenario 12 — SPAWN. A 1-wide, 2-tall column that starts EMPTY, with
+    // refill on, must fill top-down purely from inlet spawns (four colours, two
+    // cells, so no 3-run can clear — the fill is stable). Every spawned gem is a
+    // legal slider (I2/I3), and the board reaches rest once both cells are full.
+    run(scenarios[11], function () {
+      var w = Engine.makeWorld(['.', '.'], { spawns: true, seed: 7 });
+      drive(w, 300);
+      var top = w.cells.get(Engine.CellKey(0, 0)), bot = w.cells.get(Engine.CellKey(1, 0));
+      if (bot.occupant == null) throw new Error('bottom cell never filled by refill');
+      if (top.occupant == null) throw new Error('inlet never refilled after its gem fell through');
+      if (w.gems.size !== 2) throw new Error('expected 2 gems after fill, got ' + w.gems.size);
+      if (!Engine.isQuiet(w, Engine.hasMatch(w))) throw new Error('board not at rest after refill');
     });
 
     return { pending: passed < scenarios.length, engine: true,

@@ -101,7 +101,11 @@ const Demo = (function () {
       if (s > bestScore) { bestScore = s; best = spec; }
       if (bestScore >= 22) break;               // good enough, stop early
     }
-    world = E.makeWorld(best); clearedCount = 0; running = true; ppLabel();
+    // Animate the chosen board with REFILL ON: cleared columns pour new gems in
+    // from the top (open-sky inlets), so the avalanche is followed by a visible
+    // refill and the odd extra cascade instead of just emptying out.
+    world = E.makeWorld(best, { spawns: true, seed: (Math.random() * 1e9) | 0 });
+    clearedCount = 0; running = true; ppLabel();
   }
 
   const parse = k => k.split(',').map(Number);

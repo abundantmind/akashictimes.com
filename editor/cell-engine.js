@@ -41,6 +41,19 @@
   // of each gem's fall is staggered, which is exactly the accordion.
   var STAGGER = 0.040;    // seconds a cell must sit empty before it pulls a donor
 
+  // Default refill palette. A real level overrides this with its own gem set;
+  // for now spawns draw from four colours. Spawns use the world's seeded PRNG so
+  // a given (board, seed) refills identically every run — invariant I9.
+  var SPAWN_KINDS = ['R', 'G', 'B', 'Y'];
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
   // ── world construction ────────────────────────────────────────────────────
   // A world is built from a compact ascii spec (array of equal-length strings):
   //   '.' active empty · '#' hole (inactive) · any letter = a SEATED gem of that
@@ -87,7 +100,12 @@
     }
     cells.forEach(function (cell, k) { cell.region = region.has(k) ? region.get(k) : -1; });
 
-    return { cells: cells, gems: gems, rows: rows, cols: cols };
+    return { cells: cells, gems: gems, rows: rows, cols: cols,
+             // spawns OFF by default: tests that assert the board SETTLES need no
+             // refill. The real game (and the demo) turn it on for endless play.
+             spawns: !!opts.spawns,
+             rng: mulberry32(opts.seed == null ? 0x9E3779B9 : opts.seed >>> 0),
+             gidSeq: gid };
   }
 
   // ── flow geometry: the cell one step UPSTREAM of (r,c) per its flow. Gravity
@@ -168,6 +186,29 @@
 
   // A gem is movable if it's SEATED and not pinned (obstacles pin later).
   function movable(g) { return g && g.state === 'SEATED'; }
+
+  // An INLET is an active cell fed by open sky — its straight upstream is off the
+  // board. For uniform down-flow that is exactly the active top-row cells. (Painted
+  // inlets and starved-pocket promotion are later refinements.) A single apex
+  // inlet feeds a whole pyramid via diagonal slip — Engine 1's pyramid rhythm.
+  function isInlet(w, cell) {
+    if (!cell.active) return false;
+    var up = upstreamOf(cell);
+    if (!up) return false;
+    return !w.cells.has(CellKey(up[0], up[1]));   // nothing above on the board = open sky
+  }
+
+  // Bring a NEW gem into an empty inlet, sliding in from just above the board.
+  // `from` is a virtual off-board key (row -1); nothing dereferences it as a
+  // cell — it only positions the fly-in — so no phantom cell is created.
+  function spawnGem(w, cell) {
+    var id = 'g' + (++w.gidSeq);
+    var kind = SPAWN_KINDS[Math.floor(w.rng() * SPAWN_KINDS.length)];
+    w.gems.set(id, { id: id, kind: kind, state: 'SLIDING', home: CellKey(cell.r, cell.c),
+                     from: CellKey(cell.r - 1, cell.c), to: CellKey(cell.r, cell.c), p: 0, vel: ENTRY });
+    cell.reservedBy = id;
+    cell.emptyFor = 0;
+  }
 
   // Launch a donor gem SLIDING from its cell into `cell` (straight or diagonal).
   function launch(w, donorCell, donor, cell) {
@@ -290,7 +331,16 @@
       }
     }
 
-    // 3. SPAWN — stub (inlets land with the refill scenario).
+    // 3. SPAWN — an empty open-sky inlet pulls a NEW gem in from off-board.
+    // Stagger-gated like every other fill, so refill obeys the accordion. Off
+    // when w.spawns is false (the settle-checking scenarios leave it off).
+    if (w.spawns) {
+      for (var si of order) {
+        if (!isInlet(w, si) || si.occupant != null || si.reservedBy != null) continue;
+        if (si.emptyFor < STAGGER) continue;
+        spawnGem(w, si);
+      }
+    }
 
     // 4. MATCH — 3+ runs among stable seated gems only (key rule via stableKind).
     var m = findMatches(w);
@@ -350,7 +400,17 @@
     }
     return false;
   }
-  function isQuiet(w, hasSeatedMatch) { return !anySliding(w) && !canFall(w) && !hasSeatedMatch; }
+  // A refill is pending if any inlet stands empty (spawns on) — the board plainly
+  // isn't at rest, so quiescence must include it, same as canFall.
+  function anyPendingSpawn(w) {
+    if (!w.spawns) return false;
+    for (var cell of w.cells.values())
+      if (cell.occupant == null && cell.reservedBy == null && isInlet(w, cell)) return true;
+    return false;
+  }
+  function isQuiet(w, hasSeatedMatch) {
+    return !anySliding(w) && !canFall(w) && !anyPendingSpawn(w) && !hasSeatedMatch;
+  }
 
   // Whether a match currently exists among stable seated gems — the second half
   // of quiescence (I7). Derived, never cached.
@@ -377,6 +437,7 @@
   var api = { CellKey: CellKey, makeWorld: makeWorld, tick: tick,
               applySwap: applySwap, hasMatch: hasMatch,
               isQuiet: isQuiet, anySliding: anySliding, canFall: canFall,
+              anyPendingSpawn: anyPendingSpawn,
               constants: { ENTRY: ENTRY, ACCEL: ACCEL, TERMINAL: TERMINAL, STAGGER: STAGGER } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else { root.CellEngine = api; root.CellKey = CellKey; }

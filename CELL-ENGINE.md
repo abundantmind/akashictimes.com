@@ -74,7 +74,9 @@ tick(dt):
                SLIDING. One donor per cell, one launch per gem, per tick. If the
                straight feed is hole-blocked, a RESTING diagonal donor slips in
                instead (I11, drift), same-region only.
-  3. SPAWN     each empty & unreserved INLET cell spawns a new gem SLIDING in.
+  3. SPAWN     each empty & unreserved INLET cell spawns a new gem SLIDING in
+               from open sky (seeded PRNG, so refill is deterministic — I9).
+               Behind world.spawns; settle-checking scenarios leave it off.
   4. MATCH     scan 3+ runs among SEATED & STABLE gems ONLY (see key rule).
   5. RESOLVE   for each match cluster this tick: clear it (VFX, remove gems, spawn
                PU at anchor, plant clover, splash crates/leaves, enqueue detonations).
