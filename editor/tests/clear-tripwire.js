@@ -43,15 +43,20 @@
     }
     return len(0, 1) >= 3 || len(1, 0) >= 3;
   }
-  // The cause of a clear, read off the call stack: a detonation (power-up blast)
-  // clears NON-matched cells legitimately; the match/sweep path must only clear
-  // real runs. Separating them is what makes a phantom a phantom.
-  function cause() {
-    var s = (new Error()).stack || '';
-    if (/clearCellD|processDetonations|detHopper|detScarab|grasshopper|scarab|rocket|rainbow|\bbomb\b/i.test(s)) return 'detonation';
-    if (/boardQuiet/i.test(s)) return 'sweep';
-    if (/\bresolve\b/i.test(s)) return 'match';
-    return 'other';
+  // Whether a power-up blast is legitimately running RIGHT NOW. Basic matches and
+  // blasts BOTH clear through clearCellD, so the call stack can't tell them apart
+  // (this is the flaw the L2 stress exposed). What CAN: a blast clears non-matched
+  // cells only while processDetonations is on the stack. So a clear with no run
+  // behind it AND no detonation in progress is the phantom — a cell cleared for no
+  // reason at all.
+  window.__detonDepth = 0;
+  if (typeof processDetonations === 'function') {
+    var _proc = processDetonations;
+    processDetonations = function () {
+      window.__detonDepth++;
+      try { return _proc.apply(this, arguments); }
+      finally { window.__detonDepth--; }
+    };
   }
 
   var _clearCell = clearCell;
@@ -63,7 +68,7 @@
         var g = phaseSet ? passSnap.get(phaseSet) : snap();
         window.__clearLog.push({ move: (typeof moves !== 'undefined' ? moves : -1),
           t: Math.round(performance.now()), r: r, c: c, gem: val,
-          via: cause(), runInSnap: runThrough(g, r, c, val) });
+          inDeton: window.__detonDepth > 0, runInSnap: runThrough(g, r, c, val) });
       }
     } catch (e) { /* never let the instrument perturb the run */ }
     return _clearCell.call(this, r, c, phaseSet);
@@ -77,9 +82,10 @@
     };
   }
 
-  // A match/sweep clear with no run behind it = the ghost-clear signature (bug 1).
+  // A clear with NO real run behind it AND NO detonation running to justify it =
+  // a cell cleared for no reason = the ghost-clear signature (bug 1).
   window.__phantoms = function () {
-    return window.__clearLog.filter(function (e) { return (e.via === 'match' || e.via === 'sweep') && !e.runInSnap; });
+    return window.__clearLog.filter(function (e) { return !e.runInSnap && !e.inDeton; });
   };
   // Shatter VFX on a cell that no clear ever removed = the visual-only phantom (bug 2).
   window.__vfxOnly = function () {
