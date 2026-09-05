@@ -3901,7 +3901,7 @@ function stallTick(){
     }
   }
 }
-setInterval(stallTick,1000);
+window.__stallInterval=setInterval(stallTick,1000);
 window._stallTick=stallTick;
 
 function cascadeEnd(chain){

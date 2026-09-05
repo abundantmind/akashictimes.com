@@ -13,6 +13,11 @@
    Add a test the moment a new rule is discovered — that's how it grows teeth.
    ══════════════════════════════════════════════════════════════════════════ */
 window.runInvariants = async function(){
+  // Stop the stall watchdog for the duration of the suite: its setInterval calls
+  // render() on a 1s timer, which races the flow-preview DOM-timing tests and
+  // makes them flaky (they assert on hint layering that a stray render() disturbs).
+  // Play-only vs editor-only never collide in real use — only here. Restored below.
+  try{ if(window.__stallInterval){ clearInterval(window.__stallInterval); window.__stallInterval=null; } }catch(e){}
   const results=[]; let pass=0, fail=0;
   const ok=(name,cond,detail)=>{ const p=!!cond; results.push({name,pass:p,detail}); p?pass++:fail++; };
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
