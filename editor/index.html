@@ -3238,7 +3238,7 @@ function setFlow(f){
   render();
 }
 
-function onCell(r,c,e){if(playing&&Motion.quietAt(r,c)){playTap(r,c);}else if(!playing){paintCell(r,c);}}
+function onCell(r,c,e){if(playing&&(choosingRainbow||choosingGrasshopper||Motion.quietAt(r,c))){playTap(r,c);}else if(!playing){paintCell(r,c);}}
 
 function paintCell(r,c){
   const cd=board[r][c];
@@ -4498,7 +4498,11 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
 }
 
 function playTap(r,c){
-  if(!Motion.quietAt(r,c))return;
+  // A choosing-state tap (Grasshopper / Akasha Ball target pick) is a UI selection
+  // the board is WAITING on — it must land regardless of per-cell motion, exactly
+  // as it did under Engine 1's global `!animating` gate. Only real board moves
+  // (swaps, boosters) are gated on Still Water's per-cell quiet.
+  if(!choosingRainbow&&!choosingGrasshopper&&!Motion.quietAt(r,c))return;
   nudgeFlowIdle(); // player acted: drop the sweep, re-arm the idle clock so it returns if they stall
   // an ARMED booster claims the next board tap (never during a choosing state)
   if(armedBooster&&!choosingRainbow&&!choosingGrasshopper){applyBooster(r,c);return;}
