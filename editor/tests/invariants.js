@@ -529,7 +529,13 @@ window.runInvariants = async function(){
     // finishes." The hints now live in their own layer beside the board. These pin
     // that: the sweep draws, a render cannot touch it, and stopping leaves nothing.
     await startPlayerLevel(25,false); await wait(45);
-    runFlowSweep(); await wait(30);
+    runFlowSweep();
+    // Poll until the sweep has drawn its first chevrons. A fixed sleep here was
+    // flaky: the sweep draws over time and 30ms sometimes landed BEFORE the first
+    // hint, so `drawn===0` failed both this assert and the layering one below with
+    // a misleading message. Waiting for the animation to actually produce output
+    // is the correct wait — the assertions are unchanged.
+    for(let _i=0;_i<120 && document.querySelectorAll('.flowhint').length===0;_i++) await wait(10);
     const drawn=document.querySelectorAll('.flowhint').length;
     ok('flow preview · a sweep actually draws chevrons', drawn>0, drawn);
     ok('flow preview · hints are NOT children of the board (render() wipes it)',
