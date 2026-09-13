@@ -3821,8 +3821,17 @@ function boardQuiet(){
         _sweptThisEpisode=true;                      // one sweep per episode — no sweep→sweep loop
         const sweep=Motion.newChain('sweep');
         Motion.claim(sweep+'/resolve');
-        if(left.length) resolve(left,0,0,JSON.parse(JSON.stringify(board)),0,0,sweep);
-        else            settleAndCascade(new Set(),0,0,sweep);  // no match — just fill the holes
+        // I6 — A MATCH READS REST ONLY. Quiet-by-CLAIMS is not quiet-by-REST: claims==0
+        // means no chain is animating, NOT that every gem has finished falling. So if the
+        // board still owes a fall (a fillable gap), SETTLE FIRST — gravity to a fixpoint,
+        // then settleAndCascade's own post-fall rescan resolves whatever is genuinely
+        // there, on a board at rest. Matching BEFORE the fill let the sweep clear a run
+        // whose gem was about to fall out of it — the L25 phantom clear (and phantom
+        // clover on those cells): a run a settled board would have dissolved. Engine 1
+        // never hit this because it always ran gravity to a fixpoint before it rescanned;
+        // only a gap-free board is at rest, and only then may a stranded match be swept.
+        if(gap)              settleAndCascade(new Set(),0,0,sweep);   // fill first — never match an unsettled board
+        else if(left.length) resolve(left,0,0,JSON.parse(JSON.stringify(board)),0,0,sweep);
         return;                                      // the sweep will raise this event again when IT is done
       }
     }

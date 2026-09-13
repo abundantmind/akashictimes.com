@@ -761,6 +761,34 @@ window.runInvariants = async function(){
         if(cd.active&&!cd.obs&&!cd.item&&!cd.pu&&cd.gem===null&&!cd.startEmpty)empt++;}
       ok('sweep · and it refilled what the sweep cleared', empt===0, empt);
 
+      // I6 — A MATCH READS REST ONLY. The sweep fires on quiet-by-CLAIMS, which is
+      // NOT quiet-by-REST: a run can be 3-in-a-row in the board array while one of its
+      // gems still owes a fall (a hole beneath it). Jed caught this by eye on L25 —
+      // "matches turning into clovered cells where there are no gems to even match":
+      // the sweep cleared (and clovered) a run a SETTLED board would have dissolved.
+      // The tell is timing: the broken sweep clears SYNCHRONOUSLY inside boardQuiet
+      // (resolve → clearCellD, no timer); the fix fills first (settleAndCascade, a
+      // timer) and never clears the run synchronously. So we read the clear log the
+      // instant boardQuiet() returns — before any random refill can form a real match.
+      {
+        Motion.releaseAll();
+        await startPlayerLevel(25,false); await wait(60); if(window.flyover){flyStop=0;flyLock=false;}
+        const K=GEM_POOL[0], J=GEM_POOL[1];
+        for(const [r,c] of [[0,0],[0,1],[0,2]]){ const cd=board[r][c]; cd.gem=K; cd.pu=null; cd.sub='clover'; cd.active=true; cd.obs=null; }
+        board[1][0].gem=J; board[1][2].gem=J; board[1][0].active=true; board[1][2].active=true; // filled, no extension
+        board[1][1].gem=null; board[1][1].active=true; board[1][1].obs=null;                    // the hole under the middle
+        const swClears=[]; const _oc=clearCell; window.clearCell=function(r,c,...a){ swClears.push(r+','+c); return _oc.apply(this,[r,c,...a]); };
+        Motion.newChain('reset'); Motion.releaseAll(); playing=true;   // 'reset' (non-sweep tag) clears _sweptThisEpisode
+        const gapNow=fillableGap();
+        boardQuiet();                                                  // <- synchronous portion decides fill-vs-match
+        const clearedTheRun = ['0,0','0,1','0,2'].some(k=>swClears.includes(k));
+        window.clearCell=_oc;
+        ok('sweep · sees the unsettled board as unfinished (a hole under the run)', gapNow===true, 'no gap seen — scenario invalid');
+        ok('sweep · never clears a run whose gem still owes a fall (I6, the L25 phantom clear)',
+           clearedTheRun===false, 'the sweep phantom-cleared '+swClears.filter(k=>['0,0','0,1','0,2'].includes(k)).join(' '));
+        await wait(700); Motion.releaseAll(); playing=false;           // let the fill timer finish harmlessly
+      }
+
       // THE L23 HALF: no match left over, just a HOLE. One chain's clear can land
       // after another chain's gravity has already run, and the hole it leaves has
       // nobody to fill it — the board goes quiet with empty cells and a level that
