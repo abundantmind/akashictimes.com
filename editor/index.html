@@ -4114,26 +4114,27 @@ function afterFallsLand(cb){
 // Play queued detonations one at a time; each may enqueue more (chains).
 function processDetonations(queue,phase,onDone,chain){
   Motion.touch(chain);
-  // ── ONE INPUT, ONE EXPLOSION (Jed's ruling, 2026-08-30) ─────────────────────
-  // This queue used to play STRICTLY ONE AT A TIME: a Scarab's blast would clear a
-  // Grasshopper, and the Grasshopper's "+" would not appear until the whole cascade
-  // had settled — so the plus bloomed out of a resting gem, seconds after the blast
-  // that caused it. Jed's words: "Arrow pierces bomb which explodes and any PU
-  // inside its explosion area also immediately gets fired... that's the human eye
-  // natural expectation."
-  // So a detonation queue is now a GROUP that fires together. Everything already
-  // queued goes at once, and anything a blast catches while the group is running
-  // joins it immediately instead of waiting for the next settle. The group is done
-  // when its last member is done — same contract to the caller, same phase set,
-  // same clover and goal bookkeeping, just simultaneous instead of single file.
-  // Same shape as Rule A one level down: the engine queued by instinct, and
-  // simultaneity had to be asked for.
-  let running=0, over=false;
+  // ── PU DETONATIONS FIRE ONE AT A TIME, A BEAT APART (Jed 2026-09-13) ─────────
+  // "All matches occur together" (Rule A) is about MATCHES. It was mis-extrapolated
+  // to PU DETONATIONS: the 2026-08-30 "one input, one explosion" pass drained the
+  // whole queue in a single synchronous loop, so a Ball's SPREAD of power-ups all
+  // went off on the same frame. Jed's correction — a spread of PUs fires in READING
+  // ORDER with a small beat between each, and that holds for EVERY multi-PU
+  // detonation. What STAYS from 2026-08-30: a PU a running blast CATCHES mid-
+  // cinematic still fires WITH it — the arrow that pierces a bomb, the bomb goes NOW,
+  // not a beat later (else the Grasshopper's "+" bloomed out of a resting gem seconds
+  // after the blast that caused it). So the INITIAL group is staggered (`spread`, one
+  // every STAGGER_MS, in queue = reading order); anything caught while a detonation
+  // runs (`queue`) drains immediately. Same contract to the caller, same phase set.
+  const STAGGER_MS=100;                // the beat between spread PUs (reading order)
+  const spread=queue.slice();          // the initial group — fired one at a time
+  queue.length=0;                      // `queue` now carries only mid-cinematic catches
+  let running=0, over=false, si=0;
   const finish=()=>{ if(over)return; over=true; onDone(); };
-  const memberDone=()=>{ running--; drain(); if(running===0&&!queue.length)finish(); };
+  const idle=()=>si>=spread.length && running===0 && !queue.length; // nothing left to fire
   const fire=(det)=>{
     running++;
-    const next=()=>{ Motion.touch(chain); memberDone(); };
+    const next=()=>{ Motion.touch(chain); running--; drain(); if(idle())finish(); };
     // CLOVER-CHARGE (project_clover_model, unified): a PU is charged if it was
     // DRAGGED off a clover cell (puClover) OR is firing IN PLACE from a clover cell
     // (its own sub==='clover'). Keying the in-place case off the cell's real
@@ -4169,11 +4170,20 @@ function processDetonations(queue,phase,onDone,chain){
     else if(det.pu==='hopper_jump')detHopperJump(det.r,det.c,phase,queue,next,charged); // combo-spawned jump (no orth blast)
     else next();
   };
-  // Drain everything waiting, then keep watching: a blast that catches a power-up
-  // mid-cinematic pushes it onto the same queue, and it must go NOW, not next beat.
+  // A power-up a running blast CATCHES joins it immediately — drain the catch queue
+  // now, and keep watching for more while anything is still firing (one explosion).
   const drain=()=>{ while(queue.length)fire(queue.shift()); };
-  const watch=()=>{ if(over)return; drain(); if(running>0)setTimeout(watch,30); else finish(); };
-  watch();
+  const watch=()=>{ if(over)return; drain(); if(!idle())setTimeout(watch,30); else finish(); };
+  // The spread fires one at a time, a beat apart (reading order = queue order). A
+  // consume-on-play no-op — a tile a catch already fired — takes no beat, so a dense
+  // spread where early PUs swallow later ones doesn't trail off into dead air.
+  const fireNext=()=>{
+    if(over)return;
+    const before=running; fire(spread[si++]);
+    if(si<spread.length)setTimeout(fireNext, running===before?0:STAGGER_MS);
+    else if(idle())finish();
+  };
+  if(spread.length){ fireNext(); watch(); } else finish();
 }
 
 // SCARAB — 3×3 blast (rad 2 → 5×5 for Scarab×Scarab): one simultaneous pop,
