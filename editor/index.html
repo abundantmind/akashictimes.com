@@ -4520,12 +4520,19 @@ function comboConvertAndDetonate(src,gemIdx){
   // a solo Ball/Dragonfly does.
   const comboTouchesClover=cells.concat([[src.r,src.c]])
     .some(([r,c])=>board[r]&&board[r][c]&&board[r][c].sub==='clover');
-  cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); // reading order: row 1 L→R, row 2…
+  cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); // reading order — this is the ACTIVATION order (deploy, below)
+  // PLACEMENT ORDER (Jed 2026-09-13): Township does NOT convert in a top-left→right,
+  // top→bottom sweep — it scatters the pop, and that reads better. So Phase A (the
+  // laser converting each tile to the partner PU) walks a SHUFFLED order; the PUs
+  // still land on their own gem cells, they just APPEAR in a random sequence. Phase B
+  // (activation/detonation, in deploy) keeps reading order — `cells` stays sorted.
+  const convertOrder=cells.slice();
+  for(let k=convertOrder.length-1;k>0;k--){const j=(Math.random()*(k+1))|0;[convertOrder[k],convertOrder[j]]=[convertOrder[j],convertOrder[k]];}
   const HIT_MS=110; // same pace as the solo Ball's laser sweep
   let i=0;
   const convertNext=()=>{
-    if(i>=cells.length){setTimeout(deploy,180/spd());return;}
-    const [r,c]=cells[i++];
+    if(i>=convertOrder.length){setTimeout(deploy,180/spd());return;}
+    const [r,c]=convertOrder[i++];
     Motion.touch(chain);   // a long sweep is WORKING, not stalled — say so every step
     animateLaser(src.r,src.c,r,c,()=>{});
     setTimeout(()=>{
