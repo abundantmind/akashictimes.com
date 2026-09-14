@@ -4868,19 +4868,22 @@ function playTap(r,c){
     if(playerMode)updatePlayerHUD();
     render(null);
     phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-    // Step 2: after pop, laser to the chosen target, clear it (PU there enqueues too)
+    // Step 2: fire what the orth blast CAUGHT first, THEN the creature flies (Jed
+    // 2026-09-13). A Scarab directly under the Grasshopper detonates WITH the blast
+    // that ignited it — not after the jump lands. The target (and any PU on it) is a
+    // separate event that resolves ON landing; settle once, after both.
     setTimeout(()=>{
-      hopperFlight(hopActor,hop.r,hop.c,r,c,()=>{ // jumpers, not lasers
-        if(hopCharged)plantClover([[r,c]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model)
-        clearCellD(r,c,phase,queue);
-        // Combo partner (#1 Fly×Hopper / #4 Hopper×Scarab): fires FROM the
-        // landing cell, ahead of any chain-caught PUs from the orth blast
-        if(hop.comboPartner)queue.unshift({pu:hop.comboPartner,r,c});
-        if(playerMode)updatePlayerHUD();
-        render(null);
-        // Step 3: play out every chained detonation, then settle once
-        processDetonations(queue,phase,()=>settleAndCascade(phase,r,c,chain),chain);
-      });
+      processDetonations(queue,phase,()=>{           // orth-blast catches (the Scarab) go NOW
+        hopperFlight(hopActor,hop.r,hop.c,r,c,()=>{   // jumpers, not lasers — then the jump
+          if(hopCharged)plantClover([[r,c]],true);    // landing seeds ONLY if the hopper took off charged
+          const tq=[];
+          clearCellD(r,c,phase,tq);                   // the target, and any PU sitting on it
+          if(hop.comboPartner)tq.unshift({pu:hop.comboPartner,r,c}); // combo partner fires FROM the landing cell
+          if(playerMode)updatePlayerHUD();
+          render(null);
+          processDetonations(tq,phase,()=>settleAndCascade(phase,r,c,chain),chain);
+        });
+      },chain);
     },230);
     return;
   }
