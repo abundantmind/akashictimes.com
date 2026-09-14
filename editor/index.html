@@ -1885,6 +1885,22 @@ const Motion={
     for(const k of [...this._claims.keys()]) if(k.slice(0,chain.length+1)===chain+'/') this._claims.delete(k);
     this._maybeQuiet();
   },
+  // Atomically narrow a chain's holds down to a single '/fall' claim on the cells
+  // now in the air — WITHOUT ever passing through zero claims. settleAndCascade used
+  // to releaseChain(chain) (which fires _maybeQuiet → the quiet-sweep) and only THEN
+  // claim the fall: a gap in which the board is already gravity-settled but not yet
+  // animated. In that gap the sweep resolved the just-formed match instantly, so it
+  // cleared BEFORE a single gem visibly fell — Jed's "the blue did not fall, but its
+  // match cleared too early." Claiming the fall first, then dropping the chain's other
+  // holds, closes the gap: a match reads REST, and rest is after the fall lands.
+  replaceChainClaims(chain,cells){
+    const fallTag=chain+'/fall';
+    this._claims.set(fallTag, cells?new Set(cells.map(x=>x[0]+','+x[1])):null);
+    for(const k of [...this._claims.keys()])
+      if(k!==fallTag && k.slice(0,chain.length+1)===chain+'/') this._claims.delete(k);
+    this.touch(chain);
+    // deliberately NO _maybeQuiet: '/fall' is still held, so the board is not quiet.
+  },
   busy(){ return this._claims.size>0; },               // what the old true meant, board-wide
   // May something act HERE? `ignoreChain` asks "is anyone ELSE moving here?" —
   // a chain must not be blocked by the cells it has claimed for its own work.
@@ -4004,11 +4020,13 @@ function settleAndCascade(phase,sr,sc,chain){
   setTimeout(()=>{
     const fallMoves=gravityWithMap();
     // STILL WATER: the pop is over and the board data is already settled — from
-    // here the only thing actually in motion is the fall. Drop this chain's
-    // board-wide holds and claim exactly the falling cells; the rest of the board
-    // becomes playable again while these gems are still in the air.
-    Motion.releaseChain(chain);
-    Motion.claim(chain+'/fall',fallCells(fallMoves));
+    // here the only thing actually in motion is the fall. Narrow this chain's
+    // board-wide holds down to exactly the falling cells, ATOMICALLY, so the rest
+    // of the board becomes playable while these gems are in the air — and so the
+    // claims never dip to zero mid-settle (a zero-claims gap here fires the quiet-
+    // sweep on a gravity-settled-but-unanimated board, clearing a match before the
+    // gems fall — see replaceChainClaims).
+    Motion.replaceChainClaims(chain,fallCells(fallMoves));
     animateFall(fallMoves,()=>{
       Motion.release(chain+'/fall');
       const gotKey=collectExitedKeys(); // keys that reached the bottom exit this settle
