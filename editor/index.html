@@ -6291,6 +6291,20 @@ function applyBooster(r,c){
   window._swapPU=0;window._comboSwap=false; // star sensor: booster = its own initiator
   const def=BOOSTERS.find(x=>x.id===b);
   const cells=drillCells(r,c,def&&def.dirs);      // no dirs (jackhammer) → just the tapped cell
+  // LINEAR-BOOSTER LASER (Jed 2026-09-13): the drills fire the Dragonfly's beam
+  // down each bore direction — the SAME animateLaser, from the tapped cell to the
+  // farthest cell the bore reaches (a wall clips the beam exactly as it clips the
+  // clear). Bidirectional drills (Horizon/Ascension) fire both arms, like a wide
+  // Dragonfly; the diagonals get a diagonal beam for free (atan2 in animateLaser).
+  // The Target (jackhammer, no dirs) stays a point hit — it is not a linear booster.
+  if(def&&def.dirs&&def.dirs.length){
+    def.dirs.forEach(d=>{
+      const v=DIR8[d]; if(!v)return;
+      let er=r, ec=c, nr=r+v[0], nc=c+v[1];       // walk to the bore's stop (drillCells' rule)
+      while(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active&&inPlayWindow(nr,nc)){ er=nr; ec=nc; nr+=v[0]; nc+=v[1]; }
+      animateLaser(r,c,er,ec,()=>{});
+    });
+  }
   const chain=Motion.newChain('booster');
   Motion.claim(chain+'/booster');
   const phase=new Set(),queue=[];
