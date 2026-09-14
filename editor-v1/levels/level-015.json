@@ -1,0 +1,94 @@
+{
+  "schema": "akashic-level/1",
+  "board": {
+    "rows": 9,
+    "cols": 10
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
+      "###....###",
+      "####..####",
+      "##########",
+      "##########",
+      "##########",
+      "###.##.###",
+      "###.##.###",
+      "###.##.###",
+      "###....###"
+    ],
+    "flow": [
+      "vvv....vvv",
+      "vvvv..vvvv",
+      "vvvvvvvvvv",
+      "vvvvvvvvvv",
+      "vvvvvvvvvv",
+      "vvv.vv.vvv",
+      "vvv.vv.vvv",
+      "vvv.vv.vvv",
+      "vvv....vvv"
+    ],
+    "source": [
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      ".........."
+    ],
+    "substrate": [
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..........",
+      "..c.cc.c..",
+      ".cc.cc.cc.",
+      "ccc....ccc"
+    ],
+    "contents": [
+      "ggg....ggg",
+      "gggg..gggg",
+      "gggggggggg",
+      "gggggggggg",
+      "gggggggggg",
+      "ggg.ee.ggg",
+      "eee.ee.eee",
+      "eee.ee.eee",
+      "eee....eee"
+    ],
+    "overlay": [
+      "..........",
+      "..........",
+      "..........",
+      "..BBBBBB..",
+      ".BBBBBBBB.",
+      "BBB....BBB",
+      "..........",
+      "..........",
+      ".........."
+    ]
+  },
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
+  "objectives": [
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 58
+    }
+  ]
+}

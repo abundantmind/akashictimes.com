@@ -1,0 +1,146 @@
+{
+  "schema": "akashic-level/1",
+  "board": {
+    "rows": 9,
+    "cols": 11
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
+      "..#######..",
+      "..#######..",
+      ".#########.",
+      "###########",
+      "#####.#####",
+      "###########",
+      ".#########.",
+      "###########",
+      "###########"
+    ],
+    "flow": [
+      "..vvvvvvv..",
+      "..vvvvvvv..",
+      ".vvvvvvvvv.",
+      "vvvvvvvvvvv",
+      "vvvvv.vvvvv",
+      "vvvvvvvvvvv",
+      ".vvvvvvvvv.",
+      "vvvvvvvvvvv",
+      "vvvvvvvvvvv"
+    ],
+    "source": [
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "..........."
+    ],
+    "substrate": [
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "...........",
+      "..........."
+    ],
+    "contents": [
+      "..ggggggg..",
+      "..ggggggg..",
+      ".ggggggggg.",
+      "gaegeeegeag",
+      "agege.egeaa",
+      "gagggagggga",
+      ".egeaagege.",
+      "gegaggaageg",
+      "ageagaagega"
+    ],
+    "overlay": [
+      "...........",
+      "..B.....B..",
+      ".LBBBBBBBL.",
+      "LL.B...B.LL",
+      "LL.B...B.LL",
+      "LLBBBLBBBLL",
+      "..B.LLL.B..",
+      "L.BLLLLLB.L",
+      "LL.LLLLL.LL"
+    ]
+  },
+  "props": {
+    "contents": {},
+    "overlay": {
+      "R3C0": {
+        "hp": 2
+      },
+      "R3C10": {
+        "hp": 2
+      },
+      "R4C0": {
+        "hp": 2
+      },
+      "R4C10": {
+        "hp": 2
+      },
+      "R5C0": {
+        "hp": 2
+      },
+      "R5C10": {
+        "hp": 2
+      },
+      "R6C5": {
+        "hp": 2
+      },
+      "R7C4": {
+        "hp": 2
+      },
+      "R7C5": {
+        "hp": 2
+      },
+      "R7C6": {
+        "hp": 2
+      },
+      "R8C0": {
+        "hp": 2
+      },
+      "R8C3": {
+        "hp": 2
+      },
+      "R8C4": {
+        "hp": 2
+      },
+      "R8C5": {
+        "hp": 2
+      },
+      "R8C6": {
+        "hp": 2
+      },
+      "R8C7": {
+        "hp": 2
+      },
+      "R8C10": {
+        "hp": 2
+      }
+    }
+  },
+  "borders": [],
+  "objectives": [
+    {
+      "type": "collect",
+      "item": "acorn",
+      "count": 18
+    }
+  ]
+}

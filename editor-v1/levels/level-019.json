@@ -1,0 +1,137 @@
+{
+  "schema": "akashic-level/1",
+  "board": {
+    "rows": 8,
+    "cols": 7
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######",
+      "#######"
+    ],
+    "flow": [
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv",
+      "vvvvvvv"
+    ],
+    "source": [
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      "......."
+    ],
+    "substrate": [
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      ".......",
+      "......."
+    ],
+    "contents": [
+      "ggggggg",
+      "ggggggg",
+      "gagagag",
+      "eeeeeee",
+      "eeeaeee",
+      "eeaggee",
+      "egaggae",
+      "aagaggg"
+    ],
+    "overlay": [
+      ".......",
+      ".......",
+      "LLLLLLL",
+      ".......",
+      "...L...",
+      "..LLL..",
+      ".LLLLL.",
+      "LLLLLLL"
+    ]
+  },
+  "props": {
+    "contents": {},
+    "overlay": {
+      "R4C3": {
+        "hp": 2
+      },
+      "R5C2": {
+        "hp": 2
+      },
+      "R5C3": {
+        "hp": 2
+      },
+      "R5C4": {
+        "hp": 2
+      },
+      "R6C1": {
+        "hp": 2
+      },
+      "R6C2": {
+        "hp": 2
+      },
+      "R6C3": {
+        "hp": 2
+      },
+      "R6C4": {
+        "hp": 2
+      },
+      "R6C5": {
+        "hp": 2
+      },
+      "R7C0": {
+        "hp": 2
+      },
+      "R7C1": {
+        "hp": 2
+      },
+      "R7C2": {
+        "hp": 2
+      },
+      "R7C3": {
+        "hp": 2
+      },
+      "R7C4": {
+        "hp": 2
+      },
+      "R7C5": {
+        "hp": 2
+      },
+      "R7C6": {
+        "hp": 2
+      }
+    }
+  },
+  "borders": [],
+  "objectives": [
+    {
+      "type": "collect",
+      "item": "acorn",
+      "count": 10
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "schema": "akashic-level/1",
+  "board": {
+    "rows": 9,
+    "cols": 9
+  },
+  "gemTypes": [
+    "red",
+    "blue",
+    "yellow",
+    "green"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########",
+      "#########"
+    ],
+    "flow": [
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv",
+      "vvvvvvvvv"
+    ],
+    "source": [
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "substrate": [
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "....c....",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "contents": [
+      "ggggggggg",
+      "ggggggggg",
+      "ggggggggg",
+      "ggggggggg",
+      "ggggggggg",
+      "ggggggggg",
+      "ggggggggg",
+      "ggggggggg",
+      "ggggggggg"
+    ],
+    "overlay": [
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ]
+  },
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
+  "objectives": [
+    {
+      "type": "plant",
+      "obstacle": "clover",
+      "count": 80
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "schema": "akashic-level/1",
+  "board": {
+    "rows": 8,
+    "cols": 8
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
+      "########",
+      "########",
+      "########",
+      "########",
+      "#####...",
+      "#####...",
+      "#####...",
+      "#####..."
+    ],
+    "flow": [
+      "vvvvvvvv",
+      "vvvvvvvv",
+      "vvvvvvvv",
+      "vvvvvvvv",
+      "vvvvv...",
+      "vvvvv...",
+      "vvvvv...",
+      "vvvvv..."
+    ],
+    "source": [
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........"
+    ],
+    "substrate": [
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........"
+    ],
+    "contents": [
+      "xkkkxggg",
+      "xxxxxggg",
+      "xxxxxggg",
+      "xxxxxggg",
+      "xxxxx...",
+      "xxxxx...",
+      "xxxxx...",
+      "xxxxx..."
+    ],
+    "overlay": [
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........"
+    ]
+  },
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
+  "objectives": [
+    {
+      "type": "collect",
+      "count": 37
+    },
+    {
+      "type": "collect",
+      "item": "key",
+      "count": 3
+    }
+  ]
+}

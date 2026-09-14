@@ -1,0 +1,97 @@
+{
+  "schema": "akashic-level/1",
+  "board": {
+    "rows": 8,
+    "cols": 27
+  },
+  "gemTypes": [
+    "red",
+    "green",
+    "yellow",
+    "blue"
+  ],
+  "seeding": "random",
+  "layers": {
+    "board": [
+      "..#.....#.........#######..",
+      ".###...###.......#########.",
+      ".###.#.###......###########",
+      "###########.....###########",
+      "####.#.####.....###########",
+      "###########.....###########",
+      ".#########.......#########.",
+      ".#########........#######.."
+    ],
+    "flow": [
+      "..v.....v.........vvvvvvv..",
+      ".vvv...vvv.......vvvvvvvvv.",
+      ".vvv.v.vvv......vvvvvvvvvvv",
+      "vvvvvvvvvvv.....vvvvvvvvvvv",
+      "vvvv.v.vvvv.....vvvvvvvvvvv",
+      "vvvvvvvvvvv.....vvvvvvvvvvv",
+      ".vvvvvvvvv.......vvvvvvvvv.",
+      ".vvvvvvvvv........vvvvvvv.."
+    ],
+    "source": [
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "..........................."
+    ],
+    "substrate": [
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "..........................."
+    ],
+    "contents": [
+      "..k.....k.........ggxkxgg..",
+      ".ggg...ggg.......kggxgxggk.",
+      ".gxg.k.gxg......gxgggxgggxg",
+      "ggxggxggxgg.....xgxggxggxgx",
+      "ggxg.x.gxgg.....xgxggxggxgx",
+      "ggxgxxxgxgg.....xgxggxggxgx",
+      ".gxgxxxgxg.......xgggxgggx.",
+      ".gxgxxxgxg........ggxgxgg.."
+    ],
+    "overlay": [
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "...........................",
+      "..........................."
+    ]
+  },
+  "props": {
+    "contents": {},
+    "overlay": {}
+  },
+  "borders": [],
+  "objectives": [
+    {
+      "type": "collect",
+      "item": "key",
+      "count": 6
+    }
+  ],
+  "flyover": {
+    "axis": "x",
+    "viewCols": 11,
+    "stops": [
+      0,
+      16
+    ],
+    "note": "HORIZONTAL flyover (translateX). Camera frames one 11-col zone at a time; the other zone is FROZEN (no matching/clearing/PU reach — the hard rule). stops = each zone's LEFT column: 0 = left zone (play starts here), 16 = right zone. Opening cutscene previews right zone then pans left to the start. Unlock: collect the live zone's 3 keys out the bottom, then the camera pans to the next zone (flyScrollCheck axis-x rule)."
+  }
+}

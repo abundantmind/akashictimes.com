@@ -1160,7 +1160,6 @@ en:{
   community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
   lvl_qualifying:'Qualifying',lvl_prefix:'Level ',
   alert_na:n=>'Level '+n+' is not available yet.',
-  alert_engine:(n,need,have)=>'Level '+n+' was built for a newer version of the game (engine '+need+'; this app plays '+have+'). Update the app to play it.',
   toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
   toast_shuffle:'No moves — reshuffling the board',
   win_title:'Well done!',lose_title:'Out of moves',
@@ -1263,7 +1262,6 @@ ko:{
   community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
   lvl_qualifying:'자격 레벨',lvl_prefix:'레벨 ',
   alert_na:n=>'레벨 '+n+' — 아직 준비되지 않았습니다.',
-  alert_engine:(n,need,have)=>'레벨 '+n+' — 더 새로운 버전의 게임에서 만들어졌습니다 (엔진 '+need+', 이 앱은 '+have+'). 앱을 업데이트하면 플레이할 수 있어요.',
   toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
   toast_shuffle:'움직임 없음 — 보드를 섞었어요',
   win_title:'잘했어요!',lose_title:'이동 횟수 소진',
@@ -1371,7 +1369,6 @@ es:{
   community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
   lvl_qualifying:'Clasificación',lvl_prefix:'Nivel ',
   alert_na:n=>'El nivel '+n+' aún no está disponible.',
-  alert_engine:(n,need,have)=>'El nivel '+n+' se creó para una versión más nueva del juego (motor '+need+'; esta app usa '+have+'). Actualiza la app para jugarlo.',
   toast_new_version:'Nueva versión — toca para recargar',bug_btn:'🐛 Reportar un error',
   toast_shuffle:'Sin movimientos — reorganizando el tablero',
   win_title:'¡Bien hecho!',lose_title:'Sin movimientos',
@@ -1687,27 +1684,17 @@ function setFontSize(size) {
   setFontSize(saved);
 })();
 
-// ── PLAYBACK SPEED IS AN EDITOR DIAL, NOT A GAME SETTING ─────────────────────
-// Jed, 2026-08-30: he set ½× while building a serpentine, went to Explore → Go with
-// the Flow → L23, and PLAYED IT AT HALF SPEED. The dial is a slow-mo tool for
-// inspecting animations, it lives only in the editor toolbar — and it was one global
-// serving two universes, persisted in localStorage, so an architect who ever touched
-// it had every real session on that device slowed forever with no control in the
-// player shell to undo it. Same shape as editorSandboxPlay: one variable, two worlds
-// ([[project_boolean_universe_separators]]).
-// A REAL PLAYER ALWAYS RUNS AT 1×. The dial applies in the editor and its sandbox
-// play, which is where an architect actually wants to watch a cascade crawl.
-let architectSpeed = 1;                       // the toolbar dial (persisted, editor-only)
-const spd = () => (playerMode && !editorSandboxPlay) ? 1 : architectSpeed;
-function setPlaybackSpeed(mult) {   // param renamed: `spd` would shadow the accessor
-  architectSpeed = mult;
-  localStorage.setItem("akashic-playback-speed", mult);
+// Playback speed — multiplier applied to cascade BASE_DUR (1× = normal, 2× = faster)
+let playbackSpeed = 1;
+function setPlaybackSpeed(spd) {
+  playbackSpeed = spd;
+  localStorage.setItem("akashic-playback-speed", spd);
   // Update active button highlight
   ['spd-25','spd-50','spd-100','spd-200'].forEach(id => {
     document.getElementById(id).classList.remove('on');
   });
   const idMap = {0.25:'spd-25', 0.5:'spd-50', 1:'spd-100', 2:'spd-200'};
-  if(idMap[mult]) document.getElementById(idMap[mult]).classList.add('on');
+  if(idMap[spd]) document.getElementById(idMap[spd]).classList.add('on');
 }
 (function() {
   const saved = parseFloat(localStorage.getItem("akashic-playback-speed")) || 1;
@@ -1832,101 +1819,7 @@ let editorFlyover=null; // level's flyover spec, persisted across flyTeardown() 
 // gemTypes list (Township L1–5 use 5 colors, no Amethyst), entrance uses 0–4.
 let GEM_POOL=[0,1,2,3,4,5];
 const randGem=()=>GEM_POOL[~~(Math.random()*GEM_POOL.length)];
-// ── ENGINE VERSION PIN ───────────────────────────────────────────────────────
-// A level's JSON declares the engine it was authored AND VERIFIED against; this
-// build refuses to load anything newer than it can honestly play. The one class of
-// damage git cannot undo is a level authored under a later engine being SILENTLY
-// misread by an earlier one after a rollback — and a marketplace bundle that plays
-// differently under a new engine was never immutable, which is the promise money
-// rides on. Loud refusal beats a quiet misread.
-// ABSENT = 1: every level file written before this pin existed IS Engine 1 data.
-// BUMP only when a change alters how EXISTING data plays. An additive mechanic a
-// level opts into through its own data does NOT bump it (that is the additive-gate
-// regime; the pin is for the fork regime).
-const ENGINE_VERSION=1;
-let levelEngineVersion=1;   // engine declared by the currently-loaded level (1..ENGINE_VERSION)
-// ── BOARD MOTION REGISTRY (replaces the global `animating` boolean) ──────────
-// `animating` was one hand-maintained bool separating two universes — "the board
-// is busy" vs "the player may act" — and a single flag has no way to say WHERE.
-// That is exactly why the board freezes whole while one corner cascades, which is
-// the bug Engine 2 exists to fix (project_boolean_universe_separators).
-//
-// Motion is now CLAIMED, by a named sequence, over a set of cells. `null` cells =
-// the whole board. TODAY EVERY CLAIM IS BOARD-WIDE AND EVERY RELEASE RELEASES ALL,
-// so busy()/quietAt() answer exactly what the boolean answered — same behaviour,
-// same suite, no new bugs. What changed is that "is the board busy?" became
-// "is THIS cell busy?", which is the seam the two Engine 2 rules land on:
-//   Rule A (on-arrival matching) — resolve matches inside quiet cells.
-//   Rule B ("Still Water")       — accept a swap wherever quietAt() says yes.
-const Motion={
-  _claims:new Map(),                                  // tag -> Set('r,c') | null (null = board-wide)
-  claim(tag,cells){ this._claims.set(tag, cells?new Set(cells.map(x=>x[0]+','+x[1])):null); this.touch(tag.split('/')[0]); },
-  release(tag){ this._claims.delete(tag); this._maybeQuiet(); },
-  onQuiet:null,                                       // set once, below: what to do when the board stops moving
-  _maybeQuiet(){ if(this._claims.size===0&&this.onQuiet)this.onQuiet(); },
-  releaseAll(){ this._claims.clear(); },               // teardown only: a level change ends EVERYTHING
-  // CHAIN IDENTITY. One player action and everything that cascades from it is a
-  // CHAIN. Claims are keyed 'chain/what', and a chain may only release its own —
-  // the moment two cascades can overlap, an end-of-move releaseAll() would free
-  // the OTHER cascade's claims and unlock a board that is still moving.
-  _chain:0,
-  _seen:new Map(),                                    // chain -> last time it made progress
-  newChain(tag){ const id=(tag||'chain')+'#'+(++this._chain); this._seen.set(id,Date.now());
-    if((tag||'').indexOf('sweep')!==0)_sweptThisEpisode=false;   // real activity — the board may need sweeping again
-    return id; },
-  touch(chain){ if(chain&&!this._dead.has(chain))this._seen.set(chain,Date.now()); },  // "this chain is still working"
-  _dead:new Set(),                                    // chains the watchdog gave up on
-  kill(chain){ this._dead.add(chain); this.releaseChain(chain); },
-  isDead(chain){ return this._dead.has(chain); },
-  chains(){ return [...new Set([...this._claims.keys()].map(k=>k.split('/')[0]))]; },
-  lastSeen(chain){ return this._seen.get(chain)||0; },
-  releaseChain(chain){
-    if(!chain){this.releaseAll();return;}              // no chain given = legacy caller = old behaviour
-    for(const k of [...this._claims.keys()]) if(k.slice(0,chain.length+1)===chain+'/') this._claims.delete(k);
-    this._maybeQuiet();
-  },
-  // Atomically narrow a chain's holds down to a single '/fall' claim on the cells
-  // now in the air — WITHOUT ever passing through zero claims. settleAndCascade used
-  // to releaseChain(chain) (which fires _maybeQuiet → the quiet-sweep) and only THEN
-  // claim the fall: a gap in which the board is already gravity-settled but not yet
-  // animated. In that gap the sweep resolved the just-formed match instantly, so it
-  // cleared BEFORE a single gem visibly fell — Jed's "the blue did not fall, but its
-  // match cleared too early." Claiming the fall first, then dropping the chain's other
-  // holds, closes the gap: a match reads REST, and rest is after the fall lands.
-  replaceChainClaims(chain,cells){
-    const fallTag=chain+'/fall';
-    this._claims.set(fallTag, cells?new Set(cells.map(x=>x[0]+','+x[1])):null);
-    for(const k of [...this._claims.keys()])
-      if(k!==fallTag && k.slice(0,chain.length+1)===chain+'/') this._claims.delete(k);
-    this.touch(chain);
-    // deliberately NO _maybeQuiet: '/fall' is still held, so the board is not quiet.
-  },
-  busy(){ return this._claims.size>0; },               // what the old true meant, board-wide
-  // May something act HERE? `ignoreChain` asks "is anyone ELSE moving here?" —
-  // a chain must not be blocked by the cells it has claimed for its own work.
-  quietAt(r,c,ignoreChain){
-    const k=r+','+c;
-    for(const [tag,cells] of this._claims){
-      if(ignoreChain&&tag.slice(0,ignoreChain.length+1)===ignoreChain+'/')continue;
-      if(cells===null||cells.has(k))return false;
-    }
-    return true;
-  },
-  // Every cell any chain is moving, for the invariants and the debug HUD.
-  busyCells(){
-    const out=new Set();
-    for(const cells of this._claims.values()){ if(cells===null)return null; cells.forEach(k=>out.add(k)); }
-    return out;
-  },
-  tags(){ return [...this._claims.keys()]; },          // debug/invariants view — never a decision input
-};
-// Cells whose gem is currently OUT OF THE CELL — represented by a flying element
-// instead. Their gem layer must stay hidden, and STILL WATER made that a real
-// problem: another chain's swap can re-render the board mid-flight, and a plain
-// re-render used to reveal the gem while its fly was still in the air (one gem,
-// drawn twice). render() consults this set, so the hiding survives any re-render.
-const inFlight=new Set();
-let playing=false,mdown=false,selCell=null,choosingRainbow=null,choosingGrasshopper=null;
+let playing=false,mdown=false,selCell=null,animating=false,choosingRainbow=null,choosingGrasshopper=null;
 // Architect's STICKY play/edit choice (Jed 2026-08-06): the mode is Architect-
 // directed, never a per-open gamble. Default PLAY — opening a saved level, the
 // impulse is to swap, not paint. togglePlay records the Architect's last choice;
@@ -2026,8 +1919,8 @@ async function openTemplate(n){
     if(!resp.ok)throw new Error('http '+resp.status);
     json=await resp.json();
   }catch(e){alert('Template '+n+' is not available.');return;}
-  if(!loadLevelData(json,n))return; // engine pin refused it — leave the editor where it was
-  playerMode=false;playing=false;entranceMode=false;Motion.releaseAll();
+  loadLevelData(json,n); // board/flow/gem palette/objectives from the JSON
+  playerMode=false;playing=false;entranceMode=false;animating=false;
   flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
   fitEditorBoard(); // scale the grid to fill the viewport (device-independent), not a fixed 44px
   document.body.classList.remove('player-playing'); // editor styling (inactive ghost tiles)
@@ -2057,7 +1950,7 @@ async function openTemplate(n){
 function goHome(){
   document.getElementById('editor').style.display='none';
   document.getElementById('home').style.display='flex';
-  playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;Motion.releaseAll();inFlight.clear();
+  playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;animating=false;
   clearChoosing(); // Esc out of the editor drops the reticle with the board it belonged to
   GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
   editorBundle=null; // left the editor — no origin bundle to go back to
@@ -2272,8 +2165,8 @@ async function editUserBundleLevel(id,fn){
   try{ const fh=await b.dir.getFileHandle(fn); json=JSON.parse(await (await fh.getFile()).text()); num=+fn.match(/(\d+)/)[1]; }
   catch(e){ alert('Could not open that level: '+e.message); return; }
   saveTargetBundle=id; bundleEditNum=num; editorBundle=null; closeProducts();
-  if(!loadLevelData(json,num))return;                        // parsed JSON → editor board (same loader as templates); pin can refuse
-  playerMode=false;playing=false;entranceMode=false;Motion.releaseAll(); flyTeardown(); fitEditorBoard();
+  loadLevelData(json,num);                                   // parsed JSON → editor board (same loader as templates)
+  playerMode=false;playing=false;entranceMode=false;animating=false; flyTeardown(); fitEditorBoard();
   document.body.classList.remove('player-playing');
   for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
   clean();
@@ -2473,7 +2366,6 @@ function animateSwap(r1,c1,r2,c2,html1,html2,onDone){
   const src1=document.querySelector(`[data-r="${r1}"][data-c="${c1}"] .gem-inner`);
   const src2=document.querySelector(`[data-r="${r2}"][data-c="${c2}"] .gem-inner`);
   if(src1)src1.style.visibility='hidden';if(src2)src2.style.visibility='hidden';
-  inFlight.add(r1+','+c1);inFlight.add(r2+','+c2); // survive a re-render from another chain
   const dur=220,start=performance.now();
   const dx=p2.x-p1.x,dy=p2.y-p1.y;
   const arc=Math.min(Math.abs(dx),Math.abs(dy),20);
@@ -2486,11 +2378,7 @@ function animateSwap(r1,c1,r2,c2,html1,html2,onDone){
     fly2.style.left=(p2.x+(p1.x-p2.x)*overshoot-CELL_SIZE/2)+'px';
     fly2.style.top=(p2.y+(p1.y-p2.y)*overshoot-Math.sin(t*Math.PI)*arc-CELL_SIZE/2)+'px';
     if(t<1){requestAnimationFrame(step);}
-    else{fly1.remove();fly2.remove();inFlight.delete(r1+','+c1);inFlight.delete(r2+','+c2);
-      const s1=document.querySelector(`[data-r="${r1}"][data-c="${c1}"] .gem-inner`);
-      const s2=document.querySelector(`[data-r="${r2}"][data-c="${c2}"] .gem-inner`);
-      if(s1)s1.style.visibility='';if(s2)s2.style.visibility=''; // re-query: a re-render replaced the originals
-      onDone();}
+    else{fly1.remove();fly2.remove();if(src1)src1.style.visibility='';if(src2)src2.style.visibility='';onDone();}
   }
   requestAnimationFrame(step);
 }
@@ -2568,7 +2456,6 @@ function buildCellEl(r,c,dropping){
   } else {
     const inner=document.createElement('div');
     inner.className='gem-inner';
-    if(inFlight.has(r+','+c))inner.style.visibility='hidden'; // its gem is mid-flight — see inFlight
     // Layer stack: substrate (under) → gem/pu/item (middle) → overlay obstacle (over)
     if(cd.sub){const o=OBS_TYPES.find(x=>x.id===cd.sub);if(o){
       el.style.position='relative';
@@ -2626,7 +2513,7 @@ function buildCellEl(r,c,dropping){
     if(flyLock)return; // flyover cutscene: board is camera-only until the pan rests
     mdown=true;
     // no drag tracking while a booster is armed — that tap is the TARGET tap
-    if(playing&&Motion.quietAt(r,c)&&!choosingRainbow&&!choosingGrasshopper&&!armedBooster)
+    if(playing&&!animating&&!choosingRainbow&&!choosingGrasshopper&&!armedBooster)
       dragSwap={r,c,x:e.clientX,y:e.clientY,id:e.pointerId,fired:false};
     onCell(r,c,e);
   });
@@ -2863,8 +2750,6 @@ function serializeLevel(){
     :                {type:'collect',item:o.item,count:o.count});
   const out={
     schema:'akashic-level/1',
-    engineVersion:ENGINE_VERSION,                              // the engine that verified this file, not the one that first drew it
-
     board:{rows:R,cols:C},
     gemTypes:GEM_POOL.map(i=>GEM_JSON[i]),                     // carried Township palette
     seeding:'random',                                          // color policy (only option for now)
@@ -2957,7 +2842,7 @@ window.roundTrip25=async function(max){
       const resp=await fetch('levels/level-'+String(n).padStart(3,'0')+'.json',{cache:'no-cache'});
       if(!resp.ok){rec.note='http '+resp.status;results.push(rec);continue;}
       const json=await resp.json();
-      if(!loadLevelData(json,n)){rec.note='refused by engine pin (declares '+json.engineVersion+')';results.push(rec);continue;}
+      loadLevelData(json,n);
       const s1=JSON.stringify(serializeLevel());   // old|canonical → canonical
       loadLevelData(JSON.parse(s1),n);             // canonical → board
       const s2=JSON.stringify(serializeLevel());   // canonical → canonical (must equal s1)
@@ -3276,7 +3161,7 @@ function setFlow(f){
   render();
 }
 
-function onCell(r,c,e){if(playing&&(choosingRainbow||choosingGrasshopper||Motion.quietAt(r,c))){playTap(r,c);}else if(!playing){paintCell(r,c);}}
+function onCell(r,c,e){if(playing&&!animating){playTap(r,c);}else if(!playing){paintCell(r,c);}}
 
 function paintCell(r,c){
   const cd=board[r][c];
@@ -3347,7 +3232,7 @@ function togglePlay(sandbox=true){
   // the grid into a specific test condition, and resume the SAME run — 3 swaps then
   // an edit then Play resumes on move #4 (Jed 2026-08-06). They reset only on a
   // total reset: opening/reopening a level (openTemplate) or New Level.
-  playing=!playing;Motion.releaseAll();
+  playing=!playing;animating=false;
   clearChoosing(); // Play<->Edit is a hard boundary: no half-finished targeting crosses it
   document.getElementById('mbadge').textContent=playing?'Play':'Editor';
   document.getElementById('mbadge').className='mbadge'+(playing?' play':'');
@@ -3789,7 +3674,7 @@ function shuffleBoard(){
 // After a settle (or at level start): if the goal isn't done and no move exists,
 // reshuffle so the player is never stuck (Township never dead-ends a board).
 function maybeShuffle(silent){
-  if(!playerMode||Motion.busy())return;
+  if(!playerMode||animating)return;
   if(playerGoals.length&&playerGoals.every(goalDone))return; // already won
   if(hasValidMove())return;
   if(shuffleBoard()){
@@ -3800,155 +3685,14 @@ function maybeShuffle(silent){
   }
 }
 
-// Is there a hole on this board that should not be there? A plain cell must NEVER
-// sit empty on a settled board. A canal cell (field.empty) is gem-free BY DESIGN and
-// is never a gap — it fills through the ordinary settle when its flow feeds it, and
-// treating it as unfinished business would pre-fill L25's canal before the first move.
-function fillableGap(){
-  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-    const cd=board[r][c];
-    if(!cd.active||cd.obs||cd.item||cd.pu||cd.gem!==null||cd.startEmpty)continue;
-    if(!inPlayWindow(r,c))continue;              // the frozen zone fills when the camera reaches it
-    return true;
-  }
-  return false;
-}
-
-// ── THE BOARD JUST WENT QUIET ────────────────────────────────────────────────
-// This is an EVENT, raised by the motion registry the moment its last claim goes —
-// not something a chain remembers to check on its way out. That distinction is the
-// whole bug Jed hit twice: a chain reaching cascadeEnd while ANOTHER chain still
-// held a claim skipped the sweep, and the chain that actually finished last left by
-// a path with no cascadeEnd at all (a bounced swap just releases and returns). So
-// the board was left holding an unresolved match, or a hole, with nobody coming back
-// for it — and the win/loss check never ran either. Now every release routes here,
-// so it cannot be skipped by any path, present or future.
-let _sweptThisEpisode=false;   // reset by Motion.newChain on any real activity
-let _inQuiet=false;
-function boardQuiet(){
-  if(_inQuiet||!playing)return;                      // re-entrancy: the sweep claims immediately
-  if(choosingRainbow||choosingGrasshopper)return;    // waiting on the PLAYER is not "done"
-  _inQuiet=true;
-  try{
-    if(!_sweptThisEpisode){
-      const left=findPatterns(0,0,0,0);
-      const gap=fillableGap();
-      if(left.length||gap){
-        _sweptThisEpisode=true;                      // one sweep per episode — no sweep→sweep loop
-        const sweep=Motion.newChain('sweep');
-        Motion.claim(sweep+'/resolve');
-        // I6 — A MATCH READS REST ONLY. Quiet-by-CLAIMS is not quiet-by-REST: claims==0
-        // means no chain is animating, NOT that every gem has finished falling. So if the
-        // board still owes a fall (a fillable gap), SETTLE FIRST — gravity to a fixpoint,
-        // then settleAndCascade's own post-fall rescan resolves whatever is genuinely
-        // there, on a board at rest. Matching BEFORE the fill let the sweep clear a run
-        // whose gem was about to fall out of it — the L25 phantom clear (and phantom
-        // clover on those cells): a run a settled board would have dissolved. Engine 1
-        // never hit this because it always ran gravity to a fixpoint before it rescanned;
-        // only a gap-free board is at rest, and only then may a stranded match be swept.
-        if(gap)              settleAndCascade(new Set(),0,0,sweep);   // fill first — never match an unsettled board
-        else if(left.length) resolve(left,0,0,JSON.parse(JSON.stringify(board)),0,0,sweep);
-        return;                                      // the sweep will raise this event again when IT is done
-      }
-    }
-    window._moveOverlapped=false;
-    if(playerMode){ updatePlayerHUD(); checkPlayerEnd(); maybeShuffle(); }
-  } finally { _inQuiet=false; }
-}
-Motion.onQuiet=boardQuiet;
-
-// ── window.freezeReport() — everything I need, in one paste ──────────────────
-// When the board stops and it shouldn't have, run `copy(freezeReport())` in the
-// console and paste it. It carries the state a screenshot can't: what is CLAIMED
-// (and by which chain), what the engine thinks is still moving, whether a reticle
-// or the flyover camera has the input, and the last six moves with the pattern each
-// one resolved. Board legend: digit = gem colour, '.' = empty active cell,
-// ' ' = hole, X crate, B chain, L leaf, k key, a acorn, PU chars per LEVEL-JSON-KEY.
-// A breakpoint cannot get this — pausing the thread IS a stall, and the watchdog
-// would clean up the evidence before you looked at it.
-window.freezeReport=function(){
-  const ch=(r,c)=>{const cd=board[r][c];
-    if(!cd.active)return ' ';
-    if(cd.obs&&/crate/.test(cd.obs))return 'X';
-    if(cd.obs&&/bind/.test(cd.obs))return 'B';
-    if(cd.obs&&/leaf/.test(cd.obs))return 'L';
-    if(cd.pu)return PU_CH[cd.pu]||'?';
-    if(cd.item==='key')return 'k';
-    if(cd.item==='acorn')return 'a';
-    return cd.gem===null?'.':String(cd.gem);};
-  const FL={down:'v',up:'^',left:'<',right:'>'};
-  const rows=[],fl=[];
-  for(let r=0;r<R;r++){let a='',b='';
-    for(let c=0;c<C;c++){a+=ch(r,c);b+=board[r][c].active?(FL[flow[r][c]]||'v'):' ';}
-    rows.push(a);fl.push(b);}
-  return JSON.stringify({
-    when:new Date().toISOString(), level:curLevelNum, engineVersion:ENGINE_VERSION,
-    moves, claims:Motion.tags(), chains:Motion.chains(), gemsInFlight:inFlight.size,
-    waitingOnPlayer:{ball:!!choosingRainbow,hopper:!!choosingGrasshopper,booster:armedBooster||null},
-    camera:{flyStop,flyLock,axis:(flyover&&flyover.axis)||null},
-    matchesOnBoard:find3().length, holeThatShouldFill:fillableGap(), hasValidMove:hasValidMove(),
-    stalls:window.stallCount||0, lastStall:window.__lastStall||null,
-    board:rows, flow:fl,
-    lastMoves:(window.moveHistory||[]).slice(-6).map(m=>
-      ({move:m.move,src:m.src,dest:m.dest,pattern:m.pattern,patterns:m.patterns,cleared:m.cleared}))
-  },null,1);
-};
-
-// ── STALL WATCHDOG ───────────────────────────────────────────────────────────
-// Still Water made a STUCK CLAIM the new way to break the game: a chain that dies
-// between clearing cells and running gravity leaves its claim standing, and a
-// claimed board refuses every tap — the player is frozen with no error on screen.
-// A game must never do that. Every chain reports progress (a claim, a release, or
-// the next detonation in its queue); a chain holding a claim that has said nothing
-// for STALL_MS is dead. Per-CHAIN on purpose — a board-wide "is anything happening"
-// signature hides exactly the bug this is for: a leaked claim on two cells while
-// other chains keep the board looking busy (that is how the L16 combo leak hid).
-// Log the whole state loudly (window.__lastStall — paste it to me), release the
-// dead chain, and finish its unfinished work so the player plays on.
-// This RESCUES; it does not excuse. Every stall recorded is a bug to find.
-// 10s, not 6: with every long sequence now reporting progress every ~170ms, a chain
-// that says nothing for ten seconds really is gone. The old 6s killed a HEALTHY
-// Grasshopper swarm mid-flight (Jed's L23, combo-convert#102) and ran a recovery
-// settle underneath it — the watchdog itself became the freeze.
-const STALL_MS=10000;
-window.__lastStall=null; window.stallCount=0;
-function stallTick(){
-  if(!playing)return;
-  if(choosingRainbow||choosingGrasshopper)return;   // waiting on the PLAYER is not a stall
-  const now=Date.now();
-  for(const ch of Motion.chains()){
-    if(now-Motion.lastSeen(ch)<STALL_MS)continue;   // this chain is still working
-    let empties=0;
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++){const cd=board[r][c];
-      if(cd.active&&!cd.obs&&!cd.item&&!cd.pu&&cd.gem===null&&!cd.startEmpty)empties++;}
-    window.stallCount++;
-    window.__lastStall={when:new Date().toISOString(),level:curLevelNum,deadChain:ch,
-      claims:Motion.tags(),inFlight:inFlight.size,moves,cleared,emptyActive:empties,
-      matches:find3().length,pendingHopper:!!window._pendingHopperChoose,
-      lastMove:(window.moveHistory||[]).slice(-1)[0]};
-    console.error('[stall] chain '+ch+' made no progress for '+STALL_MS+'ms — releasing it',window.__lastStall);
-    if(typeof _captureFreeze==='function')_captureFreeze(true);   // file it before we clean up the evidence
-    Motion.kill(ch);   // and it stays dead: a late callback must not settle the board twice
-    if(window._pendingHopperChoose&&window._pendingHopperChoose.chain===ch)window._pendingHopperChoose=null;
-    if(empties||find3().length){                    // it died mid-clear: finish its work
-      inFlight.clear(); render();
-      settleAndCascade(new Set(),0,0,Motion.newChain('stall-recover'));
-    }
-  }
-}
-window.__stallInterval=setInterval(stallTick,1000);
-window._stallTick=stallTick;
-
-function cascadeEnd(chain){
+function cascadeEnd(){
   updStats();
   // If a player-activated Grasshopper is waiting for fly-to target, enter choosing state
-  // Only the chain that swapped the Grasshopper may open its reticle (see the
-  // stamp in doSwap). A pending choose belonging to another chain waits for it.
-  if(window._pendingHopperChoose&&(!window._pendingHopperChoose.chain||window._pendingHopperChoose.chain===chain)){
+  if(window._pendingHopperChoose){
     const h=window._pendingHopperChoose;
     window._pendingHopperChoose=null;
     choosingGrasshopper={r:h.r,c:h.c,excluded:h.excluded,orthCells:h.orthCells};
-    Motion.releaseChain(chain);  // the jump waits on the player — this chain's board is theirs again
+    animating=false;
     render();
     if(playerMode)updatePlayerHUD();
     return;
@@ -3958,26 +3702,10 @@ function cascadeEnd(chain){
   // canon: not attainable with only a PU swap — the pair is simultaneous
   // input, not sequence).
   window.lastMovePUs=Math.max(0,(window._swapPU||0)-(window._comboSwap?1:0));
-  // STILL WATER + THE STAR CANON: the PU counter is per-MOVE and global, so two
-  // moves in flight at once can't be told apart. ★3 means "one swap fired three
-  // power-ups in succession" — if two swaps overlapped we cannot prove which fired
-  // what, so the run gets NO credit rather than credit it might not have earned.
-  if(!window._moveOverlapped) window.runMaxSeq=Math.max(window.runMaxSeq||0,window.lastMovePUs);
-  if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs in sequence from one move'+(window._moveOverlapped?' (NOT credited — moves overlapped)':''));
-  Motion.releaseChain(chain);render(); // this move is fully resolved — its claims, and only its claims, go
-  if(playerMode)updatePlayerHUD();
-  // ── A QUIET BOARD NEVER HOLDS AN UNRESOLVED MATCH ──────────────────────────
-  // Still Water lets a swap commit while ANOTHER chain owns the cells its match
-  // landed on. resolve() correctly refuses to touch them — but then that chain
-  // ends, and if the owning chain has already finished its own scan, the match
-  // sits there with nobody left to notice it. The move counted, nothing happened,
-  // and the board reads as FROZEN even though it accepts input (this is the L25
-  // freeze Jed hit on the first hand-test: entry-point swap, then a fast
-  // downstream swap into the first one's falling water).
-  // So: the last chain standing sweeps. Anything left over becomes its own chain.
-  // NOTE: sweeping and the end checks are NOT done here. They belong to the moment
-  // the BOARD goes quiet, which is not the same thing as a chain reaching cascadeEnd
-  // — see boardQuiet(). The releaseChain above is what raises that event.
+  window.runMaxSeq=Math.max(window.runMaxSeq||0,window.lastMovePUs);
+  if(window.lastMovePUs>=3)qlog('★3-worthy: '+window.lastMovePUs+' PUs in sequence from one move');
+  animating=false;render();
+  if(playerMode){updatePlayerHUD();checkPlayerEnd();maybeShuffle();}
 }
 
 // KEY EXIT: after a settle, any key that has reached the bottom edge of its
@@ -4001,52 +3729,22 @@ function collectExitedKeys(){
   return got;
 }
 
-// Every cell a gem leaves, crosses, or lands in this pass — the honest answer to
-// "what is moving right now", read off gravity's own move list.
-function fallCells(fallMoves){
-  const out=[];
-  fallMoves.forEach(m=>{
-    out.push([m.fr,m.fc],[m.tr,m.tc]);
-    if(m.path)m.path.forEach(pt=>out.push([pt.r,pt.c]));   // hole-routing bends travel too
-  });
-  return out;
-}
-
 // Shared tail for detonation sequences: count the phase, settle, scan, cascade
-function settleAndCascade(phase,sr,sc,chain){
-  chain=chain||Motion.newChain('settle');
-  if(Motion.isDead(chain))return;   // the watchdog already finished this chain's work
+function settleAndCascade(phase,sr,sc){
   cleared+=phase.size;
   setTimeout(()=>{
     const fallMoves=gravityWithMap();
-    // STILL WATER: the pop is over and the board data is already settled — from
-    // here the only thing actually in motion is the fall. Narrow this chain's
-    // board-wide holds down to exactly the falling cells, ATOMICALLY, so the rest
-    // of the board becomes playable while these gems are in the air — and so the
-    // claims never dip to zero mid-settle (a zero-claims gap here fires the quiet-
-    // sweep on a gravity-settled-but-unanimated board, clearing a match before the
-    // gems fall — see replaceChainClaims).
-    Motion.replaceChainClaims(chain,fallCells(fallMoves));
     animateFall(fallMoves,()=>{
-      Motion.release(chain+'/fall');
       const gotKey=collectExitedKeys(); // keys that reached the bottom exit this settle
       flyScrollCheck(); // flyover: key at the current view's bottom row scrolls the camera down
       if(gotKey&&playerMode)updatePlayerHUD();
       const np=findPatterns(sr,sc,sr,sc);
-      if(np.length){resolve(np,sr,sc,JSON.parse(JSON.stringify(board)),sr,sc,chain);}
-      else if(gotKey){render(null);settleAndCascade(new Set(),sr,sc,chain);} // refill the vacated exit cells
-      else{cascadeEnd(chain);}
+      if(np.length){resolve(np,sr,sc,JSON.parse(JSON.stringify(board)),sr,sc);}
+      else if(gotKey){render(null);settleAndCascade(new Set(),sr,sc);} // refill the vacated exit cells
+      else{cascadeEnd();}
     });
-  },SETTLE_MS);
+  },160);
 }
-
-// ── THE TWO BEATS BEFORE GEMS MOVE ───────────────────────────────────────────
-// Jed, by eye, 2026-08-29: "gems still do not fall immediately." Measured, the wait
-// on a plain match was POP_MS + SETTLE_MS = 390ms of dead air before a single gem
-// moved. Township pops and refills almost together. These are the two constants —
-// named here, in one place, so the rhythm can be tuned by feel instead of hunted.
-const POP_MS   = 140;   // let the pop read (was 230)
-const SETTLE_MS= 60;    // ...then gravity, promptly (was 160)
 
 // ═══ DETONATION ENGINE ════════════════════════════════════════════════════════
 // One sequential queue for ALL power-up detonations — player-fired and
@@ -4074,116 +3772,46 @@ function clearCellD(r,c,phase,queue){
   splashObstacle(r,c,phase);  // a detonation clearing this cell cracks bordering crates/leaves
 }
 
-// ── OVERLAP SOURCING (Township parity) ───────────────────────────────────────
-// Engine 1 held ALL gravity until the detonation queue drained: three chained
-// power-ups meant three full cinematics end to end before a single gem fell, which
-// is what Jed felt as "after a swap that creates a lot of cascades, it takes a
-// while". Township sources fresh gems while the tail of the blast is still playing
-// (his own Township L11 capture @0:15).
-// So the refill now runs BETWEEN detonations. The model stays strictly serial — one
-// gravity pass, fully applied, between two cinematics — while the ANIMATION overlaps
-// the next blast, which is exactly the eye candy. A gem that falls into the path of
-// the next beam simply gets blasted; that is Township behaviour, not a race.
-// One pass at a time per chain: a pump already animating is left to finish.
-const _pumping=new Set();
-function refillPump(chain){
-  if(!chain||_pumping.has(chain)||Motion.isDead(chain))return;
-  if(choosingRainbow||choosingGrasshopper)return;   // the player is aiming — hold the board still
-  if(_fallActive||_fallQueue.length)return;   // a wave is already in the air — let it land first
-  const moves=gravityWithMap();
-  if(!moves.length)return;
-  _pumping.add(chain);
-  Motion.claim(chain+'/pump',fallCells(moves));   // its own tag — never clobbers the final settle's claim
-  animateFall(moves,()=>{ _pumping.delete(chain); Motion.release(chain+'/pump'); Motion.touch(chain); });
-}
-
-// A DETONATION MAY NOT FIRE INTO MOVING WATER. The refill pump lets the MODEL run
-// ahead of the picture: a gem the player can still see falling is already sitting at
-// its destination in the data. A blast resolving in that window clears the cells the
-// data says are occupied and leaves alone the ones the player was aiming at — Jed,
-// 2026-08-30: "when I fire a dragonfly at a scarab when the row above him is in
-// motion, the cells within his range do not get cleared."
-// So the next blast waits for the airborne gems to land. The refill still happens
-// BETWEEN detonations, which is the whole gain (gems fall during a chain instead of
-// after all of it); what it no longer does is overlap a blast that is picking targets.
-function afterFallsLand(cb){
-  if(!_fallActive&&!_fallQueue.length){cb();return;}
-  setTimeout(()=>afterFallsLand(cb),30);
-}
-
 // Play queued detonations one at a time; each may enqueue more (chains).
-function processDetonations(queue,phase,onDone,chain){
-  Motion.touch(chain);
-  // ── PU DETONATIONS FIRE ONE AT A TIME, A BEAT APART (Jed 2026-09-13) ─────────
-  // "All matches occur together" (Rule A) is about MATCHES. It was mis-extrapolated
-  // to PU DETONATIONS: the 2026-08-30 "one input, one explosion" pass drained the
-  // whole queue in a single synchronous loop, so a Ball's SPREAD of power-ups all
-  // went off on the same frame. Jed's correction — a spread of PUs fires in READING
-  // ORDER with a small beat between each, and that holds for EVERY multi-PU
-  // detonation. What STAYS from 2026-08-30: a PU a running blast CATCHES mid-
-  // cinematic still fires WITH it — the arrow that pierces a bomb, the bomb goes NOW,
-  // not a beat later (else the Grasshopper's "+" bloomed out of a resting gem seconds
-  // after the blast that caused it). So the INITIAL group is staggered (`spread`, one
-  // every STAGGER_MS, in queue = reading order); anything caught while a detonation
-  // runs (`queue`) drains immediately. Same contract to the caller, same phase set.
-  const STAGGER_MS=100;                // the beat between spread PUs (reading order)
-  const spread=queue.slice();          // the initial group — fired one at a time
-  queue.length=0;                      // `queue` now carries only mid-cinematic catches
-  let running=0, over=false, si=0;
-  const finish=()=>{ if(over)return; over=true; onDone(); };
-  const idle=()=>si>=spread.length && running===0 && !queue.length; // nothing left to fire
-  const fire=(det)=>{
-    running++;
-    const next=()=>{ Motion.touch(chain); running--; drain(); if(idle())finish(); };
-    // CLOVER-CHARGE (project_clover_model, unified): a PU is charged if it was
-    // DRAGGED off a clover cell (puClover) OR is firing IN PLACE from a clover cell
-    // (its own sub==='clover'). Keying the in-place case off the cell's real
-    // substrate — not a "born on clover" flag — dodges aac80b1's false positive (a
-    // PU born via a match on a BARE cell) while charging a genuine on-clover takeoff.
-    // Charged → plants its WHOLE effect area; uncharged → plants nothing.
-    const charged=!!(board[det.r]&&board[det.r][det.c]&&(board[det.r][det.c].puClover||board[det.r][det.c].sub==='clover'));
-    if(board[det.r]&&board[det.r][det.c])board[det.r][det.c].puClover=false; // ephemeral — consumed by this detonation
-    // Consume-on-play (staged Ball-family combos): the converted PU stays
-    // VISIBLE on its cell until this moment. If a chain already caught it
-    // (pu gone), the entry is a no-op — the chain path owns its cinematic.
-    if(det.consumeOnPlay){
-      if(board[det.r][det.c].pu!==det.pu){next();return;}
-      board[det.r][det.c].pu=null;
-      puFired(det.pu);
-      if(det.pu==='helicopter'&&det.combo){
-        // The creature stays alive as a DOM actor (feed → swell → jump);
-        // its cell is cleared by the actor flow, not here.
-        detHopperCombo(det.r,det.c,phase,queue,next,charged);return;
-      }
-      clearCell(det.r,det.c,phase);
-      render(null);
-      const selfEl=document.querySelector(`[data-r="${det.r}"][data-c="${det.c}"]`);
-      if(selfEl)selfEl.classList.add('popping');
+function processDetonations(queue,phase,onDone){
+  if(!queue.length){onDone();return;}
+  const det=queue.shift();
+  const next=()=>processDetonations(queue,phase,onDone);
+  // CLOVER-CHARGE (project_clover_model, unified): a PU is charged if it was
+  // DRAGGED off a clover cell (puClover) OR is firing IN PLACE from a clover cell
+  // (its own sub==='clover'). Keying the in-place case off the cell's real
+  // substrate — not a "born on clover" flag — dodges aac80b1's false positive (a
+  // PU born via a match on a BARE cell) while charging a genuine on-clover takeoff.
+  // Charged → plants its WHOLE effect area; uncharged → plants nothing. Computed
+  // HERE (before the consume-on-play branch) so the combo-hopper path shares it.
+  const charged=!!(board[det.r]&&board[det.r][det.c]&&(board[det.r][det.c].puClover||board[det.r][det.c].sub==='clover'));
+  if(board[det.r]&&board[det.r][det.c])board[det.r][det.c].puClover=false; // ephemeral — consumed by this detonation
+  // Consume-on-play (staged Ball-family combos): the converted PU stays
+  // VISIBLE on its cell until this moment. If a chain already caught it
+  // (pu gone), the entry is a no-op — the chain path owns its cinematic.
+  if(det.consumeOnPlay){
+    if(board[det.r][det.c].pu!==det.pu){next();return;}
+    board[det.r][det.c].pu=null;
+    puFired(det.pu);
+    if(det.pu==='helicopter'&&det.combo){
+      // The creature stays alive as a DOM actor (feed → swell → jump);
+      // its cell is cleared by the actor flow, not here.
+      detHopperCombo(det.r,det.c,phase,queue,next,charged);return;
     }
-    SFX.play('detonate'); // one sound per REAL detonation (past the consume-on-play no-op)
-    if(det.pu==='helicopter'&&det.combo){detHopperCombo(det.r,det.c,phase,queue,next,charged);return;}
-    if(det.pu==='bomb')            detScarab(det.r,det.c,phase,queue,next,det.rad,charged);
-    else if(det.pu==='rocket_h')   detDragonfly(det.r,det.c,'h',phase,queue,next,det.wide,charged);
-    else if(det.pu==='rocket_v')   detDragonfly(det.r,det.c,'v',phase,queue,next,det.wide,charged);
-    else if(det.pu==='rainbow')    detBall(det.r,det.c,det.color,phase,queue,next,charged);
-    else if(det.pu==='helicopter') detHopper(det.r,det.c,phase,queue,next,charged);
-    else if(det.pu==='hopper_jump')detHopperJump(det.r,det.c,phase,queue,next,charged); // combo-spawned jump (no orth blast)
-    else next();
-  };
-  // A power-up a running blast CATCHES joins it immediately — drain the catch queue
-  // now, and keep watching for more while anything is still firing (one explosion).
-  const drain=()=>{ while(queue.length)fire(queue.shift()); };
-  const watch=()=>{ if(over)return; drain(); if(!idle())setTimeout(watch,30); else finish(); };
-  // The spread fires one at a time, a beat apart (reading order = queue order). A
-  // consume-on-play no-op — a tile a catch already fired — takes no beat, so a dense
-  // spread where early PUs swallow later ones doesn't trail off into dead air.
-  const fireNext=()=>{
-    if(over)return;
-    const before=running; fire(spread[si++]);
-    if(si<spread.length)setTimeout(fireNext, running===before?0:STAGGER_MS);
-    else if(idle())finish();
-  };
-  if(spread.length){ fireNext(); watch(); } else finish();
+    clearCell(det.r,det.c,phase);
+    render(null);
+    const selfEl=document.querySelector(`[data-r="${det.r}"][data-c="${det.c}"]`);
+    if(selfEl)selfEl.classList.add('popping');
+  }
+  SFX.play('detonate'); // one sound per REAL detonation (past the consume-on-play no-op); player-fired or chain-caught, every type
+  if(det.pu==='helicopter'&&det.combo){detHopperCombo(det.r,det.c,phase,queue,next,charged);return;}
+  if(det.pu==='bomb')            detScarab(det.r,det.c,phase,queue,next,det.rad,charged);
+  else if(det.pu==='rocket_h')   detDragonfly(det.r,det.c,'h',phase,queue,next,det.wide,charged);
+  else if(det.pu==='rocket_v')   detDragonfly(det.r,det.c,'v',phase,queue,next,det.wide,charged);
+  else if(det.pu==='rainbow')    detBall(det.r,det.c,det.color,phase,queue,next,charged);
+  else if(det.pu==='helicopter') detHopper(det.r,det.c,phase,queue,next,charged);
+  else if(det.pu==='hopper_jump')detHopperJump(det.r,det.c,phase,queue,next,charged); // combo-spawned jump (no orth blast)
+  else next();
 }
 
 // SCARAB — 3×3 blast (rad 2 → 5×5 for Scarab×Scarab): one simultaneous pop,
@@ -4192,7 +3820,7 @@ function processDetonations(queue,phase,onDone,chain){
 // PURE overlay VFX layered over the detonation engine. These NEVER touch what
 // clears or the resolution order — they draw, animate, and self-remove. The
 // clear still happens through clearCellD in the detXxx functions below exactly
-// as before; the VFX just plays on top of it. Respect spd() like BASE_DUR.
+// as before; the VFX just plays on top of it. Respect playbackSpeed like BASE_DUR.
 
 // Shared clipped overlay layer for detonation VFX. Same principle as #fly-layer:
 // clipped to the union of active-cell rectangles so smoke/bars over a hole or
@@ -4223,7 +3851,7 @@ function vfxLayer(){
 // Township's detonation smoke). Shared by every smoke activation: scarabSmoke
 // (3×3 / 5×5) and ballBallSmoke (whole grid). Lives in the clipped vfxLayer, so
 // any part over a hole or past a board edge is masked. Durations divide by
-// spd(). Charcoal body = high contrast vs the light sand cells (Jed
+// playbackSpeed. Charcoal body = high contrast vs the light sand cells (Jed
 // 2026-08-07); the lighter rim keeps the "puff of smoke" read.
 function smokeCircle(cx,cy,fullDiameter,expandMs,holdMs,contractMs){
   const L=vfxLayer();
@@ -4232,7 +3860,7 @@ function smokeCircle(cx,cy,fullDiameter,expandMs,holdMs,contractMs){
     +'background:radial-gradient(circle,rgba(38,38,44,0.86) 0%,rgba(58,58,68,0.62) 46%,rgba(120,120,132,0.2) 76%,rgba(140,140,152,0) 100%);'
     +'left:'+cx+'px;top:'+cy+'px;width:0px;height:0px;transform:translate(-50%,-50%);opacity:0.95;';
   L.appendChild(puff);
-  const EXPAND=Math.round(expandMs/spd()), HOLD=Math.round(holdMs/spd()), CONTRACT=Math.round(contractMs/spd());
+  const EXPAND=Math.round(expandMs/playbackSpeed), HOLD=Math.round(holdMs/playbackSpeed), CONTRACT=Math.round(contractMs/playbackSpeed);
   const t0=performance.now();
   function expand(now){
     const t=Math.min((now-t0)/EXPAND,1), e=1-Math.pow(1-t,2); // ease-out
@@ -4294,7 +3922,7 @@ function grasshopperCross(r,c){
   const hBar=document.createElement('div'); // horizontal arm — grows in width
   hBar.style.cssText=barCss+'left:'+center.x+'px;top:'+center.y+'px;height:'+thick+'px;width:0px;transform:translate(-50%,-50%);';
   L.appendChild(vBar);L.appendChild(hBar);
-  const GROW=Math.round(130/spd()), HOLD=Math.round(60/spd()), SNAP=Math.round(120/spd());
+  const GROW=Math.round(130/playbackSpeed), HOLD=Math.round(60/playbackSpeed), SNAP=Math.round(120/playbackSpeed);
   const t0=performance.now();
   function grow(now){
     const t=Math.min((now-t0)/GROW,1), e=1-Math.pow(1-t,2); // ease-out
@@ -4401,31 +4029,14 @@ function detHopper(r,c,phase,queue,next,charged){
   render(null);
   const t=autoGrasshopperTarget(r,c,phase);
   if(!t){setTimeout(next,200);return;}
-  // ONCE HE IS AIRBORNE, THE REFILL MATTERS MORE THAN HIS JOURNEY (Jed, 2026-08-30).
-  // The blast is finished the moment the creature leaves the ground — his flight is
-  // decoration, and holding the whole board still until he lands is what made a
-  // chain feel stop-and-go. So the detonation reports DONE at takeoff, gravity gets
-  // on with it, and the landing clears whatever is on that cell when he arrives.
-  // Jed's own Township observation is the licence: "Helicopters frequently start
-  // their journey targeting a goal colored gem, but by the time he gets there, that
-  // cell has changed occupant." The landing hole is filled by the quiet sweep like
-  // any other, and a power-up he lands on fires as its own event.
-  // He outlives his own detonation now, so he must not outlive his BOARD. If the
-  // level changed while he was in the air, the cell he was aiming at belongs to a
-  // different game — he simply doesn't arrive.
-  const bornGen=boardGen;
   setTimeout(()=>{
     hopperJumpTo(r,c,t[0],t[1],()=>{ // jumpers, not lasers
-      if(boardGen!==bornGen)return;   // he came down on somebody else's board
       if(charged)plantClover([[t[0],t[1]]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model — kills L7's "clover before any hopper fires" leak)
-      const late=[];                              // a PU under him fires as its own event
-      clearCellD(t[0],t[1],phase,late);
+      clearCellD(t[0],t[1],phase,queue);
       if(playerMode)updatePlayerHUD();
       render(null);
-      if(late.length)applyEffects([],t[0],t[1],late);   // its own chain, its own settle
-      else Motion.onQuiet&&!Motion.busy()&&boardQuiet(); // otherwise let the sweep fill the hole
+      next();
     });
-    next();                                       // airborne: the group is done with him
   },200);
 }
 
@@ -4450,7 +4061,7 @@ function detHopperJump(r,c,phase,queue,next,charged){
 // rides the existing detonation queue, so chain rules, cycle safety and settle
 // timing are untouched. EARNED mechanic: entranceMode still bounces the
 // gesture — the Qualifying level trains solo PUs only (combo level later).
-function startPUCombo(dr,dc,sr,sc,chain){
+function startPUCombo(dr,dc,sr,sc){
   const a={pu:board[dr][dc].pu,r:dr,c:dc}; // dragged PU — landed on the destination
   const b={pu:board[sr][sc].pu,r:sr,c:sc};
   const fam=p=>p==='rainbow'?'ball':p==='bomb'?'scarab':p==='helicopter'?'hopper':'fly';
@@ -4459,38 +4070,28 @@ function startPUCombo(dr,dc,sr,sc,chain){
   const consume=m=>{board[m.r][m.c].pu=null;puFired(m.pu);}; // goal event on consumption
   window._comboSwap=true; // star sensor: the swapped pair counts as ONE initiator
   moves++;updatePlayerHUD();
-  // INHERIT the swap's chain when there is one. A combo that opened its own chain
-  // left the swap's two-cell claim standing forever — those cells never accepted
-  // another tap. Engine 1 hid this: `animating=false` cleared everyone's state.
-  chain=chain||Motion.newChain('combo');
-  Motion.claim(chain+'/combo-swap');
+  animating=true;
 
   if(key==='fly+fly'){            // #7 — cross: full row + full column from the destination
     consume(a);consume(b);
-    applyEffects([],dr,dc,[{pu:'rocket_h',r:dr,c:dc},{pu:'rocket_v',r:dr,c:dc}],chain);
+    applyEffects([],dr,dc,[{pu:'rocket_h',r:dr,c:dc},{pu:'rocket_v',r:dr,c:dc}]);
   }else if(key==='fly+scarab'){   // #2 — Scarab widens the Fly: 3 lines on the Fly's own axis
     const flyM=pick('fly');consume(a);consume(b);
-    applyEffects([],dr,dc,[{pu:flyM.pu,r:dr,c:dc,wide:true}],chain);
+    applyEffects([],dr,dc,[{pu:flyM.pu,r:dr,c:dc,wide:true}]);
   }else if(key==='scarab+scarab'){// #9 — one bigger blast: 5×5 at the destination
     consume(a);consume(b);
-    applyEffects([],dr,dc,[{pu:'bomb',r:dr,c:dc,rad:2}],chain);
+    applyEffects([],dr,dc,[{pu:'bomb',r:dr,c:dc,rad:2}]);
   }else if(key==='hopper+hopper'){// #8 — 3×3 origin blast + 3 auto-picked jumps (auto per Jed 07-08)
     consume(a);consume(b);
     applyEffects([],dr,dc,[{pu:'bomb',r:dr,c:dc},
-      {pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc}],chain);
+      {pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc},{pu:'hopper_jump',r:dr,c:dc}]);
   }else if(key==='fly+hopper'||key==='hopper+scarab'){ // #1/#4 — jump first, partner fires at the landing
     const hop=pick('hopper'),partner=hop===a?b:a;
     consume(partner); // hopper stays visible until the jump commits (solo behavior)
-    // THE BOARD HOLDS STILL FOR A HUMAN DECISION. Set the choosing state BEFORE
-    // letting go of the board: consume() just emptied a cell, and releasing first
-    // let the quiet sweep pour gems into it — so the reticle opened over a board
-    // already sliding, and there was nothing steady to aim at (Jed, 2026-08-30:
-    // "when I'm trying to aim at a cell position, it's already moving").
-    // Same rule as a blast never firing into moving water, from the player's side.
+    animating=false;  // choosing state needs player input
     choosingGrasshopper={r:hop.r,c:hop.c,excluded:new Set(),   // own cell included: detonate in place
       orthCells:grasshopperOrthCells(hop.r,hop.c),comboPartner:partner.pu};
-    Motion.releaseChain(chain);  // now it is safe to let go — the sweep stands down while choosing
-    afterFallsLand(()=>render()); // and the vibe lands on cells that have stopped
+    render(); // vibe opens
   }else if(key==='ball+ball'){    // #10 — one hit point to the ENTIRE board
     consume(a);consume(b);
     ballBallSmoke(dr,dc); // eye-candy: charcoal circle swells to cover the whole grid, then collapses (overlay only)
@@ -4498,16 +4099,14 @@ function startPUCombo(dr,dc,sr,sc,chain){
     // gems-only version first, per spec. Any PU caught on board chains normally.
     const all=[];
     for(let rr=0;rr<R;rr++)for(let cc=0;cc<C;cc++)if(board[rr][cc].active)all.push([rr,cc]);
-    applyEffects(all,dr,dc,[],chain);
+    applyEffects(all,dr,dc,[]);
   }else{                          // #3/#5/#6 — Ball family: vibe → chosen color BECOMES the partner
     const ball=pick('ball'),partner=ball===a?b:a;
     consume(a);consume(b);
-    // Choosing state first, THEN release — see the note above: the other order let
-    // the refill start under the player's own colour pick.
+    animating=false; // waiting on the color pick
     choosingRainbow={r:ball.r,c:ball.c,
       convertTo:partner.pu==='helicopter'?'helicopter':partner.pu==='bomb'?'bomb':'rocket'};
-    Motion.releaseChain(chain);
-    afterFallsLand(()=>render());
+    render();
   }
 }
 
@@ -4519,8 +4118,7 @@ function startPUCombo(dr,dc,sr,sc,chain){
 //   scarabs/dragonflies likewise stay on the board until their cinematic.
 // Fly conversions get a random H/V axis each (spec silent on axis).
 function comboConvertAndDetonate(src,gemIdx){
-  const chain=Motion.newChain('combo-convert');   // the colour pick starts a new chain
-  Motion.claim(chain+'/combo-convert');
+  animating=true;
   const cells=rainbowCells(gemIdx);
   // CLOVER INHERITANCE (Jed 2026-07-23): a combo that TOUCHES clover (e.g. L16's
   // Ball+Dragonfly, both born on clover) spreads it through the whole conversion.
@@ -4530,20 +4128,12 @@ function comboConvertAndDetonate(src,gemIdx){
   // a solo Ball/Dragonfly does.
   const comboTouchesClover=cells.concat([[src.r,src.c]])
     .some(([r,c])=>board[r]&&board[r][c]&&board[r][c].sub==='clover');
-  cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); // reading order — this is the ACTIVATION order (deploy, below)
-  // PLACEMENT ORDER (Jed 2026-09-13): Township does NOT convert in a top-left→right,
-  // top→bottom sweep — it scatters the pop, and that reads better. So Phase A (the
-  // laser converting each tile to the partner PU) walks a SHUFFLED order; the PUs
-  // still land on their own gem cells, they just APPEAR in a random sequence. Phase B
-  // (activation/detonation, in deploy) keeps reading order — `cells` stays sorted.
-  const convertOrder=cells.slice();
-  for(let k=convertOrder.length-1;k>0;k--){const j=(Math.random()*(k+1))|0;[convertOrder[k],convertOrder[j]]=[convertOrder[j],convertOrder[k]];}
+  cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); // reading order: row 1 L→R, row 2…
   const HIT_MS=110; // same pace as the solo Ball's laser sweep
   let i=0;
   const convertNext=()=>{
-    if(i>=convertOrder.length){setTimeout(deploy,180/spd());return;}
-    const [r,c]=convertOrder[i++];
-    Motion.touch(chain);   // a long sweep is WORKING, not stalled — say so every step
+    if(i>=cells.length){setTimeout(deploy,180/playbackSpeed);return;}
+    const [r,c]=cells[i++];
     animateLaser(src.r,src.c,r,c,()=>{});
     setTimeout(()=>{
       if(playerMode){playerTally(gemIdx);updatePlayerHUD();} // conversion consumes the gem
@@ -4559,13 +4149,13 @@ function comboConvertAndDetonate(src,gemIdx){
     // consume-on-play queue: each converted PU is consumed (and its cell
     // cleared) only when ITS cinematic starts — chains catching it earlier
     // turn its entry into a no-op (cycle-safe both ways).
-    if(src.convertTo==='helicopter'){hopperSequence(cells,src,chain);return;}
+    if(src.convertTo==='helicopter'){hopperSequence(cells,src);return;}
     const phase=new Set(),queue=[];
     cells.forEach(([r,c])=>{
       if(!board[r][c].pu)return; // already chained away (shouldn't happen pre-deploy)
       queue.push({pu:board[r][c].pu,r,c,consumeOnPlay:true,combo:true});
     });
-    processDetonations(queue,phase,()=>settleAndCascade(phase,src.r,src.c,chain),chain);
+    processDetonations(queue,phase,()=>settleAndCascade(phase,src.r,src.c));
   };
   convertNext();
 }
@@ -4596,7 +4186,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
   const actor=document.createElement('div');
   actor.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
     +`pointer-events:none;z-index:22;display:flex;align-items:center;justify-content:center;`
-    +`transition:transform ${Math.round(220/spd())}ms ease-out;`;
+    +`transition:transform ${Math.round(220/playbackSpeed)}ms ease-out;`;
   actor.innerHTML=puSVG('helicopter',gemSize());
   actor.style.left=(center.x-CELL_SIZE/2)+'px';
   actor.style.top =(center.y-CELL_SIZE/2)+'px';
@@ -4613,7 +4203,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
       const bite=document.createElement('div');
       bite.style.cssText=`position:absolute;width:${CELL_SIZE}px;height:${CELL_SIZE}px;`
         +`pointer-events:none;z-index:21;display:flex;align-items:center;justify-content:center;`
-        +`transition:all ${Math.round(200/spd())}ms ease-in;`;
+        +`transition:all ${Math.round(200/playbackSpeed)}ms ease-in;`;
       bite.innerHTML=el.innerHTML;
       bite.style.left=(p.x-CELL_SIZE/2)+'px';
       bite.style.top =(p.y-CELL_SIZE/2)+'px';
@@ -4638,7 +4228,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
   setTimeout(()=>{
     meals.forEach(({bite})=>bite.remove());
     onFed(actor);
-  },Math.round(240/spd()));
+  },Math.round(240/playbackSpeed));
 }
 
 // SEQUENTIAL HOPPER DEPLOY (#5 / Ball×GH combo — Jed 2026-08-08, SUPERSEDES the
@@ -4651,34 +4241,22 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
 // its cross on an already-empty grid after every jump had finished. A hopper
 // absorbed by another's blast/landing is simply consumed (it leaves the board, so
 // the re-scan skips it) — never re-detonated on empty cells.
-function hopperSequence(cells,src,chain){
+function hopperSequence(cells,src){
   const phase=new Set(),chainQueue=[];
   const TAKEOFF_MS=170;      // stagger between activations = one hopper's cross-read + takeoff
   let inFlight=0, allActivated=false;
   // settle only once EVERY hopper has activated AND every flight has landed —
   // otherwise the board would settle out from under airborne hoppers.
-  // SETTLE WHEN THE LAST ONE IS AIRBORNE, NOT WHEN THE LAST ONE LANDS (Jed's rule,
-  // 2026-08-30, applied to the swarm as well as the single hopper). The blast work is
-  // finished once every creature has taken off; making the whole board wait out a
-  // dozen overlapping flights is what left his upper-left region sitting empty
-  // mid-combo. Each landing is now its own small event — it clears whatever is on
-  // that cell when it arrives, and anything it catches fires as its own chain.
   const maybeFinish=()=>{
-    if(!allActivated)return;
+    if(!allActivated||inFlight>0)return;
     const rest=chainQueue.filter(d=>d.pu!=='helicopter'); // never re-detonate an absorbed hopper (the empty-grid cross)
-    processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c,chain),chain);
+    processDetonations(rest,phase,()=>settleAndCascade(phase,src.r,src.c));
   };
-  // THIS COMBO'S OWN cells, in reading order — never the whole board. The old scan
-  // took any Grasshopper anywhere, which was safe only because Engine 1 froze the
-  // board: nothing else could create one mid-swarm. Under Still Water another chain
-  // makes a Grasshopper, this swarm fires it, that clears more, which makes more —
-  // a runaway that showed up in Jed's log as "34 PUs in sequence from one move".
-  const mine=cells.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
   const activateNext=()=>{
-    Motion.touch(chain);   // the swarm is alive between detonations — say so
-    // next LIVE helicopter of OURS (re-scanned, so absorbed ones drop out)
+    // next LIVE helicopter in reading order (re-scanned, so absorbed ones drop out)
     let hop=null;
-    for(const [r,c] of mine){ if(board[r][c].active&&board[r][c].pu==='helicopter'){hop=[r,c];break;} }
+    for(let r=0;r<R&&!hop;r++)for(let c=0;c<C&&!hop;c++)
+      if(board[r][c].active&&board[r][c].pu==='helicopter')hop=[r,c];
     if(!hop){ allActivated=true; maybeFinish(); return; } // no more to launch; wait on the airborne ones
     const [r,c]=hop;
     const hopCharged=!!(board[r][c].puClover||board[r][c].sub==='clover'); // charged? (capture before consuming)
@@ -4696,26 +4274,18 @@ function hopperSequence(cells,src,chain){
       const t=randomHopperTarget(r,c,phase); // combo target stays chaotic (Jed 07-09)
       if(t){
         inFlight++;
-        const bornGen=boardGen;                          // he must not outlive his board
         hopperFlight(makeHopperActor(r,c),r,c,t[0],t[1],()=>{
-          inFlight--; Motion.touch(chain);
-          if(boardGen!==bornGen)return;   // he came down on somebody else's board
           if(hopCharged)plantClover([[t[0],t[1]]],true); // landing seeds only if it took off charged
-          // A LATE ARRIVAL OWNS ITS OWN EVENT. The group's queue may already have
-          // been drained by the time he lands, so anything he catches has to fire
-          // as its own chain or it would never fire at all.
-          const late=[];
-          clearCellD(t[0],t[1],phase,late);
+          clearCellD(t[0],t[1],phase,chainQueue);
           if(playerMode)updatePlayerHUD();
           render(null);
           const el=document.querySelector(`[data-r="${t[0]}"][data-c="${t[1]}"]`);
           if(el)el.classList.add('popping');
-          if(late.length)applyEffects([],t[0],t[1],late);
-          maybeFinish();
+          inFlight--; maybeFinish();
         });
       }
       activateNext(); // the swarm builds: next one launches while this one is still in the air
-    },Math.round(TAKEOFF_MS/spd()));
+    },Math.round(TAKEOFF_MS/playbackSpeed));
   };
   activateNext();
 }
@@ -4746,7 +4316,7 @@ function spawnHopperTrail(x,y){
   const wrap=document.getElementById('board-wrap');
   const s=Math.max(4,Math.round(gemSize()/4));
   const bit=document.createElement('div');
-  const ms=Math.round(320/spd());
+  const ms=Math.round(320/playbackSpeed);
   bit.style.cssText='position:absolute;pointer-events:none;z-index:21;border-radius:50%;'
     +'width:'+s+'px;height:'+s+'px;left:'+(x-s/2)+'px;top:'+(y-s/2)+'px;'
     +'background:radial-gradient(circle,rgba(96,200,88,0.95),rgba(18,92,30,0.9));'
@@ -4763,7 +4333,7 @@ function spawnHopperTrail(x,y){
 function hopperFlight(actor,fr,fc,tr,tc,onLand){
   const from=cellPos(fr,fc),to=cellPos(tr,tc);
   const dist=Math.hypot(to.x-from.x,to.y-from.y);
-  const dur=Math.max(300,dist*2.2)/spd();
+  const dur=Math.max(300,dist*2.2)/playbackSpeed;
   const lift=Math.min(60,20+dist*0.15);
   const start=performance.now();
   let lastBit=0;
@@ -4801,12 +4371,8 @@ function detHopperCombo(r,c,phase,queue,next,charged){
 // ── Apply a combined set of cleared cells: pop, run detonation queue, settle ──
 // initialQueue lets callers enqueue already-consumed PUs (e.g. a swap-fired
 // Dragonfly) so their cinematics play through the same engine.
-function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
-  chain=chain||Motion.newChain('effects');   // a caller with no chain gets its own
-  // A DETONATION is genuinely a board-scale event (beams, jumps, and swarms go
-  // where they like), so it claims the board. A plain clear claims its own cells,
-  // and the rest of the board stays live.
-  Motion.claim(chain+'/effects',(initialQueue&&initialQueue.length)?null:cellsToClear);
+function applyEffects(cellsToClear,pivotR,pivotC,initialQueue){
+  animating=true;
   const phase=new Set();
   const queue=initialQueue||[];
   if(cellsToClear.length)plantClover(cellsToClear); // direct clears = one event (e.g. Ball×Ball board wipe)
@@ -4816,16 +4382,12 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
   // pop beat first, then play out every queued detonation, THEN settle once
   setTimeout(()=>{
-    processDetonations(queue,phase,()=>settleAndCascade(phase,pivotR,pivotC,chain),chain);
-  },queue.length||phase.size?POP_MS:0);
+    processDetonations(queue,phase,()=>settleAndCascade(phase,pivotR,pivotC));
+  },queue.length||phase.size?230:0);
 }
 
 function playTap(r,c){
-  // A choosing-state tap (Grasshopper / Akasha Ball target pick) is a UI selection
-  // the board is WAITING on — it must land regardless of per-cell motion, exactly
-  // as it did under Engine 1's global `!animating` gate. Only real board moves
-  // (swaps, boosters) are gated on Still Water's per-cell quiet.
-  if(!choosingRainbow&&!choosingGrasshopper&&!Motion.quietAt(r,c))return;
+  if(animating)return;
   nudgeFlowIdle(); // player acted: drop the sweep, re-arm the idle clock so it returns if they stall
   // an ARMED booster claims the next board tap (never during a choosing state)
   if(armedBooster&&!choosingRainbow&&!choosingGrasshopper){applyBooster(r,c);return;}
@@ -4849,8 +4411,7 @@ function playTap(r,c){
     if(!cd2||!cd2.active||choosingGrasshopper.excluded.has(k)||(cd2.gem===null&&!cd2.pu&&!cd2.obs)) return;
     const hop=choosingGrasshopper;
     choosingGrasshopper=null;
-    const chain=Motion.newChain('hopper');
-    Motion.claim(chain+'/hopper-jump');
+    animating=true;
     // The Grasshopper stayed visible while the player chose — NOW he jumps:
     // consume the PU and fire the goal event at the moment of takeoff.
     const hopCharged=!!(board[hop.r][hop.c].puClover||board[hop.r][hop.c].sub==='clover'); // player-fired: charged iff origin was clover (capture before consuming)
@@ -4868,22 +4429,19 @@ function playTap(r,c){
     if(playerMode)updatePlayerHUD();
     render(null);
     phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-    // Step 2: fire what the orth blast CAUGHT first, THEN the creature flies (Jed
-    // 2026-09-13). A Scarab directly under the Grasshopper detonates WITH the blast
-    // that ignited it — not after the jump lands. The target (and any PU on it) is a
-    // separate event that resolves ON landing; settle once, after both.
+    // Step 2: after pop, laser to the chosen target, clear it (PU there enqueues too)
     setTimeout(()=>{
-      processDetonations(queue,phase,()=>{           // orth-blast catches (the Scarab) go NOW
-        hopperFlight(hopActor,hop.r,hop.c,r,c,()=>{   // jumpers, not lasers — then the jump
-          if(hopCharged)plantClover([[r,c]],true);    // landing seeds ONLY if the hopper took off charged
-          const tq=[];
-          clearCellD(r,c,phase,tq);                   // the target, and any PU sitting on it
-          if(hop.comboPartner)tq.unshift({pu:hop.comboPartner,r,c}); // combo partner fires FROM the landing cell
-          if(playerMode)updatePlayerHUD();
-          render(null);
-          processDetonations(tq,phase,()=>settleAndCascade(phase,r,c,chain),chain);
-        });
-      },chain);
+      hopperFlight(hopActor,hop.r,hop.c,r,c,()=>{ // jumpers, not lasers
+        if(hopCharged)plantClover([[r,c]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model)
+        clearCellD(r,c,phase,queue);
+        // Combo partner (#1 Fly×Hopper / #4 Hopper×Scarab): fires FROM the
+        // landing cell, ahead of any chain-caught PUs from the orth blast
+        if(hop.comboPartner)queue.unshift({pu:hop.comboPartner,r,c});
+        if(playerMode)updatePlayerHUD();
+        render(null);
+        // Step 3: play out every chained detonation, then settle once
+        processDetonations(queue,phase,()=>settleAndCascade(phase,r,c));
+      });
     },230);
     return;
   }
@@ -4955,18 +4513,13 @@ function playTap(r,c){
     } else render();
     return;
   }
-  // STILL WATER: the first tap's cell was quiet when it was picked up — a cascade
-  // may have reached it since. Both ends of a swap must be still RIGHT NOW.
-  if(!Motion.quietAt(sr,sc)||!Motion.quietAt(r,c)){render();return;}
   if(Math.abs(sr-r)+Math.abs(sc-c)!==1){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
   // Chained gems cannot MOVE — the swap bounces; match them in place instead
   if(isChained(sr,sc)||isChained(r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
   window._swapPU=0;window._comboSwap=false; // star sensor: new move, new count
-  const chain=Motion.newChain('swap');
-  if(Motion.busy())window._moveOverlapped=true; // another move is still cascading — see the star note in cascadeEnd
-  Motion.claim(chain+'/swap',[[sr,sc],[r,c]]);  // STILL WATER: a swap moves two cells, not the board
+  animating=true;
   animateSwap(sr,sc,r,c,html1,html2,()=>{
     const tg=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=tg;
     const tp=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp;
@@ -4987,9 +4540,9 @@ function playTap(r,c){
     if(board[r][c].pu&&board[sr][sc].pu){
       if(entranceMode){
         const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
-        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;        render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseChain(chain);render();});return;
+        const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;        render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
       }
-      startPUCombo(r,c,sr,sc,chain);   // the combo IS this swap — same chain, or the swap's claim never lifts
+      startPUCombo(r,c,sr,sc);
       return;
     }
     const detQueue=[];
@@ -5008,11 +4561,7 @@ function playTap(r,c){
         // Hopper swapped with a gem: stays visible on its landed cell while
         // choosing — consumed (and goal event fired) only when the jump commits.
         // Choosing opens at cascadeEnd, after simultaneous swap effects settle.
-        // STILL WATER: stamp the chain. This is a handoff from one move to its OWN
-        // cascadeEnd, and with two moves in flight whichever chain finished first
-        // used to consume it — opening a reticle for a Grasshopper the player never
-        // touched, which locks every tap on the board (a reticle claims all input).
-        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set(),orthCells:grasshopperOrthCells(pr,pc),chain}; // own cell included: detonate in place
+        window._pendingHopperChoose={r:pr,c:pc,excluded:new Set(),orthCells:grasshopperOrthCells(pr,pc)}; // own cell included: detonate in place
       }
     }
     // Also collect any normal pattern matches formed by the swap
@@ -5021,7 +4570,7 @@ function playTap(r,c){
       // Nothing happened — revert swap
       const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
       const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
-      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too      render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseChain(chain);render();});return;
+      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too      render();animateBounceBack(r,c,sr,sc,()=>{animating=false;render();});return;
     }
     moves++;
     updatePlayerHUD();
@@ -5033,61 +4582,21 @@ function playTap(r,c){
         const phase=new Set();
         processDetonations(detQueue,phase,()=>{
           cleared+=phase.size;
-          resolve(pats,r,c,snap,sr,sc,chain);
-        },chain);
+          resolve(pats,r,c,snap,sr,sc);
+        });
       } else {
-        resolve(pats,r,c,snap,sr,sc,chain);
+        resolve(pats,r,c,snap,sr,sc);
       }
     } else {
       // PU-only swap (or hopper pending): everything through the detonation queue
-      applyEffects([],r,c,detQueue,chain);
+      applyEffects([],r,c,detQueue);
     }
   });
 }
 
-function resolve(pats,dr,dc,snap,sr,sc,chain){
-  // A caller with no chain of its own (a direct call, e.g. the suite) gets one —
-  // AND the board lock that its caller would normally be holding, so the cascade
-  // it kicks off is claimed like any other.
-  if(!chain){ chain=Motion.newChain('resolve'); Motion.claim(chain+'/resolve'); }
-  // ── RULE A (Engine 2): SIMULTANEOUS RESOLUTION ─────────────────────────────
-  // Engine 1 resolved pats[0] and made every other match on the board wait a full
-  // settle beat — one 4-match here, one 4-match in the far corner, two beats. That
-  // one-at-a-time queue IS the stop-and-go feel Township doesn't have.
-  // Now every pattern that does not OVERLAP a higher-priority one resolves in this
-  // same pass. Overlapping patterns still wait: they describe the same gems (a
-  // 5-run also shows up inside find3's board-wide basic3 set), and resolving both
-  // would clear cells twice — so the ambiguous cases behave exactly as Engine 1 did
-  // and only genuinely independent matches gain. Priority order is unchanged, so
-  // which pattern WINS an overlap is unchanged too.
-  const used=new Set(), chosen=[];
-  // STILL WATER / RULE A: only resolve where the water is still. A pattern any
-  // OTHER chain is moving belongs to that chain — taking it would clear the same
-  // gems twice. Our own claims are ours to work on, so they're ignored.
-  const stillHere=cells=>cells.every(([r,c])=>Motion.quietAt(r,c,chain));
-  for(const cand of pats){
-    // basic3 is a single board-wide bag of every plain 3-match, so an overlap with
-    // ONE special would strand all the others. Re-derive it against what's already
-    // taken instead: whole runs that touch nothing claimed still go now.
-    if(cand.type==='basic3'){
-      const rest=find3Excluding(used,chain);
-      if(!rest.length)continue;
-      rest.forEach(([r,c])=>used.add(r+','+c));
-      chosen.push({...cand,cells:rest});
-      continue;
-    }
-    if(!stillHere(cand.cells))continue;         // another chain is already moving these gems
-    const keys=cand.cells.map(([r,c])=>r+','+c);
-    if(keys.some(k=>used.has(k)))continue;      // same gems as a pattern already taken
-    keys.forEach(k=>used.add(k));
-    chosen.push(cand);
-  }
-  // Every match on the board may belong to another chain (Still Water): there is
-  // nothing for THIS pass to do, and it must end its chain rather than loop.
-  if(!chosen.length){ cascadeEnd(chain); return; }
-  const toClear=[];
-  SFX.play('match'); // ONE sound for the pass — simultaneous matches are one event, not a stutter
-  chosen.forEach(p=>{
+function resolve(pats,dr,dc,snap,sr,sc){
+  const p=pats[0];const toClear=[];
+  SFX.play('match'); // one sound per matched pattern (initial swap + every cascade)
   // SPREAD CLOVER: the match is one clear event — if any matched cell sits on
   // clover, the whole matched set plants (anchor cell included: a PU created
   // on clover keeps the clover under it).
@@ -5123,7 +4632,6 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
   } else {
     p.cells.forEach(([r,c])=>toClear.push([r,c]));cleared+=p.cells.length;
   }
-  });
   // NOTE: a PU born on clover is NOT pre-charged. The clover-charge is EPHEMERAL —
   // set only by the DRAG that moves a PU off a clover cell, consumed by that
   // detonation (see the swap). A PU sitting on the board (however it got there) is
@@ -5132,38 +4640,30 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
   // a plain double-tap — wrong; the drag is what carries the clover.)
   // Any PU caught by the match clear is ENQUEUED — its cinematic plays out
   // (lasers and all) before gravity runs. Same visuals as player-fired.
-  // Anchors for EVERY chosen pattern are placed before a single cell is cleared,
-  // so one pattern's new power-up can never be swept up by another's clear.
   const phase=new Set();
   const detQueue=[];
   toClear.forEach(([r,c])=>clearCellD(r,c,phase,detQueue));
   // SPLASH DAMAGE: leaves AND crates (unlike chains, which need their own gem
   // matched) take one hit from any orthogonally adjacent match — a crate has no
   // gem to match, so adjacency is the ONLY way to break it. Once per obstacle
-  // per match event — and a pass that resolves several matches is ONE event, so
-  // a crate touched by two of them still takes exactly one hit.
+  // per match event.
   const splashed=new Set();
-  chosen.forEach(p=>p.cells.forEach(([r,c])=>{
+  p.cells.forEach(([r,c])=>{
     for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
       const k=nr+','+nc;
       if(nr<0||nr>=R||nc<0||nc>=C||splashed.has(k))continue;
       if(board[nr][nc].active&&(isLeafy(nr,nc)||isCrate(nr,nc))){splashed.add(k);damageChain(nr,nc);}
     }
-  }));
+  });
   if(playerMode) updatePlayerHUD();
   render(null);
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
-  // Hold exactly what this pass is popping (plus the ring it splashes) for the pop
-  // beat — a detonation still takes the whole board, since its beams will.
-  Motion.claim(chain+'/pop', detQueue.length?null:
-    [...new Set([...phase,...splashed])].map(k=>k.split(',').map(Number)));
-  const label=chosen.map(p=>p.type).join('+'); // several matches in one pass read as one entry
-  window.moveHistory.push({move:moves,src:[sr,sc],dest:[dr,dc],pattern:label,patterns:chosen.length,cleared:toClear.length,boardBefore:snap});
-  document.getElementById('lastmove').textContent=`#${moves} ${label} +${toClear.length}`;
+  window.moveHistory.push({move:moves,src:[sr,sc],dest:[dr,dc],pattern:p.type,cleared:toClear.length,boardBefore:snap});
+  document.getElementById('lastmove').textContent=`#${moves} ${p.type} +${toClear.length}`;
   // Pop beat → play out queued detonations → gravity → rescan (settleAndCascade)
   setTimeout(()=>{
-    processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc,chain),chain);
-  },POP_MS);
+    processDetonations(detQueue,phase,()=>settleAndCascade(phase,dr,dc));
+  },230);
 }
 
 // gravityWithMap — FLOW-AWARE gravity: applies gravity to board data and returns
@@ -5283,22 +4783,6 @@ function gravityWithMap(){
       let grew=false;
       for(let r=0;r<R;r++)for(let c=0;c<C;c++){
         if(!board[r][c].active||feed[r][c])continue;
-        // FED = SOME NEIGHBOUR RELEASES INTO ME (Jed's river model, the same
-        // question the entry test asks via fedByNeighbor). This used to ask a
-        // DIFFERENT question — "is the cell directly upstream ALONG MY OWN FLOW
-        // fed?" — which is the same thing only while every cell flows the same way.
-        // On a serpentine the turn cell flows DOWN, so "directly upstream" is the
-        // cell above it, off the board: it was declared starved and PROMOTED TO A
-        // SOURCE, and gems spawned out of the top-right corner (Jed, 2026-08-30:
-        // "the only source of new gems should be the top left cell"). Every turn in
-        // every river had its own private spring.
-        let fedIn=false;
-        for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
-          if(!inGrid(nr,nc)||!board[nr][nc].active||!feed[nr][nc])continue;
-          const [ndr,ndc]=vecAt(nr,nc);
-          if(nr+ndr===r&&nc+ndc===c){fedIn=true;break;}   // that neighbour releases INTO this cell
-        }
-        if(fedIn){feed[r][c]=true;grew=true;continue;}
         const [dr,dc]=vecAt(r,c);
         const ur=r-dr,uc=c-dc;
         if(inGrid(ur,uc)&&board[ur][uc].active){          // straight feed
@@ -5333,15 +4817,7 @@ function gravityWithMap(){
         const rid=region[r][c];
         const bodyUp=(pr,pc)=>inGrid(pr,pc)&&board[pr][pc].active&&region[pr][pc]===rid;
         const diag=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
-        // A cell someone POINTS AT is never a spring, whatever direction it flows —
-        // the root test has to use the same feed model as the growth loop above or a
-        // turn cell qualifies as its own source.
-        const pointedAt=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc])=>{
-          if(!bodyUp(nr,nc))return false;
-          const [ndr,ndc]=vecAt(nr,nc);
-          return nr+ndr===r&&nc+ndc===c;
-        });
-        if(!pointedAt&&!(bodyUp(ur,uc)||diag.some(([pr,pc])=>bodyUp(pr,pc)))){
+        if(!(bodyUp(ur,uc)||diag.some(([pr,pc])=>bodyUp(pr,pc)))){
           entry[r][c]=true;feed[r][c]=true;promoted=true;
         }
       }
@@ -5366,13 +4842,6 @@ function gravityWithMap(){
   let guard=0;
   while(guard++<R*C*4){
     let progress=false;
-    // TWO GEMS MAY NOT SWAP PAST EACH OTHER. Diagonal slips are the one move that
-    // can CROSS: (r-1,c) → (r,c+1) and (r-1,c+1) → (r,c) trade places through the
-    // same point, and no amount of shared timing can stop two crossing paths from
-    // meeting in the middle — they would visibly pass through one another. Whichever
-    // slip is issued first this step wins; the other waits for the next one, which
-    // is also Jed's river rule (one in, one out per cell).
-    const slipped=new Set();
     // 1) STRAIGHT — bottom-up scan so a down-flow column compacts slinky-style.
     // Chained gems are IMMOVABLE: they never fall, never vacate — which is
     // also what seals the cells beneath a chain wall (promotion stays
@@ -5433,10 +4902,7 @@ function gravityWithMap(){
         return !emptyActive(pr+ddr,pc+ddc); // resting — cannot fall straight
       });
       if(!donors.length)continue;
-      const pick=donors.filter(([pr,pc])=>!slipped.has(pr+','+c+'>'+r+','+pc)); // its crossing partner already went
-      if(!pick.length)continue;
-      const [pr,pc]=pick[Math.floor(Math.random()*pick.length)];
-      slipped.add(pr+','+pc+'>'+r+','+c);
+      const [pr,pc]=donors[Math.floor(Math.random()*donors.length)];
       step(pr,pc,r,c);progress=true;
     }
     // 3) SPAWN — entry cells pull new gems in from stacked off-grid cells;
@@ -5535,138 +5001,12 @@ function gravityWithMap(){
 // snapping back to identity on arrival. No bounce.
 //
 // onDone fires only after ALL columns have finished — chain scan timing preserved.
-// ── FALL FLIGHT PLAN: who moves when, and for how long ───────────────────────
-// GEMS MAY NEVER OVERLAP (Jed, 2026-08-30, on a serpentine: "that would defy basic
-// laws of physics, and never happens in Township").
-//
-// The old timing grouped by SOURCE COLUMN and gave each gem a duration from its own
-// path length (BASE·√span). That is only ever right for straight-down flow. On a
-// serpentine a corridor runs sideways, so gems sharing one corridor landed in
-// different groups and ran on different clocks: a gem crossing 1 cell finished in
-// 260ms while one crossing 6 was still travelling the same corridor at 637ms — and
-// drew straight through it. Measured on Jed's 9x11 serpentine: 129 collision samples
-// in a single pass, worst separation 0.278 of a cell.
-//
-// THE RULE: gems that share any cell of their paths are a CONVOY, and a convoy
-// shares one clock — each gem travels its own distance over the SAME duration with
-// the same easing. Separation then runs d → e(t)·(d−1) → exactly 1 cell and never
-// less, so the trailing gem provably cannot reach the leader. (Gravity compacts, so
-// an upstream gem's span is always ≥ the gem ahead of it; that is what makes the
-// algebra hold.) The slinky stagger only ever delays the upstream gem, widening the
-// gap further, so the Township look survives.
-//
-// Separate convoys keep their own clocks, so a one-cell drop in a quiet column stays
-// snappy instead of being slowed to the longest fall on the board.
-// This is the SINGLE SOURCE OF TRUTH for fall timing: the renderer draws from it and
-// the invariants replay it looking for collisions. Change the rhythm here or nowhere.
-function fallFlightPlan(fallMoves){
-  const animated=fallMoves.filter(m=>m.isNew||m.fr!==m.tr||m.fc!==m.tc);
-  if(!animated.length)return [];
-  const pathOf=m=>(m.path&&m.path.length>1?m.path:[{r:m.fr,c:m.fc},{r:m.tr,c:m.tc}]);
-  const spanOf=m=>{const w=pathOf(m);let t=0;
-    for(let i=1;i<w.length;i++)t+=Math.hypot(w[i].r-w[i-1].r,w[i].c-w[i-1].c);
-    return Math.max(t,1);};
-  // Union-find over every cell a gem passes THROUGH — not just its endpoints, since
-  // the middle of a 6-cell run is exactly where it would overtake somebody.
-  const parent=animated.map((_,i)=>i);
-  const find=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;};
-  const union=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a;};
-  const owner=new Map();
-  animated.forEach((m,i)=>{
-    const w=pathOf(m);
-    for(let k=0;k<w.length;k++){
-      const a=w[k], b=w[Math.min(k+1,w.length-1)];
-      const steps=Math.max(Math.abs(b.r-a.r),Math.abs(b.c-a.c),1);
-      for(let st=0;st<=steps;st++){
-        const key=Math.round(a.r+(b.r-a.r)*st/steps)+','+Math.round(a.c+(b.c-a.c)*st/steps);
-        if(owner.has(key))union(owner.get(key),i); else owner.set(key,i);
-      }
-    }
-  });
-  const groups=new Map();
-  animated.forEach((m,i)=>{const k=find(i);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(m);});
-  // LEAD = THE GEM FURTHEST DOWNSTREAM, measured by how few steps its destination
-  // is from the exit. Ordering by span looked right (in a compacting column the
-  // shortest fall IS the lowest gem) and was wrong the moment a gem BRANCHED: on L2
-  // a spawn entering at row -2 passes through (2,1) and slips on to (3,0), so it
-  // travels FARTHER than the gem that merely lands at (2,1) — yet it is ahead in
-  // the queue and must leave first. Sorting by span launched the one behind it
-  // first, and it overtook. Steps-to-exit is the honest measure and it works on any
-  // flow, serpentine included.
-  const distToExit=(r,c)=>{
-    let n=0,rr=r,cc=c; const seen=new Set();
-    while(rr>=0&&rr<R&&cc>=0&&cc<C&&board[rr][cc].active&&!seen.has(rr+','+cc)&&n<=R*C){
-      seen.add(rr+','+cc);
-      const [dr,dc]=FLOW_VEC[(flow[rr]&&flow[rr][cc])||'down']; rr+=dr; cc+=dc; n++;
-    }
-    return n;
-  };
-  const BASE=260/spd(), STAGGER=40/spd();
-  const plan=[];
-  groups.forEach(ms=>{
-    // ORDER IS THE WHOLE FIX — the duration was never wrong. dur = BASE·√span gives
-    // every gem the SAME acceleration (position = t²/BASE² regardless of how far it
-    // is going), so a convoy that starts together moves RIGIDLY: spacing is held,
-    // each gem simply stops when it reaches its own cell, nearest one first. That is
-    // both correct physics and fast — a one-cell drop still takes one cell's time.
-    // What was broken was the STAGGER: it ranked gems by SOURCE COLUMN, so on a
-    // serpentine (where a corridor spans many columns) the LEAD gem could be handed
-    // a later start than the gem behind it — and the follower drove straight through
-    // it. Rank by position along the corridor instead, lead first, and a delay can
-    // only ever hold a gem BACK from the one ahead of it.
-    // (Giving the whole convoy one shared duration also stops overtaking, but it
-    // makes every gem as slow as the slowest — a column stays visibly empty for the
-    // length of its longest fall. Jed saw that immediately: "empty cells scattered
-    // throughout, not being refilled".)
-    [...ms].sort((a,b)=>distToExit(a.tr,a.tc)-distToExit(b.tr,b.tc)||spanOf(a)-spanOf(b))
-      // The stagger is CAPPED. A column holds a handful of gems, but a serpentine is
-      // one long corridor — 84 gems at 40ms each put the last one 3.3 SECONDS behind
-      // the first, and the board sat there draining. Flattening the tail is safe: the
-      // no-overtake rule only needs the delay to never DECREASE going upstream, and a
-      // cap is still non-decreasing. Eight steps ≈ the old per-column maximum, which
-      // is where the slinky look was measured from in the first place.
-      .forEach((m,rank)=>plan.push({move:m,delay:Math.min(rank,8)*STAGGER,dur:BASE*Math.sqrt(spanOf(m)),
-                                    span:spanOf(m),path:pathOf(m)}));
-  });
-  return plan;
-}
-window.fallFlightPlan=fallFlightPlan;
-
-// Every board load is a new board, even a REPLAY of the same level. Anything that
-// outlives its own detonation — a Grasshopper in flight — must check this, not the
-// level number: keying on curLevelNum let a hopper born on one L1 land on the NEXT
-// L1 and churn it, which turned two flow-preview invariants red at random.
-let boardGen=0;
-
-// ── ONE FALLING WAVE AT A TIME, BOARD-WIDE ───────────────────────────────────
-// GEMS MAY NEVER OVERLAP (Jed, 2026-08-30, on a serpentine level: "that would defy
-// basic laws of physics, and never happens in Township"). Two fall passes animating
-// at once break that rule: each pass times its gems from its own start, so a gem on
-// a short path from the LATER pass overtakes and draws straight through a gem still
-// travelling a long path from the earlier one. On a serpentine they share the same
-// corridor, so it is not even rare.
-// The refill pump made this reachable by starting a gravity pass between detonations
-// while the previous pass was still in the air. Rather than police the callers, a
-// fall now QUEUES: the wave that is airborne finishes, then the next one starts. The
-// refill still overlaps the DETONATIONS (that is where the Township feel came from);
-// it just never overlaps another fall.
-let _fallActive=false; const _fallQueue=[];
 function animateFall(fallMoves,onDone){
-  _fallQueue.push([fallMoves,onDone]);
-  if(!_fallActive)_runNextFall();
-}
-function _runNextFall(){
-  if(!_fallQueue.length){_fallActive=false;return;}
-  _fallActive=true;
-  const [moves,cb]=_fallQueue.shift();
-  animateFallNow(moves,()=>{ try{ if(cb)cb(); } finally { _runNextFall(); } });
-}
-function animateFallNow(fallMoves,onDone){
   const wrap=document.getElementById('board-wrap');
   const boardEl=document.getElementById('board');
   // Base duration for a 1-row fall; multi-row falls scale by sqrt(rows).
-  // Divided by spd(): 2× speed = half duration = faster animation.
-  const BASE_DUR=260/spd();
+  // Divided by playbackSpeed: 2× speed = half duration = faster animation.
+  const BASE_DUR=260/playbackSpeed;
 
   // Pixel top-left of cell (r,c) relative to board-wrap; works for negative r (above board).
   function px(r,c){
@@ -5700,14 +5040,37 @@ function animateFallNow(fallMoves,onDone){
     flyLayer.style.clipPath=rects.length?`path('${rects.join('')}')`:'none';
   })();
 
-  const plan=fallFlightPlan(fallMoves);
-  if(!plan.length){onDone();return;}
-  const STAGGER_MS=40/spd();   // (kept for reference; the plan carries the delays)
+  // Group moves by column so each column animates independently.
+  const byCol={};
+  fallMoves.forEach(m=>{
+    if(!m.isNew&&m.fr===m.tr&&m.fc===m.tc)return; // gem didn't move — skip
+    if(!byCol[m.fc])byCol[m.fc]=[];
+    byCol[m.fc].push(m);
+  });
+
+  const cols=Object.keys(byCol);
+  if(!cols.length){onDone();return;}
+
+  // Slinky stagger: 40ms between each gem in a column (measured from Township L28 slowmo).
+  // Scaled by playbackSpeed so 2× speed halves the delay. No horizontal column stagger
+  // detected in measurements — columns start simultaneously.
+  const STAGGER_MS=40/playbackSpeed;
+
+  // Track completion per gem (not per column) since each gem now runs its own loop.
   let doneGems=0;
-  const totalGems=plan.length;
-  plan.forEach(({move:m,delay,dur})=>{
-    {
-      // (the convoy rule lives in fallFlightPlan — see the note there)
+  let totalGems=0;
+  cols.forEach(col=>{ totalGems+=byCol[col].length; });
+
+  cols.forEach(col=>{
+    const moves=byCol[col];
+
+    // Sort descending by from-row: gem closest to the gap (highest fr) gets delay 0,
+    // each gem above it adds one stagger interval.
+    const sorted=[...moves].sort((a,b)=>b.fr-a.fr);
+
+    sorted.forEach((m,rank)=>{
+      const delay=rank*STAGGER_MS;
+
       // Every gem — cascade, slip, or self-source spawn — FALLS along its path;
       // the active-cell mask on #fly-layer hides the part of the flight that is
       // over a hole or off-board, so a source under a hole-notch simply drops in
@@ -5724,7 +5087,8 @@ function animateFallNow(fallMoves,onDone){
         totalLen+=Math.hypot(wps[i].x-wps[i-1].x,wps[i].y-wps[i-1].y);
         segLen.push(totalLen);
       }
-      // dur + delay come from the shared plan (fallFlightPlan) — this loop only draws.
+      const cellSpan=Math.max(totalLen/(CELL_SIZE+CELL_GAP),1);
+      const dur=BASE_DUR*Math.sqrt(cellSpan);
 
       const originPos=wps[0];
 
@@ -5733,7 +5097,6 @@ function animateFallNow(fallMoves,onDone){
       // hiding it blinked planted cells back to sand (Jed, 2026-07-10).
       const destEl=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"] .gem-inner`);
       if(destEl)destEl.style.visibility='hidden';
-      inFlight.add(m.tr+','+m.tc); // survive a re-render from another chain (Still Water)
 
       // Absolutely-positioned fly element carrying the gem's own graphic.
       const fly=document.createElement('div');
@@ -5773,10 +5136,6 @@ function animateFallNow(fallMoves,onDone){
           else{
             // Snap into cell flow: remove fly, reveal the destination's gem layer.
             fly.remove();
-            inFlight.delete(m.tr+','+m.tc);
-            // Re-query: a re-render from another chain may have replaced destEl.
-            const live=document.querySelector(`[data-r="${m.tr}"][data-c="${m.tc}"] .gem-inner`);
-            if(live)live.style.visibility='';
             if(destEl)destEl.style.visibility='';
             // onDone fires only when the last gem across all columns lands.
             doneGems++;
@@ -5785,7 +5144,7 @@ function animateFallNow(fallMoves,onDone){
         }
         requestAnimationFrame(step);
       },delay);
-    }
+    });
   });
 }
 
@@ -5845,40 +5204,6 @@ function find3(){
   return[...s].map(k=>k.split(',').map(Number));
 }
 
-// RULE A helper: the plain 3-matches that DON'T touch a run some special pattern
-// already claimed this pass. A whole run is admitted or refused — never trimmed:
-// a run half-eaten by a Scarab or Dragonfly is that power-up's business, and its
-// 1-2 cell remnant is not a match. That keeps every ambiguous case behaving as
-// Engine 1 did, while a 3-match across the board from a special stops having to
-// wait a whole settle beat for its turn.
-function find3Excluding(used,chain){
-  const runs=[];
-  const push=cells=>{
-    if(cells.some(([r,c])=>used.has(r+','+c)))return;                 // a special already took these gems
-    if(cells.some(([r,c])=>!Motion.quietAt(r,c,chain)))return;        // another chain is moving them
-    runs.push(cells);
-  };
-  for(let r=0;r<R;r++)for(let c=0;c<C-2;c++){
-    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
-    const ok=cc=>cc<C&&inPlayWindow(r,cc)&&board[r][cc].active&&board[r][cc].gem===g&&!board[r][cc].pu;
-    if(ok(c+1)&&ok(c+2)){
-      let l=3;while(ok(c+l))l++;
-      if(c===0||!ok(c-1)){const cells=[];for(let i=0;i<l;i++)cells.push([r,c+i]);push(cells);} // run START only, so it isn't counted at every offset
-    }
-  }
-  for(let c=0;c<C;c++)for(let r=0;r<R-2;r++){
-    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
-    const ok=rr=>rr<R&&inPlayWindow(rr,c)&&board[rr][c].active&&board[rr][c].gem===g&&!board[rr][c].pu;
-    if(ok(r+1)&&ok(r+2)){
-      let l=3;while(ok(r+l))l++;
-      if(r===0||!ok(r-1)){const cells=[];for(let i=0;i<l;i++)cells.push([r+i,c]);push(cells);}
-    }
-  }
-  const seen=new Set(),out=[];
-  runs.forEach(cells=>cells.forEach(([r,c])=>{const k=r+','+c;if(!seen.has(k)){seen.add(k);out.push([r,c]);}}));
-  return out;
-}
-
 function findPatterns(dr,dc,sr,sc){
   const pats=[];
   for(const g of find2x2()){pats.push({type:'helicopter',cells:g,dest:[dr,dc],pri:3});}
@@ -5924,7 +5249,7 @@ function findPatterns(dr,dc,sr,sc){
 // threshold, exactly ONE swap fires toward the dominant axis.
 document.addEventListener('pointermove',e=>{
   if(!dragSwap||dragSwap.fired||e.pointerId!==dragSwap.id)return;
-  if(!playing||!Motion.quietAt(dragSwap.r,dragSwap.c))return;
+  if(!playing||animating)return;
   const dx=e.clientX-dragSwap.x, dy=e.clientY-dragSwap.y;
   const TH=Math.max(10,CELL_SIZE*0.3); // ~⅓ cell (min 10px): deliberate flick, not a jitter
   if(Math.max(Math.abs(dx),Math.abs(dy))<TH)return;
@@ -6292,7 +5617,7 @@ function updEditorFrame(){
 }
 
 function armBooster(id){
-  if(Motion.busy())return;
+  if(animating)return;
   armedBooster=armedBooster===id?null:id; // tap again to disarm
   renderBoosterPanel();
   if(playerMode)render(null); // paint/clear the crosshair-target reticle on the board
@@ -6311,29 +5636,14 @@ function applyBooster(r,c){
   window._swapPU=0;window._comboSwap=false; // star sensor: booster = its own initiator
   const def=BOOSTERS.find(x=>x.id===b);
   const cells=drillCells(r,c,def&&def.dirs);      // no dirs (jackhammer) → just the tapped cell
-  // LINEAR-BOOSTER LASER (Jed 2026-09-13): the drills fire the Dragonfly's beam
-  // down each bore direction — the SAME animateLaser, from the tapped cell to the
-  // farthest cell the bore reaches (a wall clips the beam exactly as it clips the
-  // clear). Bidirectional drills (Horizon/Ascension) fire both arms, like a wide
-  // Dragonfly; the diagonals get a diagonal beam for free (atan2 in animateLaser).
-  // The Target (jackhammer, no dirs) stays a point hit — it is not a linear booster.
-  if(def&&def.dirs&&def.dirs.length){
-    def.dirs.forEach(d=>{
-      const v=DIR8[d]; if(!v)return;
-      let er=r, ec=c, nr=r+v[0], nc=c+v[1];       // walk to the bore's stop (drillCells' rule)
-      while(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active&&inPlayWindow(nr,nc)){ er=nr; ec=nc; nr+=v[0]; nc+=v[1]; }
-      animateLaser(r,c,er,ec,()=>{});
-    });
-  }
-  const chain=Motion.newChain('booster');
-  Motion.claim(chain+'/booster');
+  animating=true;
   const phase=new Set(),queue=[];
   plantClover(cells);                             // a hit is a clear event — plants through clover contact
   cells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue)); // chains/leaves/crates absorb; PUs enqueue
   if(playerMode)updatePlayerHUD();
   render(null);
   phase.forEach(pk=>{const[pr,pc]=pk.split(',').map(Number);const el=document.querySelector(`[data-r="${pr}"][data-c="${pc}"]`);if(el)el.classList.add('popping');});
-  processDetonations(queue,phase,()=>settleAndCascade(phase,r,c,chain),chain);
+  processDetonations(queue,phase,()=>settleAndCascade(phase,r,c));
 }
 
 function showPlayerShell(){
@@ -6355,25 +5665,12 @@ function renderBundles(){
   // "{name}'s Bundles" + the star total earned on each (Jed 2026-08-12: Explore
   // shows the visitor's bundles with the stars on each).
   const t=bundleStarTotals();
-  // TWO ENGINES, ONE BUNDLE (Jed 2026-09-14): the same 25 levels, playable under
-  // either engine so the difference is visible side by side. v2 = Engine 2 (this
-  // build, continuous "Still Water" flow — where all future work lives). v1 =
-  // Engine 1 (the original turn-based build, FROZEN at /editor-v1/ — a dead codebase
-  // kept as an archive). The v1 card navigates OUT to that separate build; it is not
-  // a runtime toggle, so neither engine had to be refactored to share a file.
   document.getElementById('pbody').innerHTML=
     '<div id="pgrid-title">'+escHtml(possBundles())+'</div>'+
     '<div class="bundle-card" onclick="renderGrid()">'+
-      '<h2>'+TXT('bundle_title')+' (v2)</h2>'+
+      '<h2>'+TXT('bundle_title')+'</h2>'+
       '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
-      '<div class="bsub" style="opacity:.75;">⚙ Engine 2 — continuous flow (current)</div>'+
       '<div class="bcount">'+TXT('bundle_n')+' · ★ '+t.have+' / '+t.max+'</div>'+
-      '<div class="bplay">'+TXT('bundle_play')+'</div>'+
-    '</div>'+
-    '<div class="bundle-card" onclick="location.href=\'/editor-v1/\'">'+
-      '<h2>'+TXT('bundle_title')+' (v1)</h2>'+
-      '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
-      '<div class="bsub" style="opacity:.75;">⚙ Engine 1 — turn-based, the original (frozen)</div>'+
       '<div class="bplay">'+TXT('bundle_play')+'</div>'+
     '</div>'+
     '<div id="community-bundles"></div>';
@@ -6440,7 +5737,7 @@ function renderCommunityGrid(){
 // startPlayerLevel, but the level JSON is already in memory (curBundle.levels)
 // — no fetch, since community levels aren't files on disk.
 function startCommunityLevel(idx){
-  if(!loadLevelData(curBundle.levels[idx-1],idx))return;      // a community bundle can carry a level this build must not guess at
+  loadLevelData(curBundle.levels[idx-1],idx);
   entranceMode=false;
   beginPlaySession();
 }
@@ -6671,23 +5968,7 @@ function loadCanonicalLayers(json){
   }
 }
 
-// Returns TRUE when the level was loaded, FALSE when this build refused it.
-// Every caller must honour the false — the board is deliberately left untouched.
 function loadLevelData(json,num){
-  // ENGINE PIN — checked BEFORE a single byte of board state moves, so a refusal
-  // leaves the current level intact instead of half-clobbered.
-  // Absent (or JSON's null for absent) = 1. Anything that isn't a whole number in
-  // 1..ENGINE_VERSION is refused rather than coerced — a version we can't read is
-  // precisely the case where guessing is the damage.
-  const want=(json.engineVersion==null)?1:Number(json.engineVersion);
-  if(!Number.isInteger(want)||want<1||want>ENGINE_VERSION){
-    console.warn('engine pin: level '+num+' declares engineVersion '+json.engineVersion+' — this build plays '+ENGINE_VERSION);
-    alert(TXT('alert_engine')(num,json.engineVersion,ENGINE_VERSION));
-    return false;
-  }
-  levelEngineVersion=want;
-  inFlight.clear(); _fallQueue.length=0; _fallActive=false;   // a new board has nothing in the air
-  boardGen++;   // this is a DIFFERENT board now, even if it is the same level number
   R=json.board.rows; C=json.board.cols;
   // Flyover camera spec (L20+): camera-only presentation of big boards.
   // axis 'y' = tall board, camera window viewRows tall, scrolls DOWN (L20).
@@ -6766,7 +6047,6 @@ function loadLevelData(json,num){
     return n;
   });
   renderObjectives();
-  return true;
 }
 
 // fromGrid=true → a deliberate open from the level grid, so the star splash
@@ -6784,7 +6064,7 @@ async function startPlayerLevel(num,fromGrid=true){
     json=await resp.json();
   }catch(e){ alert(TXT('alert_na')(num)); return; }
 
-  if(!loadLevelData(json,num))return;
+  loadLevelData(json,num);
   entranceMode=false; // a bundle level is never the Qualifying level — combos live here
   beginPlaySession();
   if(fromGrid) showStarSplash(num); // opening instructions for the next star
@@ -6998,7 +6278,7 @@ function startFlowWatch(){
   stopFlowWatch();
   const geo=boardGeo();
   flowWatch=setInterval(()=>{
-    if(!playerMode||!playing||Motion.busy()||armedBooster||choosingRainbow||choosingGrasshopper){
+    if(!playerMode||!playing||animating||armedBooster||choosingRainbow||choosingGrasshopper){
       clearFlowHints();                                    // board went busy — stand down
       if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
       flowPreviewT=setTimeout(runFlowSweep,FLOW_CALM);     // …and look again when it rests
@@ -7029,7 +6309,7 @@ function runFlowSweep(){
   if(flowPreviewT){clearTimeout(flowPreviewT);flowPreviewT=null;}
   // Only sweep when the board is genuinely at rest. Mid-cascade or with a booster
   // armed, wait and look again rather than drawing over a busy board.
-  if(!playerMode||!playing||Motion.busy()||armedBooster||choosingRainbow||choosingGrasshopper){
+  if(!playerMode||!playing||animating||armedBooster||choosingRainbow||choosingGrasshopper){
     flowPreviewT=setTimeout(runFlowSweep,FLOW_CALM); return;
   }
   const bd=document.getElementById('board'); if(!bd)return;
@@ -7377,7 +6657,7 @@ function qlog(event){console.log('[qualify]',new Date().toISOString(),event);}
 
 // ── Entrance completion → survey opt-in → two-path choice ────────────────────
 function showEntranceChoice(){
-  playing=false; Motion.claim('overlay'); // lock the board under the overlay
+  playing=false; animating=true; // lock the board under the overlay
   // Qualification persists on THIS device via localStorage (re-enabled 2026-07-09,
   // Jed's call — entrance spec settled). No server/database: clearing site data
   // (or a different browser/device) re-qualifies. #dev remains the instant bypass.
@@ -7406,7 +6686,7 @@ function surveyContinue(){
 }
 function leaveEntrance(){
   // common teardown for both paths out of the entrance level
-  entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; playerMode=false; playing=false; Motion.releaseAll();
+  entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; playerMode=false; playing=false; animating=false;
   CELL_SIZE=44;
   flyTeardown(); // entrance is never a flyover, but the teardown keeps the wrap styles clean
   document.getElementById('pchoice').classList.remove('open');
@@ -7439,7 +6719,7 @@ function playerFinish(win){
   // PlayerProgress — a test bundle's level numbers collide with the real
   // "Go with the Flow" numbering (no bundle_id yet). See editorSandboxPlay.
   if(editorSandboxPlay){ sandboxPlayerFinish(win); return; }
-  playing=false; Motion.claim('overlay'); // lock the board
+  playing=false; animating=true; // lock the board
   // STAR CANON (sober, Jed 2026-07-29 — see memory project_star_canon):
   // SEQUENTIAL ENABLEMENT — stars are earned strictly in order, AT MOST ONE
   // NEW STAR PER ATTEMPT, so 3-starring on try 1 or 2 is impossible (the
@@ -7491,7 +6771,7 @@ function playerFinish(win){
 // just closes back to the editor's own board, not exitToGrid()'s real-Explore
 // teardown (that assumes a player-shell that doesn't exist here).
 function sandboxPlayerFinish(win){
-  playing=false; Motion.claim('overlay');
+  playing=false; animating=true;
   document.getElementById('pwin-title').textContent=win?TXT('win_title'):TXT('lose_title');
   document.getElementById('pwin-stars').textContent=win?'★★★':'';
   document.getElementById('pwin-msg').textContent=win?TXT('win_msg')(curLevelNum,moves):TXT('try_again');
@@ -7543,7 +6823,7 @@ function clearChoosing(){
 function exitToGrid(){
   clearChoosing();   // no reticle survives leaving the board
   stopFlowPreview(); // leaving the board — kill the loop and its idle timer
-  playing=false; Motion.releaseAll(); playerMode=false;
+  playing=false; animating=false; playerMode=false;
   flyTeardown(); // clear any flyover camera window/transform
   entranceMode=false; GEM_POOL=[0,1,2,3,4,5]; // leaving mid-entrance also restores full gem set
   CELL_SIZE=44; // restore editor's fixed cell size
@@ -7604,46 +6884,6 @@ function _generateReporterId() {
   return `${rand(_BUG_ADJ1)}-${rand(_BUG_ADJ2)}-${rand(_BUG_NOUNS)}`;
 }
 
-// ── LOCAL FREEZE CAPTURE (dev machine only) ─────────────────────────────────
-// The badge on a real player's screen opens the Google Form. On localhost it does
-// something more useful: it grabs freezeReport() and POSTs it to the dev server,
-// which writes it to bug-reports/. Click the badge when the board looks wrong —
-// that is the whole procedure. No console, no typing, no form.
-// It also paints the report on screen, so a screenshot carries the same evidence
-// if the save fails (production, server restarted, whatever).
-const _IS_DEV = ['localhost','127.0.0.1','::1'].indexOf(location.hostname)>=0;
-async function _captureFreeze(auto){
-  let txt;
-  try{ txt = freezeReport(); }
-  catch(e){ txt = JSON.stringify({freezeReportThrew:String(e&&e.message||e)}); }
-  let saved=null;
-  try{
-    const r = await fetch('/_freeze',{method:'POST',headers:{'Content-Type':'application/json'},body:txt});
-    if(r.ok) saved = (await r.json()).saved;
-  }catch(e){ /* no dev server — the on-screen copy is the fallback */ }
-  if(!auto) _showFreezePanel(txt,saved);
-  else if(saved) console.log('[stall] report saved:',saved);
-  return saved;
-}
-function _showFreezePanel(txt,saved){
-  let ov=document.getElementById('freeze-ov');
-  if(!ov){
-    ov=document.createElement('div'); ov.id='freeze-ov';
-    ov.style.cssText='position:fixed;inset:0;background:rgba(10,8,18,.94);z-index:10000;display:flex;flex-direction:column;padding:20px;box-sizing:border-box;';
-    ov.innerHTML='<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">'
-      +'<strong id="freeze-head" style="color:#c8a8ff;font-family:monospace;flex:1;font-size:15px"></strong>'
-      +'<button class="tb" id="freeze-close">✕ Close</button></div>'
-      +'<pre id="freeze-pre" style="flex:1;overflow:auto;background:#0d0a14;color:#cfe6ff;padding:12px;border-radius:8px;font-size:11px;line-height:1.4;white-space:pre;margin:0"></pre>';
-    document.body.appendChild(ov);
-    document.getElementById('freeze-close').onclick=()=>{ov.style.display='none';};
-  }
-  ov.style.display='flex';
-  document.getElementById('freeze-head').textContent = saved
-    ? 'Freeze report saved → '+saved+'   (Claude can read it. Nothing else to do.)'
-    : 'Freeze report (NOT saved — no dev server). Screenshot this panel.';
-  document.getElementById('freeze-pre').textContent = txt;
-}
-
 function _openBugReport() {
   const base   = "https://docs.google.com/forms/d/e/1FAIpQLScgCSDp9VM766fnAswlI9hEUJ4YanJ_jBKLkcLrHCyUydqf5Q/viewform";
   const id     = _generateReporterId();
@@ -7659,10 +6899,7 @@ function _openBugReport() {
   btn.id          = "bug-report-btn";
   btn.innerText   = TXT('bug_btn');
   btn.dataset.i18n= "bug_btn"; // language switch relabels it via applyLang
-  btn.onclick     = _IS_DEV ? (()=>_captureFreeze(false)) : _openBugReport;
-  // Dev machine: the badge saves state instead of opening a form — and it must SAY
-  // so. Drop the i18n hook or the language pass relabels it back on the next render.
-  if(_IS_DEV){ btn.innerText = '🐛 Capture Freeze'; delete btn.dataset.i18n; }
+  btn.onclick     = _openBugReport;
   btn.style.cssText = [
     "position:fixed","bottom:16px","right:16px","z-index:9999",
     "padding:8px 14px","background:#1a1a2e","color:#e0e0e0",
