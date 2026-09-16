@@ -784,7 +784,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <button class="tb" onclick="doRandom()">Random</button>
       <button class="tb" onclick="doClear()">Clear</button>
       <button class="tb" onclick="fillGrid()" title="Reset to a full rectangle — turn every cell active (fills all holes)">Full Grid</button>
-      <button class="tb" id="mr-toggle" onclick="toggleMultiRegion()" title="Multi-region: build a tall/wide flyover level. Adds grow arrows at the board's bottom/right edges — one cell per tap, top-left stays fixed.">▦ Multi-region</button>
+      <button class="tb" id="mr-toggle" onclick="toggleMultiRegion()" title="Multi-Stage: build a tall/wide flyover level. A fixed 9x11 window you shift one cell at a time — forward arrows grow the board (top-left origin stays fixed), reverse arrows move back to review an earlier stage.">▦ Multi-Stage</button>
       <button class="tb" id="btn-undo" onclick="doUndo()">Undo</button>
       <button class="tb" id="btn-redo" onclick="doRedo()">Redo</button>
     </div>
@@ -3378,10 +3378,16 @@ function ensureBoard(needR,needC){
 function shiftView(dir){
   if(playing)return;                           // authoring only
   const {vr,vc}=frameView();
-  const down=(dir==='down'||dir==='downright'), right=(dir==='right'||dir==='downright');
-  save();
+  const right=(dir==='right'||dir==='downright'), down=(dir==='down'||dir==='downright');
+  const left =(dir==='left'||dir==='upleft'),    up=(dir==='up'||dir==='upleft');
+  if(right||down) save();                        // only a FORWARD shift can grow the board (undoable)
   if(right){ flyViewC++; ensureBoard(R, flyViewC+vc); }
   if(down){  flyViewR++; ensureBoard(flyViewR+vr, C); }
+  // REVERSE = navigate back within the existing board (Jed 2026-09-16). Never grows,
+  // never passes the top-left origin — just moves the window back to review/edit an
+  // earlier stage. Enabled only when there IS room to go back (see syncGrowArrows).
+  if(left)  flyViewC=Math.max(0,flyViewC-1);
+  if(up)    flyViewR=Math.max(0,flyViewR-1);
   render(); updUB(); updGridInfo(); applyFlyView(); syncGrowArrows();
 }
 function applyFlyView(){
@@ -3414,17 +3420,25 @@ function ensureGrowArrows(){
       +'font:16px/1 system-ui;display:none;align-items:center;justify-content:center;box-shadow:0 1px 6px #000a;'+edgeCss;
     f.appendChild(b);
   };
+  // FORWARD (can grow the board): always enabled.
   mk('grow-right','▶','top:50%;transform:translateY(-50%);right:6px;','right','Shift the window one cell right');
   mk('grow-down','▼','left:50%;transform:translateX(-50%);bottom:6px;','down','Shift the window one cell down');
   mk('grow-dr','⬊','right:6px;bottom:6px;','downright','Shift the window one cell down AND right');
+  // REVERSE (navigate back only): enabled once you've shifted off the origin.
+  mk('grow-left','◀','top:50%;transform:translateY(-50%);left:6px;','left','Shift back one cell left');
+  mk('grow-up','▲','left:50%;transform:translateX(-50%);top:6px;','up','Shift back one cell up');
+  mk('grow-ul','⬉','left:6px;top:6px;','upleft','Shift back one cell up AND left');
 }
+const FLY_ARROWS=['grow-right','grow-down','grow-dr','grow-left','grow-up','grow-ul'];
 function syncGrowArrows(){
   const show = multiRegion && !playing;
   setWindowClip(show);                          // 9x11 window on only while editing multi-region
-  for(const id of ['grow-right','grow-down','grow-dr']){
-    const b=document.getElementById(id); if(b) b.style.display = show ? 'flex' : 'none';
-  }
-  applyFlyView();
+  applyFlyView();                               // clamps flyViewR/C first, so the enable checks below are honest
+  for(const id of FLY_ARROWS){ const b=document.getElementById(id); if(b) b.style.display = show ? 'flex' : 'none'; }
+  // Reverse arrows are visible-but-DISABLED at the origin (teaches the fixed corner),
+  // and light up the moment there's room to move back.
+  const en=(id,on)=>{ const b=document.getElementById(id); if(b){ b.style.opacity=on?'1':'0.28'; b.style.pointerEvents=on?'auto':'none'; } };
+  en('grow-left', flyViewC>0); en('grow-up', flyViewR>0); en('grow-ul', flyViewR>0||flyViewC>0);
 }
 
 // sandbox=true (default) is the editor's OWN ▶ Play button + its resume call
