@@ -3448,8 +3448,9 @@ function syncGrowArrows(){
   const host=document.getElementById('mstage-pad'); if(host) host.style.display=show?'grid':'none';
   const en=(id,on)=>{ const b=document.getElementById(id); if(b){ b.style.opacity=on?'1':'0.3'; b.style.pointerEvents=on?'auto':'none'; } };
   const canL=flyViewC>0, canU=flyViewR>0;
-  ['sp-r','sp-d','sp-dr','sp-ur','sp-dl'].forEach(id=>en(id,true));   // grow half always works
-  en('sp-l',canL); en('sp-u',canU); en('sp-ul',canL||canU);
+  ['sp-r','sp-d','sp-dr'].forEach(id=>en(id,true));   // pure forward: always live
+  en('sp-ur',canU); en('sp-dl',canL);                 // grow-diagonal: needs its REVERSE half possible
+  en('sp-l',canL); en('sp-u',canU); en('sp-ul',canL||canU);   // pure reverse: room back
   en('sp-save',show);
 }
 // SAVE POINT — records the current window position as a flyover stopping point.
