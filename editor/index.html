@@ -3398,7 +3398,7 @@ function shiftView(dir){
   render(); updUB(); updGridInfo(); applyFlyView(); syncGrowArrows();
 }
 function applyFlyView(){
-  const bd=document.getElementById('board'); if(!bd) return;
+  const bd=document.getElementById('board'); if(!bd || playing) return;   // in PLAY the flyover camera owns #board's transform
   const {vr,vc}=frameView();
   flyViewR=Math.max(0,Math.min(flyViewR, Math.max(0,R-vr)));   // keep the window inside the board
   flyViewC=Math.max(0,Math.min(flyViewC, Math.max(0,C-vc)));
@@ -3486,7 +3486,31 @@ function renderStopList(){
       if(from!==i){ const m=flyStops.splice(from,1)[0]; flyStops.splice(i,0,m); renderStopList(); } };
     host.appendChild(row);
   });
+  syncFlyoverSpec();   // keep the persisted flyover spec in step with the list
 }
+// ── SERIALIZE <-> PLAY (Jed 2026-09-16) ──────────────────────────────────────
+// Multi-Stage authors 2D stops {r,c}; a level's flyover spec is the SAME single-axis
+// shape L18/L20 already use — {axis, viewRows, viewCols, stops} — so a saved
+// Multi-Stage level plays through the exact camera the shipped flyovers use and
+// NOTHING in the existing level files changes (the answer to "retrofit?" is: no).
+// axis is derived from how the stops spread: vary in rows => 'y' (scroll down), vary
+// in cols => 'x' (pan right); `stops` is the ordered play sequence along that axis.
+// (2D arrangements — a stop grid that moves in BOTH axes — are a future extension of
+// the play camera for EVERY level; no shipped level does 2D today, so it's not a
+// compatibility question.)
+function flyStopsToSpec(){
+  if(!Array.isArray(flyStops) || flyStops.length<2) return null;   // <2 stops = not a flyover
+  const rows=flyStops.map(s=>s.r), cols=flyStops.map(s=>s.c);
+  const rSpread=Math.max(...rows)-Math.min(...rows), cSpread=Math.max(...cols)-Math.min(...cols);
+  const axis = rSpread>=cSpread ? 'y' : 'x';
+  const stops = flyStops.map(s=> axis==='y' ? s.r : s.c);
+  return { axis, viewRows:PLAY_MAX_R, viewCols:PLAY_MAX_C, stops };
+}
+function specToFlyStops(spec){                                      // inverse — a loaded spec -> the stop list
+  if(!spec || !Array.isArray(spec.stops)) return [];
+  return spec.stops.map(v => spec.axis==='x' ? {r:0,c:v} : {r:v,c:0});
+}
+function syncFlyoverSpec(){ editorFlyover = flyStopsToSpec(); }     // serializeLevel() emits editorFlyover
 // ▶ FLY IT — a silent camera preview: pan the window through the stops IN ORDER,
 // holding briefly at each. Reuses applyFlyView's translate (flyViewR/C animate as
 // floats). No gems, no gameplay — just the reveal the player sees on level open.
@@ -6901,6 +6925,10 @@ function loadLevelData(json,num){
   // the L20/L23 regression from the canonical re-save (Jed 2026-08-05). editorFlyover
   // survives the teardown and is emitted verbatim on Save; no editor UI edits it yet.
   editorFlyover=(json.flyover&&Array.isArray(json.flyover.stops)&&json.flyover.stops.length)?json.flyover:null;
+  // Populate the Multi-Stage list from the loaded spec, so re-opening a flyover level
+  // (new OR shipped L18/L20) shows its stops and edits with the same tools. The JSON
+  // is untouched; this is just the runtime list. Reset the window to the origin.
+  if(typeof specToFlyStops==='function'){ window.flyStops=specToFlyStops(editorFlyover); flyViewR=0; flyViewC=0; }
   // TWO INPUT SHAPES, ONE BOARD. `schema:'akashic-level/1'` = the canonical
   // 7-layer Painter Model emitted by serializeLevel() — read it back through
   // loadCanonicalLayers (the exact inverse of serialize; roundTrip25 proves it).
