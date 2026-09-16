@@ -784,7 +784,6 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <button class="tb" onclick="doRandom()">Random</button>
       <button class="tb" onclick="doClear()">Clear</button>
       <button class="tb" onclick="fillGrid()" title="Reset to a full rectangle — turn every cell active (fills all holes)">Full Grid</button>
-      <button class="tb" id="mr-toggle" onclick="toggleMultiRegion()" title="Multi-Stage: build a tall/wide flyover level. A fixed 9x11 window you shift one cell at a time — forward arrows grow the board (top-left origin stays fixed), reverse arrows move back to review an earlier stage.">▦ Multi-Stage</button>
       <button class="tb" id="btn-undo" onclick="doUndo()">Undo</button>
       <button class="tb" id="btn-redo" onclick="doRedo()">Redo</button>
     </div>
@@ -887,6 +886,15 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="rtitle">Grid</div>
         <div class="rrow"><span>Rows</span><span class="rval" id="info-r">—</span></div>
         <div class="rrow"><span>Cols</span><span class="rval" id="info-c">—</span></div>
+      </div>
+      <!-- MULTI-STAGE (Jed 2026-09-16): flyover authoring. The toggle turns the board
+           into a 9x11 window; the 3x3 pad below shifts it (perimeter = 8 directions,
+           centre ◉ = Save a flyover stop). Off the board so it can't paint a cell. -->
+      <div class="rsec" id="mstage-sec">
+        <div class="rtitle">Multi-Stage</div>
+        <button class="tb" id="mr-toggle" onclick="toggleMultiRegion()" style="width:100%;" title="Multi-Stage: build a tall/wide flyover level as a 9x11 window you shift one cell at a time. Forward grows (top-left origin stays fixed); reverse navigates back. The centre ◉ saves a flyover stop.">▦ Multi-Stage</button>
+        <div id="mstage-pad"></div>
+        <div id="mstage-count" style="font-size:11px;opacity:.6;margin-top:4px;"></div>
       </div>
       <div class="rsec">
         <!-- Palette (Jed 2026-08-24): which gem colors spawn on THIS level's board.
@@ -3378,14 +3386,12 @@ function ensureBoard(needR,needC){
 function shiftView(dir){
   if(playing)return;                           // authoring only
   const {vr,vc}=frameView();
-  const right=(dir==='right'||dir==='downright'), down=(dir==='down'||dir==='downright');
-  const left =(dir==='left'||dir==='upleft'),    up=(dir==='up'||dir==='upleft');
+  const right=/right/.test(dir), down=/down/.test(dir), left=/left/.test(dir), up=/up/.test(dir);
   if(right||down) save();                        // only a FORWARD shift can grow the board (undoable)
   if(right){ flyViewC++; ensureBoard(R, flyViewC+vc); }
   if(down){  flyViewR++; ensureBoard(flyViewR+vr, C); }
-  // REVERSE = navigate back within the existing board (Jed 2026-09-16). Never grows,
-  // never passes the top-left origin — just moves the window back to review/edit an
-  // earlier stage. Enabled only when there IS room to go back (see syncGrowArrows).
+  // REVERSE = navigate back within the existing board — never grows, never passes the
+  // top-left origin. A diagonal ('upright'/'downleft') grows one axis, navigates the other.
   if(left)  flyViewC=Math.max(0,flyViewC-1);
   if(up)    flyViewR=Math.max(0,flyViewR-1);
   render(); updUB(); updGridInfo(); applyFlyView(); syncGrowArrows();
@@ -3399,46 +3405,62 @@ function applyFlyView(){
     ? `translate(${-flyViewC*flyStep()}px, ${-flyViewR*flyStep()}px)` : '';
 }
 function updGridInfo(){ const a=document.getElementById('info-r'),b=document.getElementById('info-c'); if(a)a.textContent=R; if(b)b.textContent=C; }
+
+// ── THE MULTI-STAGE PAD (Jed 2026-09-16) ─────────────────────────────────────
+// A 3x3 d-pad in the palette, NOT on the board — the earlier on-board arrows
+// overlaid the edge cells, so tapping one also painted the cell under it (his bug).
+// The eight PERIMETER cells are the shift directions; the CENTRE is Save Point.
 let multiRegion=false;
+const STAGE_CELLS=[ // [id, glyph, dir|'SAVE']
+  ['sp-ul','⬉','upleft'], ['sp-u','▲','up'],   ['sp-ur','⬈','upright'],
+  ['sp-l','◀','left'],    ['sp-save','◉','SAVE'], ['sp-r','▶','right'],
+  ['sp-dl','⬋','downleft'],['sp-d','▼','down'], ['sp-dr','⬊','downright'],
+];
+function buildStagePad(){
+  const host=document.getElementById('mstage-pad'); if(!host || host.childElementCount) return;
+  host.style.cssText='display:none;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:6px;';
+  STAGE_CELLS.forEach(([id,glyph,dir])=>{
+    const save=(dir==='SAVE');
+    const b=document.createElement('button'); b.id=id; b.textContent=glyph;
+    b.title=save?'Save a flyover stopping point at the current window':('Shift '+dir);
+    b.onclick=save?()=>savePoint():()=>shiftView(dir);
+    b.style.cssText='aspect-ratio:1;border-radius:6px;cursor:pointer;font:15px/1 system-ui;'
+      +'display:flex;align-items:center;justify-content:center;'
+      +(save?'background:#241636;color:#7fe0a0;border:1px solid #3a7a55;'
+            :'background:#1b1030;color:#c8a8ff;border:1px solid #6a4aaa;');
+    host.appendChild(b);
+  });
+}
 function toggleMultiRegion(){
   multiRegion=!multiRegion;
-  const btn=document.getElementById('mr-toggle'); if(btn) btn.classList.toggle('on', multiRegion);
+  const btn=document.getElementById('mr-toggle');
+  if(btn){ btn.classList.toggle('on', multiRegion); btn.textContent=multiRegion?'▦ Multi-Stage: ON':'▦ Multi-Stage'; }
   if(!multiRegion){ flyViewR=0; flyViewC=0; }
-  ensureGrowArrows(); syncGrowArrows();
+  buildStagePad(); syncGrowArrows();
 }
-// Arrows are pinned to the WINDOW (#eframe), not the board, so shifting the board
-// under them never carries them off — and #eframe's own overflow no longer clips
-// them the way it clipped the board-anchored ▼/⬊ (only ▶ survived).
-function ensureGrowArrows(){
-  const f=document.getElementById('eframe'); if(!f || document.getElementById('grow-right')) return;
-  f.style.position='relative';
-  const mk=(id,glyph,edgeCss,dir,tip)=>{
-    const b=document.createElement('button');
-    b.id=id; b.textContent=glyph; b.title=tip; b.onclick=()=>shiftView(dir);
-    b.style.cssText='position:absolute;z-index:30;width:30px;height:30px;border-radius:8px;'
-      +'background:#1b1030dd;color:#c8a8ff;border:1px solid #6a4aaa;cursor:pointer;'
-      +'font:16px/1 system-ui;display:none;align-items:center;justify-content:center;box-shadow:0 1px 6px #000a;'+edgeCss;
-    f.appendChild(b);
-  };
-  // FORWARD (can grow the board): always enabled.
-  mk('grow-right','▶','top:50%;transform:translateY(-50%);right:6px;','right','Shift the window one cell right');
-  mk('grow-down','▼','left:50%;transform:translateX(-50%);bottom:6px;','down','Shift the window one cell down');
-  mk('grow-dr','⬊','right:6px;bottom:6px;','downright','Shift the window one cell down AND right');
-  // REVERSE (navigate back only): enabled once you've shifted off the origin.
-  mk('grow-left','◀','top:50%;transform:translateY(-50%);left:6px;','left','Shift back one cell left');
-  mk('grow-up','▲','left:50%;transform:translateX(-50%);top:6px;','up','Shift back one cell up');
-  mk('grow-ul','⬉','left:6px;top:6px;','upleft','Shift back one cell up AND left');
-}
-const FLY_ARROWS=['grow-right','grow-down','grow-dr','grow-left','grow-up','grow-ul'];
+// Same name — togglePlay() calls it. Shows/hides the pad, keeps the 9x11 window clip
+// and view transform in sync, and sets each cell's enabled state: FORWARD cells (and
+// the two grow-diagonals) always work; pure-REVERSE cells enable only with room back.
 function syncGrowArrows(){
   const show = multiRegion && !playing;
-  setWindowClip(show);                          // 9x11 window on only while editing multi-region
-  applyFlyView();                               // clamps flyViewR/C first, so the enable checks below are honest
-  for(const id of FLY_ARROWS){ const b=document.getElementById(id); if(b) b.style.display = show ? 'flex' : 'none'; }
-  // Reverse arrows are visible-but-DISABLED at the origin (teaches the fixed corner),
-  // and light up the moment there's room to move back.
-  const en=(id,on)=>{ const b=document.getElementById(id); if(b){ b.style.opacity=on?'1':'0.28'; b.style.pointerEvents=on?'auto':'none'; } };
-  en('grow-left', flyViewC>0); en('grow-up', flyViewR>0); en('grow-ul', flyViewR>0||flyViewC>0);
+  setWindowClip(show);
+  applyFlyView();                               // clamp first so the checks below are honest
+  const host=document.getElementById('mstage-pad'); if(host) host.style.display=show?'grid':'none';
+  const en=(id,on)=>{ const b=document.getElementById(id); if(b){ b.style.opacity=on?'1':'0.3'; b.style.pointerEvents=on?'auto':'none'; } };
+  const canL=flyViewC>0, canU=flyViewR>0;
+  ['sp-r','sp-d','sp-dr','sp-ur','sp-dl'].forEach(id=>en(id,true));   // grow half always works
+  en('sp-l',canL); en('sp-u',canU); en('sp-ul',canL||canU);
+  en('sp-save',show);
+}
+// SAVE POINT — records the current window position as a flyover stopping point.
+// First cut: it collects the stops; wiring them into the level's flyover spec so it
+// actually SCROLLS in play is the next step (Jed is settling the stop semantics).
+window.flyStops=[];
+function savePoint(){
+  if(!multiRegion)return;
+  window.flyStops.push({r:flyViewR,c:flyViewC});
+  const b=document.getElementById('sp-save'); if(b){ b.textContent='✓'; setTimeout(()=>{ if(b)b.textContent='◉'; },500); }
+  const n=document.getElementById('mstage-count'); if(n) n.textContent=window.flyStops.length+' stop'+(window.flyStops.length===1?'':'s')+' saved';
 }
 
 // sandbox=true (default) is the editor's OWN ▶ Play button + its resume call
