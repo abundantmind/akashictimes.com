@@ -894,7 +894,8 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="rtitle">Multi-Stage</div>
         <button class="tb" id="mr-toggle" onclick="toggleMultiRegion()" style="width:100%;" title="Multi-Stage: build a tall/wide flyover level as a 9x11 window you shift one cell at a time. Forward grows (top-left origin stays fixed); reverse navigates back. The centre ◉ saves a flyover stop.">▦ Multi-Stage</button>
         <div id="mstage-pad"></div>
-        <div id="mstage-count" style="font-size:11px;opacity:.6;margin-top:4px;"></div>
+        <div id="mstage-list" style="margin-top:6px;"></div>
+        <button class="tb" id="sp-flyit" onclick="flyIt()" style="width:100%;margin-top:4px;display:none;" title="Preview the flyover: the camera pans through your stops in order — the reveal the player sees on level open. No gameplay.">▶ Fly it</button>
       </div>
       <div class="rsec">
         <!-- Palette (Jed 2026-08-24): which gem colors spawn on THIS level's board.
@@ -3435,8 +3436,9 @@ function toggleMultiRegion(){
   multiRegion=!multiRegion;
   const btn=document.getElementById('mr-toggle');
   if(btn){ btn.classList.toggle('on', multiRegion); btn.textContent=multiRegion?'▦ Multi-Stage: ON':'▦ Multi-Stage'; }
+  if(multiRegion && flyStops.length===0) flyStops.push({r:0,c:0});   // stop #1 = the origin, free with every level
   if(!multiRegion){ flyViewR=0; flyViewC=0; }
-  buildStagePad(); syncGrowArrows();
+  buildStagePad(); renderStopList(); syncGrowArrows();
 }
 // Same name — togglePlay() calls it. Shows/hides the pad, keeps the 9x11 window clip
 // and view transform in sync, and sets each cell's enabled state: FORWARD cells (and
@@ -3446,6 +3448,8 @@ function syncGrowArrows(){
   setWindowClip(show);
   applyFlyView();                               // clamp first so the checks below are honest
   const host=document.getElementById('mstage-pad'); if(host) host.style.display=show?'grid':'none';
+  const list=document.getElementById('mstage-list'); if(list) list.style.display=show?'block':'none';
+  const fly=document.getElementById('sp-flyit'); if(fly) fly.style.display=show?'block':'none';
   const en=(id,on)=>{ const b=document.getElementById(id); if(b){ b.style.opacity=on?'1':'0.3'; b.style.pointerEvents=on?'auto':'none'; } };
   const canL=flyViewC>0, canU=flyViewR>0;
   ['sp-r','sp-d','sp-dr'].forEach(id=>en(id,true));   // pure forward: always live
@@ -3453,15 +3457,65 @@ function syncGrowArrows(){
   en('sp-l',canL); en('sp-u',canU); en('sp-ul',canL||canU);   // pure reverse: room back
   en('sp-save',show);
 }
-// SAVE POINT — records the current window position as a flyover stopping point.
-// First cut: it collects the stops; wiring them into the level's flyover spec so it
-// actually SCROLLS in play is the next step (Jed is settling the stop semantics).
+// SAVE POINT — records the current window position and appends it to the ORDERED
+// stop list. Stop #1 (the origin, 0,0) is seeded when Multi-Stage turns on, free with
+// every level. (Wiring these into the level's serialized flyover spec so it scrolls
+// in real play is the next step.)
 window.flyStops=[];
 function savePoint(){
-  if(!multiRegion)return;
-  window.flyStops.push({r:flyViewR,c:flyViewC});
+  if(!multiRegion || _flying)return;
+  flyStops.push({r:flyViewR,c:flyViewC});
   const b=document.getElementById('sp-save'); if(b){ b.textContent='✓'; setTimeout(()=>{ if(b)b.textContent='◉'; },500); }
-  const n=document.getElementById('mstage-count'); if(n) n.textContent=window.flyStops.length+' stop'+(window.flyStops.length===1?'':'s')+' saved';
+  renderStopList();
+}
+// The ordered list under the pad: number = play order, #1 = where the level opens.
+// Click a row to jump the window there; DRAG a row to reorder the sequence.
+function renderStopList(){
+  const host=document.getElementById('mstage-list'); if(!host) return;
+  host.innerHTML='';
+  flyStops.forEach((s,i)=>{
+    const row=document.createElement('div'); row.draggable=true;
+    row.innerHTML='<b>'+(i+1)+'</b> &nbsp;('+s.r+','+s.c+')'+(i===0?' <span style="opacity:.6">start</span>':'');
+    row.style.cssText='padding:3px 7px;margin:2px 0;border-radius:5px;background:#1b1030;border:1px solid #3a3050;cursor:grab;font-size:11px;color:#c8a8ff;user-select:none;';
+    row.title='Click to jump here · drag to reorder';
+    row.onclick=()=>{ if(_flying)return; flyViewR=s.r; flyViewC=s.c; applyFlyView(); };
+    row.ondragstart=e=>{ e.dataTransfer.setData('text/plain',String(i)); row.style.opacity='.4'; };
+    row.ondragend=()=>{ row.style.opacity='1'; };
+    row.ondragover=e=>{ e.preventDefault(); };
+    row.ondrop=e=>{ e.preventDefault(); const from=+e.dataTransfer.getData('text/plain');
+      if(from!==i){ const m=flyStops.splice(from,1)[0]; flyStops.splice(i,0,m); renderStopList(); } };
+    host.appendChild(row);
+  });
+}
+// ▶ FLY IT — a silent camera preview: pan the window through the stops IN ORDER,
+// holding briefly at each. Reuses applyFlyView's translate (flyViewR/C animate as
+// floats). No gems, no gameplay — just the reveal the player sees on level open.
+// Press again to stop; the edit position is restored.
+let _flying=false;
+function _flyWait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function _lerpTo(tr,tc,dur){ return new Promise(res=>{
+  const sr=flyViewR, sc=flyViewC, t0=performance.now();
+  (function step(now){
+    if(!_flying){ res(); return; }
+    const t=Math.min((now-t0)/dur,1), e=t*t*(3-2*t);   // smoothstep
+    flyViewR=sr+(tr-sr)*e; flyViewC=sc+(tc-sc)*e; applyFlyView();
+    if(t<1) requestAnimationFrame(step); else res();
+  })(performance.now());
+}); }
+async function flyIt(){
+  const btn=document.getElementById('sp-flyit');
+  if(_flying){ _flying=false; return; }                // toggle off
+  if(!multiRegion || !flyStops.length) return;
+  _flying=true; if(btn)btn.textContent='■ Stop';
+  const bd=document.getElementById('board'); if(bd)bd.style.pointerEvents='none';   // no painting mid-preview
+  const savedR=flyViewR, savedC=flyViewC;
+  for(let i=0;i<flyStops.length && _flying;i++){
+    await _lerpTo(flyStops[i].r, flyStops[i].c, 650);
+    if(_flying) await _flyWait(450);                   // hold at each stop
+  }
+  _flying=false; if(btn)btn.textContent='▶ Fly it';
+  if(bd)bd.style.pointerEvents='';
+  flyViewR=savedR; flyViewC=savedC; applyFlyView();    // back to where they were editing
 }
 
 // sandbox=true (default) is the editor's OWN ▶ Play button + its resume call
