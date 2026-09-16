@@ -2360,7 +2360,8 @@ function restoreState(s){const o=JSON.parse(s);board=o.b??o;flow=o.f??flow;
   // Derive R/C from the restored board so Undo/Redo of a board GROW (flyover
   // authoring) shrinks the dimensions back too, not just the cell data.
   R=board.length; C=(board[0]&&board[0].length)||C;
-  if(typeof updGridInfo==='function')updGridInfo();}
+  if(typeof updGridInfo==='function')updGridInfo();
+  if(typeof applyFlyView==='function')applyFlyView();}
 function save(){undoQ.push(snapState());if(undoQ.length>60)undoQ.shift();redoQ=[];updUB();}
 function doUndo(){if(!undoQ.length)return;redoQ.push(snapState());restoreState(undoQ.pop());render();updUB();}
 function doRedo(){if(!redoQ.length)return;undoQ.push(snapState());restoreState(redoQ.pop());render();updUB();}
@@ -3339,58 +3340,91 @@ function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].g
 // a clean all-active canvas when a template's hole layout isn't wanted (Jed 2026-07-29).
 function fillGrid(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++)board[r][c].active=true;render();}
 
-// ── FLYOVER AUTHORING — grow a multi-region board (Jed 2026-09-16) ────────────
-// The board is ONE connected grid; a level bigger than the 9x11 screen
-// (PLAY_MAX_R/C) plays as a flyover the camera scrolls, so "multi-region" needs no
-// data flag — the DIMENSIONS drive it. TOP-LEFT IS A FIXED ORIGIN: growth only ever
-// APPENDS at the far edge (down = a new bottom row, right = a new right column,
-// down-right = both), so no painted cell ever re-indexes and coordinates stay
-// stable. One cell per tap — the architect decides adjacent/overlap/gap by how far
-// they push (Jed's call, no presets). Undo reverses an over-tap (save()).
-const GROW_MAX_R=27, GROW_MAX_C=33;           // 3 stacked 9x11 regions each way
-function newEditCell(){ return {gem:null,active:true,obs:null,pu:null,sub:null,item:null}; }
-function growBoard(dir){
-  if(playing)return;                          // authoring only
-  let down=(dir==='down'||dir==='downright'), right=(dir==='right'||dir==='downright');
-  if(down && R>=GROW_MAX_R) down=false;
-  if(right && C>=GROW_MAX_C) right=false;
-  if(!down && !right) return;                 // capped — nothing to grow
+// ── FLYOVER AUTHORING — a shifting 9x11 window over one connected board ───────
+// (Jed 2026-09-16, the "LOVER" workflow: five letter-shaped regions.) The board is
+// ONE connected grid; a level bigger than the 9x11 screen plays as a flyover the
+// camera scrolls. Multi-region is an editor MODE: the editor becomes a fixed WINDOW
+// (#eframe) over the board, and the arrows SHIFT that window one cell at a time —
+// down / right / down-right ONLY, because TOP-LEFT is a fixed origin (up/left would
+// move it). A shift ENABLES NOTHING: newly revealed space is INACTIVE, and the
+// architect paints each region in (an L, an O, ...). Adjacent vs overlap vs gap is
+// decided by how far they shift before painting the next region. Setting the flyover
+// STOPS is the next piece (Jed is designing that).
+const GROW_MAX_R=99, GROW_MAX_C=99;           // generous — a level is a handful of regions
+let flyViewR=0, flyViewC=0;                    // window top-left, in cells
+function newEditCell(active){ return {gem:null,active:!!active,obs:null,pu:null,sub:null,item:null}; }
+function flyStep(){ return CELL_SIZE+CELL_GAP; }
+// The window is a FIXED region — 9 rows x 11 cols, Township's landscape screen
+// (PLAY_MAX_R/C). NOT measured off #eframe: #eframe is flex:0 0 auto and sizes to
+// the board, so measuring it made the window grow with the board (runaway).
+function frameView(){ return { vr:PLAY_MAX_R, vc:PLAY_MAX_C }; }
+// In multi-region mode, clamp the board-wrap to exactly the 9x11 window and clip it,
+// so translating #board inside it reads as a shifting camera. Off = restore the
+// normal content-sized, centered editor board.
+function setWindowClip(on){
+  const bw=document.getElementById('board-wrap'); if(!bw) return;
+  if(on){ const s=flyStep();
+    bw.style.width=(PLAY_MAX_C*s)+'px'; bw.style.height=(PLAY_MAX_R*s)+'px';
+    bw.style.overflow='hidden'; bw.style.padding='0'; bw.style.alignItems='flex-start'; bw.style.justifyContent='flex-start';
+  } else {
+    bw.style.width=''; bw.style.height=''; bw.style.overflow=''; bw.style.padding=''; bw.style.alignItems=''; bw.style.justifyContent='';
+  }
+}
+// Extend the board with INACTIVE cells until it is at least needR x needC.
+function ensureBoard(needR,needC){
+  while(C<needC && C<GROW_MAX_C){ for(let r=0;r<R;r++){ board[r].push(newEditCell(false)); flow[r].push('down'); } C++; }
+  while(R<needR && R<GROW_MAX_R){ const row=[],frow=[]; for(let c=0;c<C;c++){ row.push(newEditCell(false)); frow.push('down'); } board.push(row); flow.push(frow); R++; }
+}
+function shiftView(dir){
+  if(playing)return;                           // authoring only
+  const {vr,vc}=frameView();
+  const down=(dir==='down'||dir==='downright'), right=(dir==='right'||dir==='downright');
   save();
-  if(right){ for(let r=0;r<R;r++){ board[r].push(newEditCell()); flow[r].push('down'); } C++; }
-  if(down){ const row=[],frow=[]; for(let c=0;c<C;c++){ row.push(newEditCell()); frow.push('down'); } board.push(row); flow.push(frow); R++; }
-  render(); updUB(); updGridInfo(); syncGrowArrows();
+  if(right){ flyViewC++; ensureBoard(R, flyViewC+vc); }
+  if(down){  flyViewR++; ensureBoard(flyViewR+vr, C); }
+  render(); updUB(); updGridInfo(); applyFlyView(); syncGrowArrows();
+}
+function applyFlyView(){
+  const bd=document.getElementById('board'); if(!bd) return;
+  const {vr,vc}=frameView();
+  flyViewR=Math.max(0,Math.min(flyViewR, Math.max(0,R-vr)));   // keep the window inside the board
+  flyViewC=Math.max(0,Math.min(flyViewC, Math.max(0,C-vc)));
+  bd.style.transform=(multiRegion && !playing && (flyViewR||flyViewC))
+    ? `translate(${-flyViewC*flyStep()}px, ${-flyViewR*flyStep()}px)` : '';
 }
 function updGridInfo(){ const a=document.getElementById('info-r'),b=document.getElementById('info-c'); if(a)a.textContent=R; if(b)b.textContent=C; }
-// Multi-region is an editor MODE that reveals the grow arrows on the board's far
-// edges. Only down / right / down-right are offered — up/left/corners would move
-// the origin. Built once, into #board-wrap (which is already positioned — the play
-// fly-layer relies on it), so they ride the board's true bottom/right edge as it grows.
 let multiRegion=false;
 function toggleMultiRegion(){
   multiRegion=!multiRegion;
-  const btn=document.getElementById('mr-toggle');
-  if(btn) btn.classList.toggle('on', multiRegion);
+  const btn=document.getElementById('mr-toggle'); if(btn) btn.classList.toggle('on', multiRegion);
+  if(!multiRegion){ flyViewR=0; flyViewC=0; }
   ensureGrowArrows(); syncGrowArrows();
 }
+// Arrows are pinned to the WINDOW (#eframe), not the board, so shifting the board
+// under them never carries them off — and #eframe's own overflow no longer clips
+// them the way it clipped the board-anchored ▼/⬊ (only ▶ survived).
 function ensureGrowArrows(){
-  const wrap=document.getElementById('board-wrap'); if(!wrap || document.getElementById('grow-down')) return;
+  const f=document.getElementById('eframe'); if(!f || document.getElementById('grow-right')) return;
+  f.style.position='relative';
   const mk=(id,glyph,edgeCss,dir,tip)=>{
     const b=document.createElement('button');
-    b.id=id; b.textContent=glyph; b.title=tip; b.onclick=()=>growBoard(dir);
-    b.style.cssText='position:absolute;z-index:15;width:30px;height:30px;border-radius:8px;'
-      +'background:#1b1030;color:#c8a8ff;border:1px solid #6a4aaa;cursor:pointer;'
-      +'font:16px/1 system-ui;display:none;align-items:center;justify-content:center;'+edgeCss;
-    wrap.appendChild(b);
+    b.id=id; b.textContent=glyph; b.title=tip; b.onclick=()=>shiftView(dir);
+    b.style.cssText='position:absolute;z-index:30;width:30px;height:30px;border-radius:8px;'
+      +'background:#1b1030dd;color:#c8a8ff;border:1px solid #6a4aaa;cursor:pointer;'
+      +'font:16px/1 system-ui;display:none;align-items:center;justify-content:center;box-shadow:0 1px 6px #000a;'+edgeCss;
+    f.appendChild(b);
   };
-  mk('grow-down','▼','left:50%;transform:translateX(-50%);bottom:-38px;','down','Expand one row down');
-  mk('grow-right','▶','top:50%;transform:translateY(-50%);right:-38px;','right','Expand one column right');
-  mk('grow-dr','⬊','right:-38px;bottom:-38px;','downright','Expand one cell down AND right');
+  mk('grow-right','▶','top:50%;transform:translateY(-50%);right:6px;','right','Shift the window one cell right');
+  mk('grow-down','▼','left:50%;transform:translateX(-50%);bottom:6px;','down','Shift the window one cell down');
+  mk('grow-dr','⬊','right:6px;bottom:6px;','downright','Shift the window one cell down AND right');
 }
 function syncGrowArrows(){
   const show = multiRegion && !playing;
-  for(const id of ['grow-down','grow-right','grow-dr']){
+  setWindowClip(show);                          // 9x11 window on only while editing multi-region
+  for(const id of ['grow-right','grow-down','grow-dr']){
     const b=document.getElementById(id); if(b) b.style.display = show ? 'flex' : 'none';
   }
+  applyFlyView();
 }
 
 // sandbox=true (default) is the editor's OWN ▶ Play button + its resume call
