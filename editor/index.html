@@ -1848,6 +1848,74 @@ const SFX = {
     osc.start(t);
     osc.stop(t + spec.dur + 0.02);
   },
+  // A one-shot white-noise buffer (the bank's single oscillators can't make the
+  // crackle a firework needs). Cheap — a fraction of a second, built per burst.
+  _noiseBuf(ctx, dur) {
+    const n = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  },
+  // A "p-pew" STREAMER — the signature from the social-clip firework audio
+  // (Clips/finale-endcard.py's pew()): a percussive 'p' click, then a pitch that
+  // FALLS f0->f1 with a touch of 2nd harmonic for bite. Streamers DESCEND — a
+  // rising sweep reads as "p-poi" (Jed caught that 2026-08-26), so the glide is DOWN.
+  _pew(t0, dur, f0, f1, gain) {
+    const ctx = this.ctx; if (!ctx) return;
+    const osc = ctx.createOscillator(), h2 = ctx.createOscillator();
+    osc.type = 'sine'; h2.type = 'sine';
+    osc.frequency.setValueAtTime(f0, t0);   osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+    h2.frequency.setValueAtTime(f0*2, t0);  h2.frequency.exponentialRampToValueAtTime(f1*2, t0 + dur);
+    const g = ctx.createGain(), h2g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);   g.gain.exponentialRampToValueAtTime(gain, t0 + 0.006);      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    h2g.gain.setValueAtTime(0.0001, t0); h2g.gain.exponentialRampToValueAtTime(gain*0.28, t0 + 0.006); h2g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(ctx.destination); h2.connect(h2g).connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.02); h2.start(t0); h2.stop(t0 + dur + 0.02);
+    // the 'p': a ~5ms noise transient right at the front
+    const cn = ctx.createBufferSource(); cn.buffer = this._noiseBuf(ctx, 0.006);
+    const cg = ctx.createGain(); cg.gain.setValueAtTime(gain*0.7, t0); cg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.02);
+    cn.connect(cg).connect(ctx.destination); cn.start(t0); cn.stop(t0 + 0.03);
+  },
+  // FIREWORK BURST — a sound for each visual burst in the star celebration, so a
+  // captured clip has the pop, not silent sparks. This is the OLD social-clip
+  // palette (Clips/finale-endcard.py) ported into the live engine and COMBINED with
+  // the in-game body Jed heard first: CRACK (sharp report) -> BOOM (low sine, pitch
+  // falls) -> 2-3 P-PEW streamers scattered outward as the particles fly -> a
+  // scattered CRACKLE tail. Web Audio only, no asset files. (Jed 2026-09-17.)
+  firework() {
+    if (this.muted) return;
+    const ctx = this._ensure();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+    const t = ctx.currentTime, R = (a,b) => a + Math.random()*(b-a);
+    // CRACK — the sharp report at the front (bright high-passed noise, fast decay)
+    { const nz = ctx.createBufferSource(); nz.buffer = this._noiseBuf(ctx, 0.09);
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1200;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      nz.connect(hp).connect(g).connect(ctx.destination); nz.start(t); nz.stop(t + 0.11); }
+    // BOOM — low sine body whose pitch falls
+    { const boom = ctx.createOscillator(), bg = ctx.createGain();
+      boom.type = 'sine'; boom.frequency.setValueAtTime(R(150,220), t); boom.frequency.exponentialRampToValueAtTime(R(45,70), t + 0.16);
+      bg.gain.setValueAtTime(0.0001, t); bg.gain.exponentialRampToValueAtTime(0.18, t + 0.01); bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.30);
+      boom.connect(bg).connect(ctx.destination); boom.start(t); boom.stop(t + 0.32); }
+    // P-PEW — 2-3 descending streamers scattered AFTER the report (when the sparks fly)
+    const nPew = 2 + Math.floor(Math.random()*2);
+    for (let k = 0; k < nPew; k++) {
+      this._pew(t + 0.05 + k*(0.09 + Math.random()*0.06),
+                0.20 + Math.random()*0.10,          // dur
+                580 + Math.random()*240,            // f0 (start) — option D, deep streamer, no sparrow
+                105 + Math.random()*50,             // f1 (fall to)
+                0.13 * (1 - 0.16*k));               // each streamer a touch quieter
+    }
+    // CRACKLE TAIL — scattered tiny pops thinning out (the streamer sparkle)
+    for (let p = 0; p < 6; p++) {
+      const at = t + 0.05 + Math.pow(Math.random(), 1.6) * 0.6;
+      const nz = ctx.createBufferSource(); nz.buffer = this._noiseBuf(ctx, 0.014);
+      const g = ctx.createGain(); g.gain.setValueAtTime(R(0.05,0.10), at); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.014);
+      nz.connect(g).connect(ctx.destination); nz.start(at); nz.stop(at + 0.03);
+    }
+  },
   toggleMute() {
     this.muted = !this.muted;
     localStorage.setItem('akashic-muted', this.muted ? '1' : '0');
@@ -6537,6 +6605,7 @@ function hideCelebration(){
   const COLORS=['#ff4d4d','#ffb03d','#ffe14d','#5cff7a','#4dc3ff','#9a7bff','#ff6bd1','#ffffff'];
   function resize(){ if(!cvs)return; const dpr=window.devicePixelRatio||1; cvs.width=cvs.clientWidth*dpr; cvs.height=cvs.clientHeight*dpr; }
   function burst(x,y){
+    if(window.SFX&&SFX.firework)SFX.firework(); // sound rides the same event that draws the burst
     const color=COLORS[Math.floor(Math.random()*COLORS.length)];
     const dpr=window.devicePixelRatio||1, n=46+Math.floor(Math.random()*24);
     for(let i=0;i<n;i++){
