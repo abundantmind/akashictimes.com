@@ -301,6 +301,28 @@ body.font-lg{--base-font:20px;}
 #setup-confirm:hover{background:#4a3580;}
 #setup-confirm:disabled{opacity:.35;cursor:default;}
 
+/* ── REVIEW-JSON MODAL (Jed's submission review tool) ── */
+#review-wrap{position:fixed;inset:0;background:rgba(0,0,0,0.72);display:none;align-items:center;justify-content:center;z-index:230;}
+#review-wrap.open{display:flex;}
+#review-box{background:#13111a;border:0.5px solid #3d2060;border-radius:var(--border-radius-lg);padding:24px;width:460px;max-width:calc(100% - 40px);}
+#review-box h3{font-size:var(--fz-lg);font-weight:500;color:#e0d0f0;margin-bottom:4px;}
+#review-box p{font-size:var(--fz-ui);color:#8a79aa;margin-bottom:14px;line-height:1.5;}
+#review-box code{color:#c792ea;font-family:var(--font-mono,monospace);font-size:.92em;}
+#review-json{width:100%;height:120px;resize:vertical;background:#0d0a14;border:0.5px solid #3d3560;border-radius:6px;color:#c8bfe0;font-family:var(--font-mono,monospace);font-size:var(--fz-sm);padding:10px;box-sizing:border-box;}
+#review-json:focus{outline:none;border-color:#6a4aaa;}
+.review-row{margin:12px 0;}
+#review-file{color:#8a79aa;font-size:var(--fz-ui);}
+#review-pick{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;align-items:center;}
+#review-pick button{padding:6px 12px;border:0.5px solid #3d2060;border-radius:6px;background:transparent;color:#c8a8ff;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
+#review-pick button:hover{border-color:#c792ea;}
+.review-err{color:#f78c6c;font-size:var(--fz-ui);min-height:1em;margin:6px 0;}
+.review-btns{display:flex;gap:10px;margin-top:14px;}
+.review-btns button{flex:1;padding:10px;font-size:var(--fz-base);font-weight:500;border-radius:6px;cursor:pointer;font-family:var(--font-sans);}
+#review-cancel{background:transparent;color:#8a79aa;border:0.5px solid #2d2040;}
+#review-cancel:hover{border-color:#6a4aaa;color:#c8bfe0;}
+#review-load{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;}
+#review-load:hover{background:#4a3580;}
+
 /* ── EDITOR ── */
 #editor{display:none;flex-direction:column;flex:1;}
 #etopbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#13111a;border-bottom:0.5px solid #2d2540;flex-wrap:wrap;}
@@ -690,6 +712,8 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="profile-drop">
           <div class="profile-head"><div class="ph-name"></div><div class="ph-sub"></div></div>
           <button class="profile-item" onclick="openSettings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg><span data-i18n="settings">Settings</span></button>
+          <!-- Review a submitted level JSON in the editor (Jed's Wizard-of-Oz moderation). -->
+          <button class="profile-item" onclick="openReview()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>Review a JSON</span></button>
           <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
           <div class="profile-langlabel" data-i18n="language">Language</div>
           <div class="profile-langrow">
@@ -768,6 +792,26 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       </div>
     </div>
     <button id="setup-confirm">Open Editor</button>
+  </div>
+</div>
+
+<!-- REVIEW-JSON MODAL — Jed's submission review tool. A submitted bundle's levels
+     live in Supabase (public.bundles.data); RLS blocks reading another author's
+     DRAFT from the browser, so the level JSON is pasted (copied out of the Supabase
+     SQL editor's `data` column) or opened as the level-NNN.json the architect sent.
+     Loads through the same path as a template — no bundle folder, no save target. -->
+<div id="review-wrap">
+  <div id="review-box">
+    <h3>Review a level JSON</h3>
+    <p>Paste a level's JSON (from Supabase <code>bundles.data</code>) or open a <code>level-NNN.json</code> file. It loads into the editor to inspect and Play — nothing is saved to a bundle.</p>
+    <textarea id="review-json" placeholder="Paste a level object, or a whole bundle's data array…"></textarea>
+    <div class="review-row"><input type="file" id="review-file" accept=".json,application/json" onchange="reviewFilePicked(event)"></div>
+    <div id="review-pick"></div>
+    <div id="review-err" class="review-err"></div>
+    <div class="review-btns">
+      <button id="review-cancel" onclick="closeReview()">Cancel</button>
+      <button id="review-load" onclick="reviewParse()">Load into editor</button>
+    </div>
   </div>
 </div>
 
@@ -969,6 +1013,8 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="profile-drop">
           <div class="profile-head"><div class="ph-name"></div><div class="ph-sub"></div></div>
           <button class="profile-item" onclick="openSettings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg><span data-i18n="settings">Settings</span></button>
+          <!-- Review a submitted level JSON in the editor (Jed's Wizard-of-Oz moderation). -->
+          <button class="profile-item" onclick="openReview()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>Review a JSON</span></button>
           <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
           <div class="profile-langlabel" data-i18n="language">Language</div>
           <div class="profile-langrow">
@@ -2037,6 +2083,16 @@ async function openTemplate(n){
     json=await resp.json();
   }catch(e){alert('Template '+n+' is not available.');return;}
   if(!loadLevelData(json,n))return; // engine pin refused it — leave the editor where it was
+  enterEditorWithLevel(architectPlaying);
+}
+
+// Shared editor-entry tail: loadLevelData() has already parsed a level into board
+// state; this sets up the editor UI and (optionally) drops straight into Play.
+// Extracted from openTemplate so the Review-JSON loader reuses the EXACT same path
+// instead of forking a second loader ([[project_boolean_universe_separators]]).
+// `startPlaying` = open already in Play mode (openTemplate honors the architect's
+// sticky mode; Review passes false so Jed lands in edit to inspect first).
+function enterEditorWithLevel(startPlaying){
   playerMode=false;playing=false;entranceMode=false;Motion.releaseAll();
   flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
   fitEditorBoard(); // scale the grid to fill the viewport (device-independent), not a fixed 44px
@@ -2061,7 +2117,7 @@ async function openTemplate(n){
   // Architect-directed sticky mode: a saved level opens in the Architect's current
   // mode (default PLAY — the impulse is to swap). It loaded in edit state above,
   // so flip to Play when that's the standing choice; togglePlay runs the play setup.
-  if(architectPlaying) togglePlay();
+  if(startPlaying) togglePlay();
 }
 
 function goHome(){
@@ -2266,6 +2322,82 @@ async function submitUserBundle(id){
   const res=await AkashicAuth.submitBundle({ title:b.name, levels });
   if(res.ok){ if(btn){ btn.textContent=TXT('submit_bundle_sent'); } }
   else{ alert(TXT('submit_bundle_err')+(res.error?' ('+res.error+')':'')); if(btn){ btn.disabled=false; btn.textContent=TXT('submit_bundle_btn'); } }
+}
+
+// ═══ REVIEW HELPER ═══════════════════════════════════════════════════════════
+// Load a submitted level's JSON into the editor to inspect and Play. The read
+// side of the marketplace pipeline for MODERATION: a submitted bundle's levels
+// live in Supabase (public.bundles.data), but RLS ("read published or own") hides
+// another author's DRAFT from Jed's browser client — so the JSON comes in by hand,
+// pasted from the Supabase SQL editor's `data` column or opened as the level file
+// the architect sent. Reuses openTemplate's exact load path (loadLevelData +
+// enterEditorWithLevel); no bundle folder, no save target — this is not our copy.
+function openReview(){
+  const w=document.getElementById('review-wrap'); if(!w)return;
+  document.getElementById('review-json').value='';
+  document.getElementById('review-file').value='';
+  document.getElementById('review-pick').innerHTML='';
+  document.getElementById('review-err').textContent='';
+  // close whichever profile menu launched this
+  document.querySelectorAll('.profilemenu .profile-drop.open,.profilemenu.open').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.profile-btn[aria-expanded="true"]').forEach(b=>b.setAttribute('aria-expanded','false'));
+  w.classList.add('open');
+  setTimeout(()=>{ const t=document.getElementById('review-json'); if(t)t.focus(); },30);
+}
+function closeReview(){ const w=document.getElementById('review-wrap'); if(w)w.classList.remove('open'); }
+
+// File chosen → drop its text into the textarea; the same parse path runs on Load.
+function reviewFilePicked(e){
+  const f=e.target && e.target.files && e.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{ document.getElementById('review-json').value=rd.result; document.getElementById('review-err').textContent=''; };
+  rd.onerror=()=>{ document.getElementById('review-err').textContent='Could not read that file.'; };
+  rd.readAsText(f);
+}
+
+// Parse the textarea and route: a single level is one object (has `board`); a whole
+// bundle's payload is an array of level objects (raw array, or {data:[…]} straight
+// from the bundles row). Multiple levels → offer a picker so Jed inspects any one.
+function reviewParse(){
+  const errEl=document.getElementById('review-err'); errEl.textContent='';
+  const pick=document.getElementById('review-pick'); pick.innerHTML='';
+  const raw=(document.getElementById('review-json').value||'').trim();
+  if(!raw){ errEl.textContent='Paste some JSON or choose a file first.'; return; }
+  let parsed;
+  try{ parsed=JSON.parse(raw); }catch(e){ errEl.textContent='Not valid JSON: '+e.message; return; }
+  const levels = Array.isArray(parsed) ? parsed
+               : (parsed && Array.isArray(parsed.data)) ? parsed.data
+               : (parsed && Array.isArray(parsed.levels)) ? parsed.levels
+               : null;
+  if(levels){
+    if(!levels.length){ errEl.textContent='That bundle has no levels.'; return; }
+    if(levels.length===1){ reviewLoadJSON(levels[0]); return; }
+    const label=document.createElement('span');
+    label.textContent='Pick a level:'; label.style.cssText='color:#8a79aa;font-size:var(--fz-ui);width:100%;';
+    pick.appendChild(label);
+    levels.forEach((lv,i)=>{ const b=document.createElement('button');
+      b.textContent=(lv&&typeof lv.level==='number')?('Level '+lv.level):('#'+(i+1));
+      b.onclick=()=>reviewLoadJSON(lv); pick.appendChild(b); });
+    return;
+  }
+  if(parsed && parsed.board){ reviewLoadJSON(parsed); return; }
+  errEl.textContent='This JSON is neither a level (needs a "board") nor a bundle array.';
+}
+
+// Load one parsed level object into the editor. Clears any bundle save-target so a
+// stray ⌘S can't write a stranger's level into one of Jed's own bundle folders.
+function reviewLoadJSON(json){
+  const errEl=document.getElementById('review-err');
+  editorBundle=null; saveTargetBundle=null; bundleEditNum=null;
+  if(typeof updateBundleSaveBtn==='function') updateBundleSaveBtn();
+  const num=(json && typeof json.level==='number')?json.level:1;
+  let ok=false;
+  try{ ok=loadLevelData(json,num); }               // engine pin / bad shape → loadLevelData alerts + returns false
+  catch(e){ if(errEl)errEl.textContent='Could not load: '+e.message; return; }
+  if(!ok) return;                                  // pin refused — keep the modal open
+  closeReview();
+  enterEditorWithLevel(false);                     // land in EDIT: inspect the Multi-Stage stops, then hit ▶ Play to reproduce
+  const sb=document.getElementById('sb3'); if(sb)sb.textContent='Reviewing a loaded JSON — not saved to any bundle';
 }
 
 // ＋ Add level → target this bundle, then the normal New-Level (grid size) dialog.
