@@ -555,6 +555,10 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 .phud-cap{font-size:var(--fz-sm);color:#665580;text-transform:uppercase;letter-spacing:.1em;}
 .phud-moves{display:flex;flex-direction:column;align-items:center;}
 .phud-num{font-size:52px;color:#e0d0f0;font-weight:500;line-height:1;}
+/* Player play-speed dial — compact row of the shared .tb buttons, under Moves */
+.phud-speed{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.phud-speed-row{display:flex;gap:4px;}
+.phud-speed .tb{padding:5px 8px;font-size:var(--fz-sm);}
 /* Narrow screens (phones): HUD becomes a compact bar ABOVE the board instead of a side panel */
 @media(max-width:640px){
   body.player-playing{flex-direction:column;justify-content:flex-start;}
@@ -1035,6 +1039,17 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   <div class="phud-level" id="phud-level">Level 1</div>
   <div id="phud-goal"></div>
   <div class="phud-moves"><div class="phud-num" id="phud-moves">0</div><div class="phud-cap" data-i18n="moves_cap">Moves</div></div>
+  <!-- Player play-speed dial (Jed 2026-09-16): the editor's four speed steps, given
+       to the player. Its own variable/storage (setPlayerSpeed) — never the architect dial. -->
+  <div class="phud-speed" id="phud-speed">
+    <div class="phud-cap" data-i18n="speed_cap">Speed</div>
+    <div class="phud-speed-row">
+      <button class="tb pspd" id="pspd-25"  onclick="setPlayerSpeed(0.25)" title="0.25× speed">¼×</button>
+      <button class="tb pspd" id="pspd-50"  onclick="setPlayerSpeed(0.5)"  title="0.5× speed">½×</button>
+      <button class="tb pspd on" id="pspd-100" onclick="setPlayerSpeed(1)"  title="1× speed">1×</button>
+      <button class="tb pspd" id="pspd-200" onclick="setPlayerSpeed(2)"    title="2× speed">2×</button>
+    </div>
+  </div>
 </div>
 
 <!-- Booster palette — Township's right column (play mode only; renderBoosterPanel fills it) -->
@@ -1210,7 +1225,7 @@ en:{
   products_pick:'Pick a level to edit.',products_back:'← Bundles',
   pback_bundles:'← Bundles',pback_levels:'← Levels',pback_home:'← Home',
   rotate_msg:'Rotate your device',rotate_sub:'Screen won’t turn? Turn off rotation lock.',
-  moves_cap:'Moves',goals_cap:'Goals',
+  moves_cap:'Moves',goals_cap:'Goals',speed_cap:'Speed',
   bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
   bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
   community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
@@ -1313,7 +1328,7 @@ ko:{
   products_pick:'편집할 레벨을 선택하세요.',products_back:'← 번들',
   pback_bundles:'← 번들',pback_levels:'← 레벨 목록',pback_home:'← 홈',
   rotate_msg:'기기를 가로로 돌려주세요',rotate_sub:'화면이 안 돌아가나요? 회전 잠금을 끄세요.',
-  moves_cap:'이동',goals_cap:'목표',
+  moves_cap:'이동',goals_cap:'목표',speed_cap:'속도',
   bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
   bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
   community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
@@ -1421,7 +1436,7 @@ es:{
   products_pick:'Elige un nivel para editar.',products_back:'← Paquetes',
   pback_bundles:'← Paquetes',pback_levels:'← Niveles',pback_home:'← Inicio',
   rotate_msg:'Gira tu dispositivo',rotate_sub:'¿La pantalla no gira? Desactiva el bloqueo de rotación.',
-  moves_cap:'Movimientos',goals_cap:'Objetivos',
+  moves_cap:'Movimientos',goals_cap:'Objetivos',speed_cap:'Velocidad',
   bundle_title:'Déjate llevar',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
   bundle_play:'Jugar',grid_sub:'Paquete 1 · 25 niveles',soon:'Pronto',
   community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
@@ -1753,21 +1768,41 @@ function setFontSize(size) {
 // ([[project_boolean_universe_separators]]).
 // A REAL PLAYER ALWAYS RUNS AT 1×. The dial applies in the editor and its sandbox
 // play, which is where an architect actually wants to watch a cascade crawl.
-let architectSpeed = 1;                       // the toolbar dial (persisted, editor-only)
-const spd = () => (playerMode && !editorSandboxPlay) ? 1 : architectSpeed;
-function setPlaybackSpeed(mult) {   // param renamed: `spd` would shadow the accessor
+let architectSpeed = 1;                       // the editor toolbar dial (persisted, editor-only)
+// PLAYER PLAY-SPEED (Jed 2026-09-16): a player picks their own fall speed — the same
+// four steps the editor dial offers. It is a SEPARATE variable with its OWN storage
+// key and its OWN buttons (#phud), NOT the architect dial. That separation is the
+// whole point: the 2026-08-30 bug was one dial serving two universes, so an
+// architect's ½× leaked into every real session ([[project_boolean_universe_separators]]).
+// Two dials, two universes — a player's choice never touches the editor and vice-versa.
+let playerSpeed = 1;
+const spd = () => (playerMode && !editorSandboxPlay) ? playerSpeed : architectSpeed;
+function setPlaybackSpeed(mult) {   // EDITOR dial. param renamed: `spd` would shadow the accessor
   architectSpeed = mult;
-  localStorage.setItem("akashic-playback-speed", mult);
-  // Update active button highlight
+  try{ localStorage.setItem("akashic-playback-speed", mult); }catch(e){}
   ['spd-25','spd-50','spd-100','spd-200'].forEach(id => {
-    document.getElementById(id).classList.remove('on');
+    const b=document.getElementById(id); if(b)b.classList.remove('on');
   });
   const idMap = {0.25:'spd-25', 0.5:'spd-50', 1:'spd-100', 2:'spd-200'};
-  if(idMap[mult]) document.getElementById(idMap[mult]).classList.add('on');
+  const on=idMap[mult]&&document.getElementById(idMap[mult]); if(on)on.classList.add('on');
+}
+function setPlayerSpeed(mult) {     // PLAYER dial — same steps, its own variable/storage/buttons
+  playerSpeed = mult;
+  try{ localStorage.setItem("akashic-player-speed", mult); }catch(e){}
+  syncPlayerSpeedButtons();
+}
+function syncPlayerSpeedButtons(){
+  const idMap = {0.25:'pspd-25', 0.5:'pspd-50', 1:'pspd-100', 2:'pspd-200'};
+  ['pspd-25','pspd-50','pspd-100','pspd-200'].forEach(id => {
+    const b=document.getElementById(id); if(b)b.classList.remove('on');
+  });
+  const on=idMap[playerSpeed]&&document.getElementById(idMap[playerSpeed]); if(on)on.classList.add('on');
 }
 (function() {
   const saved = parseFloat(localStorage.getItem("akashic-playback-speed")) || 1;
   setPlaybackSpeed(saved);
+  const ps = parseFloat(localStorage.getItem("akashic-player-speed")) || 1;
+  playerSpeed = ps; syncPlayerSpeedButtons();   // reflect the saved player choice on its buttons
 })();
 
 // ── SFX ENGINE (Jed 2026-07-20) ───────────────────────────────────────────────
