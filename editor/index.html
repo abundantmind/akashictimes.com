@@ -1884,6 +1884,7 @@ let selBase='inactive'; // Base brush: 'active' or 'inactive'(Hole) — click ce
 // serializeLevel() emits these directly (the objectives slice of the canonical object).
 let editorObjectives=[];
 let editorFlyover=null; // level's flyover spec, persisted across flyTeardown() so Save preserves it
+let _flyEditorPreview=false; // true while the editor's ▶ Play is running the flyover camera (so ⏹ Stop tears it down)
 // Which gem indices spawn. Full set by default; levels narrow it via their
 // gemTypes list (Township L1–5 use 5 colors, no Amethyst), entrance uses 0–4.
 let GEM_POOL=[0,1,2,3,4,5];
@@ -3737,6 +3738,31 @@ function togglePlay(sandbox=true){
     editorSandboxPlay=false; playerMode=false; playerGoals=[];
     stopFlowPreview(); // left Play — kill the sweep and its idle timer
   }
+  // ── FLYOVER camera in the editor's ▶ Play (Jed 2026-09-16) ──────────────────
+  // A flyover level loads with its camera spec in editorFlyover; flyTeardown()
+  // nulled the runtime `flyover` so the editor shows the FULL board for editing.
+  // On ▶ Play, rebuild the runtime camera from editorFlyover and run the SAME
+  // window + opening cutscene the published play path (beginPlaySession) uses, so
+  // an architect previews the real flythrough without publishing. On ⏹ Stop, drop
+  // the camera and restore the full-board editor view — editorFlyover keeps the
+  // spec, so Save still preserves it (the L20/L23 re-save regression stays fixed).
+  if(playing){
+    if(!flyover && editorFlyover && Array.isArray(editorFlyover.stops) && editorFlyover.stops.length){
+      flyover={axis:(editorFlyover.axis==='x'?'x':'y'),
+               viewRows:editorFlyover.viewRows||PLAY_MAX_R,
+               viewCols:editorFlyover.viewCols||PLAY_MAX_C,
+               stops:editorFlyover.stops};
+      flyStop=0; flyLock=false;
+      fitPlayBoard();   // size cells to the camera window — one zone fills the frame
+      flyWindow();      // clip #board to the window (playerMode was set just above)
+      _flyEditorPreview=true; // Stop must tear this down + restore editor sizing
+    }
+  } else if(_flyEditorPreview){
+    _flyEditorPreview=false;
+    flyTeardown();      // null the runtime camera (editorFlyover survives the teardown)
+    fitEditorBoard();   // restore full-board editor cell sizing
+    applyFlyView();     // re-apply the Multi-Stage editor window offset, if any
+  }
   // FLOW PREVIEW IN THE EDITOR TOO (Jed 2026-08-27). It used to start only from
   // beginPlaySession, i.e. real play — so an architect building a flow level had
   // no way to see whether their flow actually READS without publishing it first.
@@ -3749,6 +3775,10 @@ function togglePlay(sandbox=true){
   if(playing&&sandbox&&!flyover) flowPreviewT=setTimeout(runFlowSweep,1400);
   updEditorFrame(); // refresh the frame HUD on every mode toggle (moves persist)
   render();
+  // Opening pan AFTER the window is clipped and the board painted. Gated on the
+  // editor-preview flag so a real player entry (beginPlaySession runs its own
+  // flyCutscene) never double-fires it.
+  if(playing && _flyEditorPreview) flyCutscene();
 }
 
 // ── Unified cell-clear: tally, fragment, null — each cell cleared at most once per phase ──
