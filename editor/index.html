@@ -3263,13 +3263,28 @@ const OBS_TYPES=[
   {id:'leaf1',   label:'LF1', color:'#4a8a3a', desc:'Leaf 1HP',          layer:'obs', hp:1},
   {id:'leaf2',   label:'LF2', color:'#2a6a1a', desc:'Leaf 2HP',          layer:'obs', hp:2},
   {id:'leaf3',   label:'LF3', color:'#1a5a0a', desc:'Leaf 3HP',          layer:'obs', hp:3},
-  {id:'crate1',  label:'BX1', color:'#8a6a3a', desc:'Crate 1HP',         layer:'obs', solid:true, hp:1},
-  {id:'crate2',  label:'BX2', color:'#7a5a2a', desc:'Crate 2HP',         layer:'obs', solid:true, hp:2},
-  {id:'crate3',  label:'BX3', color:'#6a4a1a', desc:'Crate 3HP',         layer:'obs', solid:true, hp:3},
-  {id:'key',     label:'ANK', color:'#d4aa40', desc:'Ankh (falls)',        layer:'item'},
-  {id:'acorn',   label:'ACN', color:'#7a5a2a', desc:'Acorn (collect)',    layer:'item'},
+  {id:'crate1',  label:'BX1', color:'#8a6a3a', desc:'Crate 1HP',         layer:'obs', solid:true, hp:1, stageResident:true},
+  {id:'crate2',  label:'BX2', color:'#7a5a2a', desc:'Crate 2HP',         layer:'obs', solid:true, hp:2, stageResident:true},
+  {id:'crate3',  label:'BX3', color:'#6a4a1a', desc:'Crate 3HP',         layer:'obs', solid:true, hp:3, stageResident:true},
+  {id:'key',     label:'ANK', color:'#d4aa40', desc:'Ankh (falls)',        layer:'item', stageResident:true},
+  {id:'acorn',   label:'ACN', color:'#7a5a2a', desc:'Acorn (collect)',    layer:'item', stageResident:true},
   {id:'record',  label:'LP',  color:'#2a2a2a', desc:'Record (LP)',        layer:'item', hp:1},
 ];
+// ── STAGE RESIDENTS — the gate for multi-stage (flyover) levels ──────────────
+// A "resident" is a board object REMOVED when its goal is met — a crate breaks, a
+// key exits, an acorn is collected — so "none left in this stage's window" is a
+// clean, legible advance signal (Township's rule). NOT gems (a global colour COUNT,
+// placeless) and NOT clover (a plant-COUNT that SPREADS, never removed). Membership
+// is the `stageResident` flag ABOVE, so a future element (Tires, …) gates a stage
+// for free the moment it's added to the catalog — flyScrollCheck never reopens.
+// (Jed 2026-09-17.)
+const OBS_BYID={}; OBS_TYPES.forEach(o=>OBS_BYID[o.id]=o);
+function isResidentId(id){ return !!(id && OBS_BYID[id] && OBS_BYID[id].stageResident); }
+// Every current resident is removed when satisfied, so PRESENCE == still holding.
+function holdsStage(r,c){
+  const cd=board[r]&&board[r][c]; if(!cd||!cd.active) return false;
+  return isResidentId(cd.item) || isResidentId(cd.obs);
+}
 
 // Red X icon for per-layer clear buttons in palette
 function clearXSVG(size){
@@ -7585,25 +7600,30 @@ function flyScrollCheck(){
   if(!flyover||!playerMode||flyLock)return;
   let target=flyStop;
   if(flyover.axis==='x'){
-    // WIDE (L23): the live zone stays framed until every key in it has been
-    // collected out the bottom; then pan to the next zone (Jed's unlock rule,
-    // 2026-07-24). "No key left within the current window's columns" = zone done.
+    // WIDE (L23): the live zone stays framed until it holds NO more residents —
+    // keys collected out, crates broken, acorns freed (Jed's unlock rule,
+    // 2026-07-24, generalized from keys-only 2026-09-17). "No resident left within
+    // the current window's columns" = zone done, pan to the next.
     while(target<flyover.stops.length-1){
       const lo=flyover.stops[target], hi=lo+flyover.viewCols-1;
-      let keyLeft=false;
-      for(let r=0;r<R&&!keyLeft;r++)for(let c=lo;c<=hi&&c<C;c++)
-        if(board[r][c].active&&board[r][c].item==='key'){keyLeft=true;break;}
-      if(!keyLeft)target++;else break;
+      let holds=false;
+      for(let r=0;r<R&&!holds;r++)for(let c=lo;c<=hi&&c<C;c++)
+        if(holdsStage(r,c)){holds=true;break;}
+      if(!holds)target++;else break;
     }
   }else{
-    // TALL (L20): a key reaching (or falling past) the view's bottom row scrolls
-    // the camera down one stop — repeat in case one fall crossed two views.
+    // TALL (L20): advance on whichever comes first — (a) a FALLING resident (a key)
+    // reaches/passes the view's bottom row, so the camera follows it down (the
+    // original L20 behaviour, unchanged); OR (b) the current view's rows hold NO
+    // resident at all, so a FIXED-resident stage (crates) advances once cleared.
     while(target<flyover.stops.length-1){
-      const viewBottom=flyover.stops[target]+flyover.viewRows-1;
-      let hit=false;
-      for(let r=viewBottom;r<R&&!hit;r++)for(let c=0;c<C;c++)
-        if(board[r][c].active&&board[r][c].item==='key'){hit=true;break;}
-      if(hit)target++;else break;
+      const top=flyover.stops[target], viewBottom=top+flyover.viewRows-1;
+      let followed=false, holdsInView=false;
+      for(let r=viewBottom;r<R&&!followed;r++)for(let c=0;c<C;c++)
+        if(board[r][c].active&&board[r][c].item==='key'){followed=true;break;}
+      for(let r=top;r<=viewBottom&&r<R&&!holdsInView;r++)for(let c=0;c<C;c++)
+        if(holdsStage(r,c)){holdsInView=true;break;}
+      if(followed||!holdsInView)target++;else break;
     }
   }
   if(target!==flyStop)flyGo(target,900,'ease-in-out');
