@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>Objective — How an Architect Earns</title>
+
+  <meta name="description" content="The Akashic Swaps creator economy in plain math: build a bundle, publish it for $2, keep 90% of every $2 sale. Run the numbers yourself — built in public, no guarantees."/>
+  <link rel="canonical" href="https://akashictimes.com/objective/"/>
+  <meta property="og:title" content="Akashic Swaps — How an Architect Earns"/>
+  <meta property="og:description" content="Build a bundle, publish it, keep 90% of every sale. Here's the whole model, with the math in the open."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://akashictimes.com/objective/"/>
+  <meta property="og:image" content="https://akashictimes.com/og-image.jpg"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+
+  <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
+  <script>['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();},{passive:false});});</script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { touch-action: pan-x pan-y; overscroll-behavior: none; }
+    body { font-family: 'Courier New', monospace; background: #000; color: #0f0; min-height: 100vh; min-height: 100dvh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; align-items: center; }
+
+    nav { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; padding: 18px 24px; border-bottom: 1px solid #0a3a0a; font-size: 0.85em; letter-spacing: 0.1em; text-transform: uppercase; }
+    nav a { color: #0f0; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+    .langpick { position: relative; display: inline-flex; }
+    .langpick-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid #0a3a0a; border-radius: 3px; color: #0f0; opacity: 0.7; cursor: pointer; font-family: 'Courier New', monospace; font-size: 1em; letter-spacing: 0.1em; padding: 3px 8px; text-transform: uppercase; transition: opacity 0.2s; }
+    .langpick-btn:hover { opacity: 1; }
+    .langpick-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .langpick-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 168px; max-height: 200px; overflow-y: auto; list-style: none; margin: 0; padding: 4px; background: #001200; border: 1px solid #0a3a0a; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); display: none; z-index: 1000; text-transform: none; }
+    .langpick.open .langpick-menu { display: block; }
+    .langpick-menu li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; color: #0f0; opacity: 0.65; white-space: nowrap; letter-spacing: 0.04em; }
+    .langpick-menu li:hover { opacity: 1; background: #002800; }
+    .langpick-menu li[aria-selected="true"] { opacity: 1; background: #052f05; }
+    .lp-code { font-weight: bold; width: 2.2em; }
+    .lp-name { flex: 1; }
+    .lp-flag { font-size: 1.05em; }
+
+    main { flex: 1; width: 100%; max-width: 760px; padding: 48px 24px 80px; line-height: 1.7; }
+    h1 { font-size: clamp(1.6em, 5vw, 2.4em); letter-spacing: 0.06em; margin-bottom: 18px; }
+    h2 { font-size: 1.1em; letter-spacing: 0.05em; color: #6f6; margin: 34px 0 14px; }
+    .lede { opacity: 0.95; margin-bottom: 18px; }
+    p { opacity: 0.88; margin-bottom: 18px; }
+    .beat { opacity: 1; color: #6f6; letter-spacing: 0.03em; margin: 24px 0; }
+    a { color: #0f0; }
+    strong { color: #6f6; font-weight: bold; }
+
+    /* Ledger — a monospace receipt */
+    .ledger { border: 1px solid #0a3a0a; border-radius: 5px; background: #010e01; padding: 16px 18px; margin: 6px 0 22px; font-size: 0.9em; line-height: 1.8; }
+    .ledger .row { display: flex; justify-content: space-between; gap: 16px; }
+    .ledger .rule { border-top: 1px dashed #0a3a0a; margin: 6px 0; }
+    .ledger .tot { color: #6f6; }
+
+    /* Scenario table */
+    .scenarios { width: 100%; overflow-x: auto; margin: 6px 0 8px; }
+    table { border-collapse: collapse; width: 100%; min-width: 460px; font-size: 0.86em; }
+    th, td { text-align: right; padding: 8px 12px; border-bottom: 1px solid #072807; }
+    th { color: #6f6; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.82em; opacity: 0.9; }
+    td.you { color: #6f6; }
+    caption { caption-side: bottom; text-align: left; opacity: 0.6; font-size: 0.78em; margin-top: 8px; line-height: 1.5; }
+
+    .disclaimer { border-left: 2px solid #0a3a0a; padding: 2px 0 2px 16px; margin: 22px 0; opacity: 0.85; font-size: 0.92em; }
+
+    .cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 30px; }
+    .cta { display: inline-block; padding: 13px 26px; border: 1px solid #0f0; color: #0f0; letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; border-radius: 3px; font-size: 0.85em; transition: transform 0.15s, box-shadow 0.15s, background 0.15s; }
+    .cta:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,255,0,0.2); }
+    .cta.solid { background: #0f0; color: #000; font-weight: bold; }
+    .cta.solid:hover { color: #000; }
+
+    footer { width: 100%; padding: 18px 24px; border-top: 1px solid #0a3a0a; text-align: center; font-size: 0.8em; opacity: 0.5; letter-spacing: 0.08em; }
+    footer a { color: #0f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" data-i18n="nav_home">Home</a>
+    <a href="/about/" data-i18n="nav_about">About</a>
+    <a href="/pricing/" data-i18n="nav_pricing">Pricing</a>
+    <a href="/objective/" class="active" data-i18n="nav_objective">Objective</a>
+    <a href="/how-to-play/" data-i18n="nav_htp">How to Play</a>
+    <a href="/privacy/" data-i18n="nav_privacy">Privacy</a>
+    <div class="langpick">
+      <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+        <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+        <span class="langpick-cur">EN</span>
+      </button>
+      <ul class="langpick-menu" role="listbox"></ul>
+    </div>
+  </nav>
+
+  <main>
+    <h1>The Objective</h1>
+    <p class="lede">Akashic Swaps isn't just a game you play — it's one you can build <em>for</em>. Here's the whole earning model, with nothing hidden.</p>
+
+    <p>You build a bundle in the Editor. You publish it. Every player who buys it pays you. Your costs are small and fixed; your upside scales with how many people play.</p>
+
+    <h2>What it costs to start</h2>
+    <div class="ledger">
+      <div class="row"><span>Subscription — first month</span><span>$8.00</span></div>
+      <div class="row"><span>Publish one bundle</span><span>$2.00</span></div>
+      <div class="rule"></div>
+      <div class="row tot"><span>Your outlay</span><span>$10.00</span></div>
+    </div>
+
+    <h2>What you keep per sale</h2>
+    <div class="ledger">
+      <div class="row"><span>Bundle price (player pays)</span><span>$2.00</span></div>
+      <div class="row tot"><span>Your share — 90%</span><span>$1.80</span></div>
+      <div class="rule"></div>
+      <div class="row"><span>Break-even</span><span>~6 sales</span></div>
+    </div>
+    <p>Clear about six copies and your first month is paid for. Everything after that is upside — and it keeps arriving as long as players keep buying.</p>
+
+    <h2>Now run the numbers yourself</h2>
+    <p>Let's be honest about this part. We can't promise you traffic — we're building this audience in public, and no Architect has earned a cent yet. But the model is simple enough that you can check it yourself. If the site draws some number of visitors a week, and a small share of them buy your $2 bundle, you keep $1.80 of each:</p>
+
+    <div class="scenarios">
+      <table>
+        <thead>
+          <tr><th>Weekly visitors</th><th>Buy rate</th><th>Sales / wk</th><th>You earn / wk</th><th>≈ Per month</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1,000</td><td>2%</td><td>20</td><td class="you">$36</td><td class="you">$155</td></tr>
+          <tr><td>5,000</td><td>2%</td><td>100</td><td class="you">$180</td><td class="you">$780</td></tr>
+          <tr><td>10,000</td><td>3%</td><td>300</td><td class="you">$540</td><td class="you">$2,340</td></tr>
+        </tbody>
+        <caption>Illustrative only — your own math from the $1.80 share, not a forecast or a promise. Real numbers depend on traffic and demand we're still building.</caption>
+      </table>
+    </div>
+
+    <p>Publish more than one bundle and each earns on its own. Your income is your reach times your catalog — there's no ceiling we impose on it.</p>
+
+    <p class="beat">If the players come, the money goes to the people who make the levels.</p>
+
+    <div class="disclaimer">No guarantees, and no fine print. This is a wager on a growing audience, placed in the open — 90% to the Architect, 10% to keep the marketplace running. Not ads. Not timers. Not us skimming the top.</div>
+
+    <div class="cta-row">
+      <a class="cta" href="/pricing/">See the prices →</a>
+      <a class="cta solid" href="/editor/#enter">Start building →</a>
+    </div>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/">Privacy</a></footer>
+
+  <script>
+    (function(){
+      var NAV={en:{nav_home:'Home',nav_about:'About',nav_pricing:'Pricing',nav_objective:'Objective',nav_htp:'How to Play',nav_privacy:'Privacy'},
+               ko:{nav_home:'홈',nav_about:'소개',nav_pricing:'요금',nav_objective:'목표',nav_htp:'플레이 방법',nav_privacy:'개인정보'},
+               es:{nav_home:'Inicio',nav_about:'Acerca de',nav_pricing:'Precios',nav_objective:'Objetivo',nav_htp:'Cómo jugar',nav_privacy:'Privacidad'}};
+      var LANGS=[{code:'en',label:'EN',name:'English',flag:'🇬🇧'},{code:'ko',label:'KO',name:'한국어',flag:'🇰🇷'},{code:'es',label:'ES',name:'Español',flag:'🇪🇸'}];
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})();}catch(e){LANG='en';}
+      function apply(){
+        document.documentElement.lang=LANG;
+        var d=NAV[LANG]||NAV.en;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;});
+        refreshPickers();
+      }
+      function menuHTML(){return LANGS.map(function(l){return '<li role="option" data-lang="'+l.code+'" tabindex="0"><span class="lp-code">'+l.label+'</span><span class="lp-name">'+l.name+'</span><span class="lp-flag">'+l.flag+'</span></li>';}).join('');}
+      function closeMenus(){var o=document.querySelectorAll('.langpick.open');for(var i=0;i<o.length;i++){o[i].classList.remove('open');o[i].querySelector('.langpick-btn').setAttribute('aria-expanded','false');}}
+      function refreshPickers(){
+        var cur=null;for(var i=0;i<LANGS.length;i++){if(LANGS[i].code===LANG)cur=LANGS[i];}if(!cur)cur=LANGS[0];
+        var picks=document.querySelectorAll('.langpick');
+        for(var j=0;j<picks.length;j++){var lab=picks[j].querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;var lis=picks[j].querySelectorAll('li[data-lang]');for(var k=0;k<lis.length;k++){lis[k].setAttribute('aria-selected',lis[k].dataset.lang===LANG?'true':'false');}}
+      }
+      function pick(code){LANG=code;try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}apply();}
+      document.querySelectorAll('.langpick').forEach(function(p){
+        var menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+        menu.innerHTML=menuHTML();
+        btn.addEventListener('click',function(ev){ev.stopPropagation();var open=p.classList.contains('open');closeMenus();if(!open){p.classList.add('open');btn.setAttribute('aria-expanded','true');}});
+        menu.addEventListener('click',function(ev){var li=ev.target.closest('li[data-lang]');if(!li)return;pick(li.dataset.lang);closeMenus();});
+      });
+      document.addEventListener('click',closeMenus);
+      document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeMenus();});
+      apply();
+    })();
+  </script>
+</body>
+</html>

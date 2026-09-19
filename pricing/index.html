@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>Pricing — Create, Publish, Play</title>
+
+  <meta name="description" content="What it costs on Akashic Swaps: playing is free forever. Architects pay a small subscription to build and a $2 flat fee to publish; players pay $2 once to own a bundle. Architects keep 90%."/>
+  <link rel="canonical" href="https://akashictimes.com/pricing/"/>
+  <meta property="og:title" content="Akashic Swaps — Pricing"/>
+  <meta property="og:description" content="Playing is free forever. Build for a small subscription, publish for $2, and keep 90% of every sale."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://akashictimes.com/pricing/"/>
+  <meta property="og:image" content="https://akashictimes.com/og-image.jpg"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+
+  <script defer src="https://ingest.unmoatable.com/pa.js" data-site-id="pa_spZhTchqubt2"></script>
+  <script>['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();},{passive:false});});</script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { touch-action: pan-x pan-y; overscroll-behavior: none; }
+    body { font-family: 'Courier New', monospace; background: #000; color: #0f0; min-height: 100vh; min-height: 100dvh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; align-items: center; }
+
+    nav { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; padding: 18px 24px; border-bottom: 1px solid #0a3a0a; font-size: 0.85em; letter-spacing: 0.1em; text-transform: uppercase; }
+    nav a { color: #0f0; text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
+    nav a:hover { opacity: 1; }
+    nav a.active { opacity: 1; border-bottom: 1px solid #0f0; }
+    .langpick { position: relative; display: inline-flex; }
+    .langpick-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid #0a3a0a; border-radius: 3px; color: #0f0; opacity: 0.7; cursor: pointer; font-family: 'Courier New', monospace; font-size: 1em; letter-spacing: 0.1em; padding: 3px 8px; text-transform: uppercase; transition: opacity 0.2s; }
+    .langpick-btn:hover { opacity: 1; }
+    .langpick-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .langpick-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 168px; max-height: 200px; overflow-y: auto; list-style: none; margin: 0; padding: 4px; background: #001200; border: 1px solid #0a3a0a; border-radius: 4px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); display: none; z-index: 1000; text-transform: none; }
+    .langpick.open .langpick-menu { display: block; }
+    .langpick-menu li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; color: #0f0; opacity: 0.65; white-space: nowrap; letter-spacing: 0.04em; }
+    .langpick-menu li:hover { opacity: 1; background: #002800; }
+    .langpick-menu li[aria-selected="true"] { opacity: 1; background: #052f05; }
+    .lp-code { font-weight: bold; width: 2.2em; }
+    .lp-name { flex: 1; }
+    .lp-flag { font-size: 1.05em; }
+
+    main { flex: 1; width: 100%; max-width: 760px; padding: 48px 24px 80px; line-height: 1.7; }
+    h1 { font-size: clamp(1.6em, 5vw, 2.4em); letter-spacing: 0.06em; margin-bottom: 14px; }
+    .lede { opacity: 0.95; margin-bottom: 10px; }
+    .soonline { color: #6f6; opacity: 0.85; margin-bottom: 34px; font-size: 0.92em; letter-spacing: 0.03em; }
+    p { opacity: 0.88; margin-bottom: 18px; }
+    a { color: #0f0; }
+
+    /* Points of purchase */
+    .pop { display: grid; grid-template-columns: 1fr; gap: 16px; margin: 8px 0 34px; }
+    @media (min-width: 640px) { .pop { grid-template-columns: repeat(3, 1fr); } }
+    .card { border: 1px solid #0a3a0a; border-radius: 5px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; background: #010e01; }
+    .card .who { font-size: 0.68em; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.6; }
+    .card h2 { font-size: 1.05em; letter-spacing: 0.04em; font-weight: bold; }
+    .card .price { color: #6f6; font-size: 1.35em; letter-spacing: 0.02em; margin: 2px 0; }
+    .card .price small { display: block; font-size: 0.6em; opacity: 0.75; letter-spacing: 0.04em; margin-top: 3px; }
+    .card .desc { font-size: 0.86em; opacity: 0.82; line-height: 1.55; flex: 1; }
+    .soon { align-self: flex-start; margin-top: 4px; font-size: 0.66em; letter-spacing: 0.14em; text-transform: uppercase; color: #6f6; border: 1px solid #0a3a0a; border-radius: 999px; padding: 3px 10px; opacity: 0.85; }
+
+    .split { border-left: 2px solid #0f0; padding: 4px 0 4px 16px; margin: 8px 0 26px; }
+    .split .big { color: #6f6; font-size: 1.15em; letter-spacing: 0.02em; }
+    .free { opacity: 0.9; margin-bottom: 30px; }
+
+    .cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+    .cta { display: inline-block; padding: 13px 26px; border: 1px solid #0f0; color: #0f0; letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; border-radius: 3px; font-size: 0.85em; transition: transform 0.15s, box-shadow 0.15s, background 0.15s; }
+    .cta:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,255,0,0.2); }
+    .cta.solid { background: #0f0; color: #000; font-weight: bold; }
+    .cta.solid:hover { color: #000; }
+
+    footer { width: 100%; padding: 18px 24px; border-top: 1px solid #0a3a0a; text-align: center; font-size: 0.8em; opacity: 0.5; letter-spacing: 0.08em; }
+    footer a { color: #0f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" data-i18n="nav_home">Home</a>
+    <a href="/about/" data-i18n="nav_about">About</a>
+    <a href="/pricing/" class="active" data-i18n="nav_pricing">Pricing</a>
+    <a href="/objective/" data-i18n="nav_objective">Objective</a>
+    <a href="/how-to-play/" data-i18n="nav_htp">How to Play</a>
+    <a href="/privacy/" data-i18n="nav_privacy">Privacy</a>
+    <div class="langpick">
+      <button class="langpick-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Idioma / 언어">
+        <svg class="langpick-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2.5 20c0-3.4 2.5-5.8 5.5-5.8s5.5 2.4 5.5 5.8"/><path d="M16 8.5a4.2 4.2 0 0 1 0 7"/><path d="M18.7 6a7.6 7.6 0 0 1 0 12"/></svg>
+        <span class="langpick-cur">EN</span>
+      </button>
+      <ul class="langpick-menu" role="listbox"></ul>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Pricing</h1>
+    <p class="lede">Playing is free, and always will be. You only pay if you want to <em>build</em> — and players only ever pay a small, flat fee to own a bundle. Here's every number, in plain sight.</p>
+    <p class="soonline">Checkout is launching soon — these are the rates we're wiring up now.</p>
+
+    <div class="pop">
+      <div class="card">
+        <span class="who">Architect pays</span>
+        <h2>Subscribe — to create</h2>
+        <div class="price">$8 / month<small>or $2.50 / week</small></div>
+        <div class="desc">Unlocks the Editor to build and edit your bundles. Cancel anytime.</div>
+        <span class="soon">Launching soon</span>
+      </div>
+      <div class="card">
+        <span class="who">Architect pays</span>
+        <h2>Publish — to list</h2>
+        <div class="price">$2<small>one-time, per bundle</small></div>
+        <div class="desc">A flat fee to put a finished bundle on the marketplace — every bundle, including your first.</div>
+        <span class="soon">Launching soon</span>
+      </div>
+      <div class="card">
+        <span class="who">Player pays</span>
+        <h2>Purchase — to own</h2>
+        <div class="price">$2<small>one-time, per bundle</small></div>
+        <div class="desc">Pay once, own the bundle forever. No subscription to play — ever.</div>
+        <span class="soon">Launching soon</span>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="big">You keep 90%.</div>
+      <p style="margin:6px 0 0;">When a player buys your bundle, <strong>$1.80 of every $2 is yours.</strong> AkashicTimes keeps $0.20 to run the marketplace.</p>
+    </div>
+
+    <p class="free">The free bundles cost nothing to play, and they never will. No ads, no energy, no timers — the subscription is only for building.</p>
+
+    <div class="cta-row">
+      <a class="cta solid" href="/objective/">See how an Architect earns →</a>
+      <a class="cta" href="/editor/#enter">Open the editor →</a>
+    </div>
+  </main>
+
+  <footer>#BeCCH &nbsp;|&nbsp; #TimeToBeCCH &nbsp;|&nbsp; #GridCCH &nbsp;|&nbsp; <a href="/privacy/">Privacy</a></footer>
+
+  <script>
+    (function(){
+      var NAV={en:{nav_home:'Home',nav_about:'About',nav_pricing:'Pricing',nav_objective:'Objective',nav_htp:'How to Play',nav_privacy:'Privacy'},
+               ko:{nav_home:'홈',nav_about:'소개',nav_pricing:'요금',nav_objective:'목표',nav_htp:'플레이 방법',nav_privacy:'개인정보'},
+               es:{nav_home:'Inicio',nav_about:'Acerca de',nav_pricing:'Precios',nav_objective:'Objetivo',nav_htp:'Cómo jugar',nav_privacy:'Privacidad'}};
+      var LANGS=[{code:'en',label:'EN',name:'English',flag:'🇬🇧'},{code:'ko',label:'KO',name:'한국어',flag:'🇰🇷'},{code:'es',label:'ES',name:'Español',flag:'🇪🇸'}];
+      var LANG;
+      try{LANG=localStorage.getItem('akashicswaps-lang')||(function(){var n=(navigator.language||'').slice(0,2);return n==='ko'?'ko':n==='es'?'es':'en';})();}catch(e){LANG='en';}
+      function apply(){
+        document.documentElement.lang=LANG;
+        var d=NAV[LANG]||NAV.en;
+        document.querySelectorAll('[data-i18n]').forEach(function(el){var v=d[el.dataset.i18n];if(v!==undefined)el.textContent=v;});
+        refreshPickers();
+      }
+      function menuHTML(){return LANGS.map(function(l){return '<li role="option" data-lang="'+l.code+'" tabindex="0"><span class="lp-code">'+l.label+'</span><span class="lp-name">'+l.name+'</span><span class="lp-flag">'+l.flag+'</span></li>';}).join('');}
+      function closeMenus(){var o=document.querySelectorAll('.langpick.open');for(var i=0;i<o.length;i++){o[i].classList.remove('open');o[i].querySelector('.langpick-btn').setAttribute('aria-expanded','false');}}
+      function refreshPickers(){
+        var cur=null;for(var i=0;i<LANGS.length;i++){if(LANGS[i].code===LANG)cur=LANGS[i];}if(!cur)cur=LANGS[0];
+        var picks=document.querySelectorAll('.langpick');
+        for(var j=0;j<picks.length;j++){var lab=picks[j].querySelector('.langpick-cur');if(lab)lab.textContent=cur.label;var lis=picks[j].querySelectorAll('li[data-lang]');for(var k=0;k<lis.length;k++){lis[k].setAttribute('aria-selected',lis[k].dataset.lang===LANG?'true':'false');}}
+      }
+      function pick(code){LANG=code;try{localStorage.setItem('akashicswaps-lang',LANG);}catch(e){}apply();}
+      document.querySelectorAll('.langpick').forEach(function(p){
+        var menu=p.querySelector('.langpick-menu'),btn=p.querySelector('.langpick-btn');
+        menu.innerHTML=menuHTML();
+        btn.addEventListener('click',function(ev){ev.stopPropagation();var open=p.classList.contains('open');closeMenus();if(!open){p.classList.add('open');btn.setAttribute('aria-expanded','true');}});
+        menu.addEventListener('click',function(ev){var li=ev.target.closest('li[data-lang]');if(!li)return;pick(li.dataset.lang);closeMenus();});
+      });
+      document.addEventListener('click',closeMenus);
+      document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeMenus();});
+      apply();
+    })();
+  </script>
+</body>
+</html>
