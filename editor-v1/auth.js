@@ -422,10 +422,20 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     // No session at all → mint an ANONYMOUS one so every visitor has a real
     // server identity (auth.uid()) that can hold progress + a leaderboard seat
     // WITHOUT an email (Jed 2026-08-15). Requires Auth → Anonymous sign-ins ON.
-    const { data: anon, error } = await supabase.auth.signInAnonymously();
-    if(error){ console.warn('[auth] anonymous sign-in failed', error.message); }
-    else if(anon && anon.session){ data = { session: anon.session }; freshAnon = true; }
-    // the SIGNED_IN event fires for the fresh anon user → reconcile()+syncIdentity run there
+    // PRODUCTION ONLY (Jed 2026-09-19) — off-prod loads (localhost/preview) hit the
+    // live project and would mint throwaway rows; skip so tests leave no DB footprint.
+    // Override with ?anon=1 or localStorage akashic-allow-anon='1'.
+    const host = location.hostname;
+    const isProd = host === 'akashictimes.com' || host.endsWith('.akashictimes.com');
+    const forceAnon = /[?&]anon=1\b/.test(location.search) || (()=>{ try{ return localStorage.getItem('akashic-allow-anon')==='1'; }catch(e){ return false; } })();
+    if(isProd || forceAnon){
+      const { data: anon, error } = await supabase.auth.signInAnonymously();
+      if(error){ console.warn('[auth] anonymous sign-in failed', error.message); }
+      else if(anon && anon.session){ data = { session: anon.session }; freshAnon = true; }
+      // the SIGNED_IN event fires for the fresh anon user → reconcile()+syncIdentity run there
+    } else {
+      console.info('[auth] anon sign-in skipped off production — no DB row created. Add ?anon=1 to test the anon path.');
+    }
   }
   AkashicAuth.user = data.session ? data.session.user : null;
   // A RESTORED session (returning anon or permanent) does NOT fire SIGNED_IN, so
