@@ -1042,6 +1042,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   <!-- Hint (Jed 2026-09-19): Mahjong-style count of moves currently open; the fuse
        that cycles them draws on the board itself after a view-the-grid beat. -->
   <div class="phud-moves"><div class="phud-num" id="phud-moves-left">–</div><div class="phud-cap" data-i18n="open_cap">Moves open</div></div>
+  <!-- Undo (Jed 2026-09-19, rule A): one step back on a settled board; using it forfeits
+       the star/record for this run. Dim/disabled until there's a move to undo. -->
+  <button class="tb" id="phud-undo" onclick="doPlayerUndo()" data-i18n="undo_cap" style="opacity:.35;margin-top:2px" disabled>↶ Undo</button>
   <!-- Player play-speed dial (Jed 2026-09-16): the editor's four speed steps, given
        to the player. Its own variable/storage (setPlayerSpeed) — never the architect dial. -->
   <div class="phud-speed" id="phud-speed">
@@ -1228,7 +1231,7 @@ en:{
   products_pick:'Pick a level to edit.',products_back:'← Bundles',
   pback_bundles:'← Bundles',pback_levels:'← Levels',pback_home:'← Home',
   rotate_msg:'Rotate your device',rotate_sub:'Screen won’t turn? Turn off rotation lock.',
-  moves_cap:'Moves',goals_cap:'Goals',speed_cap:'Speed',open_cap:'Moves open',
+  moves_cap:'Moves',goals_cap:'Goals',speed_cap:'Speed',open_cap:'Moves open',undo_cap:'↶ Undo',
   bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
   bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
   community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
@@ -1331,7 +1334,7 @@ ko:{
   products_pick:'편집할 레벨을 선택하세요.',products_back:'← 번들',
   pback_bundles:'← 번들',pback_levels:'← 레벨 목록',pback_home:'← 홈',
   rotate_msg:'기기를 가로로 돌려주세요',rotate_sub:'화면이 안 돌아가나요? 회전 잠금을 끄세요.',
-  moves_cap:'이동',goals_cap:'목표',speed_cap:'속도',open_cap:'가능한 수',
+  moves_cap:'이동',goals_cap:'목표',speed_cap:'속도',open_cap:'가능한 수',undo_cap:'↶ 되돌리기',
   bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
   bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
   community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
@@ -1439,7 +1442,7 @@ es:{
   products_pick:'Elige un nivel para editar.',products_back:'← Paquetes',
   pback_bundles:'← Paquetes',pback_levels:'← Niveles',pback_home:'← Inicio',
   rotate_msg:'Gira tu dispositivo',rotate_sub:'¿La pantalla no gira? Desactiva el bloqueo de rotación.',
-  moves_cap:'Movimientos',goals_cap:'Objetivos',speed_cap:'Velocidad',open_cap:'Jugadas',
+  moves_cap:'Movimientos',goals_cap:'Objetivos',speed_cap:'Velocidad',open_cap:'Jugadas',undo_cap:'↶ Deshacer',
   bundle_title:'Déjate llevar',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
   bundle_play:'Jugar',grid_sub:'Paquete 1 · 25 niveles',soon:'Pronto',
   community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
@@ -2224,6 +2227,7 @@ function enterEditorWithLevel(startPlaying){
   // Architect-directed sticky mode: a saved level opens in the Architect's current
   // mode (default PLAY — the impulse is to swap). It loaded in edit state above,
   // so flip to Play when that's the standing choice; togglePlay runs the play setup.
+  resetPlayerUndo(); // a freshly opened level starts with an empty undo history
   if(startPlaying) togglePlay();
 }
 
@@ -4378,6 +4382,41 @@ function hintDisarm(){
   clearHintFuse();
 }
 
+// ── UNDO (Jed 2026-09-19, rule A) ────────────────────────────────────────────
+// One step back, allowed ONLY on a settled board. Undo REFUNDS the move (the whole
+// pre-move state returns, move counter included) but FORFEITS star/record credit for
+// the run (runUndoUsed) — a learning aid, not a way to grind a record. A snapshot is
+// taken at the start of a fresh tap (from rest) and only KEPT if a move actually
+// landed, decided at the same settle hook the hint uses.
+let _undoStack=[], _pendingUndoSnap=null, runUndoUsed=false;
+function _snapPlayerMove(){
+  return JSON.stringify({board:board, flow:flow, moves:moves, cleared:cleared,
+    goals:playerGoals, seq:(window.runMaxSeq||0)});
+}
+function _commitPendingUndo(){        // at a settle: keep the snapshot only if a move actually landed
+  if(_pendingUndoSnap){
+    let pm=moves; try{ pm=JSON.parse(_pendingUndoSnap).moves; }catch(e){}
+    if(moves>pm){ _undoStack.push(_pendingUndoSnap); if(_undoStack.length>50)_undoStack.shift(); }
+    _pendingUndoSnap=null;
+  }
+  updateUndoBtn();
+}
+function updateUndoBtn(){
+  const b=document.getElementById('phud-undo'); if(!b)return;
+  const can=(playerMode||editorSandboxPlay)&&playing&&boardSettled()&&_undoStack.length>0;
+  b.disabled=!can; b.style.opacity=can?'1':'0.35';
+}
+function doPlayerUndo(){
+  if(!((playerMode||editorSandboxPlay)&&playing&&boardSettled()&&_undoStack.length)) return;
+  hintDisarm();
+  let s; try{ s=JSON.parse(_undoStack.pop()); }catch(e){ return; }
+  board=s.board; flow=s.flow; moves=s.moves; cleared=s.cleared; playerGoals=s.goals; window.runMaxSeq=s.seq;
+  runUndoUsed=true;                    // rule A: this run no longer earns a star or a record
+  Motion.releaseAll(); inFlight.clear(); _fallQueue.length=0; _fallActive=false; _pendingUndoSnap=null;
+  render(); if(typeof updatePlayerHUD==='function')updatePlayerHUD(); updStats(); updateUndoBtn(); hintArm();
+}
+function resetPlayerUndo(){ _undoStack=[]; _pendingUndoSnap=null; runUndoUsed=false; updateUndoBtn(); }
+
 // Rearrange the free gems (in the play window) until the board has no matches AND
 // at least one valid move. Only plain gems move — chains/crates/keys/PUs/empties
 // stay put. Returns false if there's nothing meaningful to shuffle.
@@ -5438,6 +5477,10 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
 
 function playTap(r,c){
   hintDisarm(); // any player input cancels the hint cycle; it re-arms on the next settle
+  // Undo: capture the pre-move state on a fresh tap from rest (not a target-pick
+  // continuation); it's kept only if a move actually lands (_commitPendingUndo).
+  if(playing && (playerMode||editorSandboxPlay) && boardSettled() && !choosingRainbow && !choosingGrasshopper)
+    _pendingUndoSnap=_snapPlayerMove();
   // A choosing-state tap (Grasshopper / Akasha Ball target pick) is a UI selection
   // the board is WAITING on — it must land regardless of per-cell motion, exactly
   // as it did under Engine 1's global `!animating` gate. Only real board moves
@@ -6273,7 +6316,7 @@ function animateFall(fallMoves,onDone){
   if(!_fallActive)_runNextFall();
 }
 function _runNextFall(){
-  if(!_fallQueue.length){_fallActive=false; if(playing)hintArm(); return;} // board at rest → (re)arm the hint
+  if(!_fallQueue.length){_fallActive=false; if(playing){_commitPendingUndo(); hintArm();} return;} // board at rest → keep the undo snapshot if a move landed, (re)arm the hint
   _fallActive=true;
   const [moves,cb]=_fallQueue.shift();
   animateFallNow(moves,()=>{ try{ if(cb)cb(); } finally { _runNextFall(); } });
@@ -7843,6 +7886,7 @@ function beginPlaySession(){
   // where gems enter and which way they travel BEFORE their first move. Delayed so
   // the board has visibly settled first; cancelled by the first tap (playTap).
   if(!flyover) flowPreviewT=setTimeout(playFlowPreview,1400);
+  resetPlayerUndo(); // a fresh player run starts with an empty undo history (and no forfeit)
   if(flyover)flyCutscene(); // opening pan: bottom→top reveal, then the board goes live
 }
 
@@ -8116,7 +8160,12 @@ function playerFinish(win){
   // once ★1 is banked. ★3 = one swap fires 3 PUs in succession (runMaxSeq>=3) —
   // enabled only once ★2 is banked, so an early 3-chain is WITHHELD until then.
   let stars=0, earnedNew=false;
-  if(win){
+  // UNDO FORFEIT (rule A, Jed 2026-09-19): a run that used Undo completes the level
+  // but earns NO new star and does NOT touch the move record — undo is practice, not
+  // a record hack. Show the already-banked stars; nothing is written.
+  if(win && runUndoUsed){
+    stars=PlayerProgress.stars(curLevelNum);
+  } else if(win){
     let prev=PlayerProgress.stars(curLevelNum); // banked stars: 0..3
     const rec=PlayerProgress.record(curLevelNum); // 0 = never finished
     stars=prev;
