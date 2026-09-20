@@ -8160,12 +8160,11 @@ function playerFinish(win){
   // once ★1 is banked. ★3 = one swap fires 3 PUs in succession (runMaxSeq>=3) —
   // enabled only once ★2 is banked, so an early 3-chain is WITHHELD until then.
   let stars=0, earnedNew=false;
-  // UNDO FORFEIT (rule A, Jed 2026-09-19): a run that used Undo completes the level
-  // but earns NO new star and does NOT touch the move record — undo is practice, not
-  // a record hack. Show the already-banked stars; nothing is written.
-  if(win && runUndoUsed){
-    stars=PlayerProgress.stars(curLevelNum);
-  } else if(win){
+  // FULL FORGIVENESS (Jed 2026-09-20): Undo does NOT cost stars or the move record —
+  // fat fingers happen and we're not policing grinding. `runUndoUsed` is still SET on
+  // undo, but ONLY as a future leaderboard tag ("Undo used" vs "Clean play" vs
+  // "Booster used"), never a penalty. Supersedes the same-day rule-A forfeit.
+  if(win){
     let prev=PlayerProgress.stars(curLevelNum); // banked stars: 0..3
     const rec=PlayerProgress.record(curLevelNum); // 0 = never finished
     stars=prev;
