@@ -1039,6 +1039,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   <div class="phud-level" id="phud-level">Level 1</div>
   <div id="phud-goal"></div>
   <div class="phud-moves"><div class="phud-num" id="phud-moves">0</div><div class="phud-cap" data-i18n="moves_cap">Moves</div></div>
+  <!-- Hint (Jed 2026-09-19): Mahjong-style count of moves currently open; the fuse
+       that cycles them draws on the board itself after a view-the-grid beat. -->
+  <div class="phud-moves"><div class="phud-num" id="phud-moves-left">–</div><div class="phud-cap" data-i18n="open_cap">Moves open</div></div>
   <!-- Player play-speed dial (Jed 2026-09-16): the editor's four speed steps, given
        to the player. Its own variable/storage (setPlayerSpeed) — never the architect dial. -->
   <div class="phud-speed" id="phud-speed">
@@ -1225,7 +1228,7 @@ en:{
   products_pick:'Pick a level to edit.',products_back:'← Bundles',
   pback_bundles:'← Bundles',pback_levels:'← Levels',pback_home:'← Home',
   rotate_msg:'Rotate your device',rotate_sub:'Screen won’t turn? Turn off rotation lock.',
-  moves_cap:'Moves',goals_cap:'Goals',speed_cap:'Speed',
+  moves_cap:'Moves',goals_cap:'Goals',speed_cap:'Speed',open_cap:'Moves open',
   bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
   bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
   community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
@@ -1328,7 +1331,7 @@ ko:{
   products_pick:'편집할 레벨을 선택하세요.',products_back:'← 번들',
   pback_bundles:'← 번들',pback_levels:'← 레벨 목록',pback_home:'← 홈',
   rotate_msg:'기기를 가로로 돌려주세요',rotate_sub:'화면이 안 돌아가나요? 회전 잠금을 끄세요.',
-  moves_cap:'이동',goals_cap:'목표',speed_cap:'속도',
+  moves_cap:'이동',goals_cap:'목표',speed_cap:'속도',open_cap:'가능한 수',
   bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
   bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
   community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
@@ -1436,7 +1439,7 @@ es:{
   products_pick:'Elige un nivel para editar.',products_back:'← Paquetes',
   pback_bundles:'← Paquetes',pback_levels:'← Niveles',pback_home:'← Inicio',
   rotate_msg:'Gira tu dispositivo',rotate_sub:'¿La pantalla no gira? Desactiva el bloqueo de rotación.',
-  moves_cap:'Movimientos',goals_cap:'Objetivos',speed_cap:'Velocidad',
+  moves_cap:'Movimientos',goals_cap:'Objetivos',speed_cap:'Velocidad',open_cap:'Jugadas',
   bundle_title:'Déjate llevar',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
   bundle_play:'Jugar',grid_sub:'Paquete 1 · 25 niveles',soon:'Pronto',
   community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
@@ -2228,6 +2231,7 @@ function goHome(){
   document.getElementById('editor').style.display='none';
   document.getElementById('home').style.display='flex';
   playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;Motion.releaseAll();inFlight.clear();
+  hintDisarm(); // leaving the editor kills any hint cycle
   clearChoosing(); // Esc out of the editor drops the reticle with the board it belonged to
   GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
   editorBundle=null; // left the editor — no origin bundle to go back to
@@ -3897,6 +3901,7 @@ function togglePlay(sandbox=true){
   // editor-preview flag so a real player entry (beginPlaySession runs its own
   // flyCutscene) never double-fires it.
   if(playing && _flyEditorPreview) flyCutscene();
+  if(playing) hintArm(); else hintDisarm(); // hint follows the play⇄edit boundary
 }
 
 // ── Unified cell-clear: tally, fragment, null — each cell cleared at most once per phase ──
@@ -4262,6 +4267,115 @@ function hasValidMove(){
     if(r+1<R&&trySwap(r,c,r+1,c))return true;
   }
   return false;
+}
+
+// ── HINT (Jed 2026-09-19) ────────────────────────────────────────────────────
+// After a beat to read a settled board, show how many moves exist (Mahjong-style)
+// and cycle a "firecracker fuse" that outlines the RESULT of each possible move.
+// Any input cancels it; it re-arms on the next settle. enumerateHintMoves()
+// generalizes hasValidMove()'s swap-and-check — every move + the match it forms.
+let _hintViewT=null,_hintStepT=null,_hintMoves=[],_hintIdx=0;
+const HINT_VIEW_MS=2500;   // "opportunity to view the grid" before hints begin
+const HINT_STEP_MS=1600;   // dwell per move in the cycle
+function boardSettled(){    // nothing animating — enumerating swaps mutates gems, only safe at rest
+  return !_fallActive && _fallQueue.length===0
+    && (typeof inFlight==='undefined' || inFlight.size===0)
+    && !choosingRainbow && !choosingGrasshopper && !flyLock;
+}
+function enumerateHintMoves(){
+  const moves=[];
+  const connectedResult=(a,b)=>{
+    const hits=find3(); if(!hits.length) return [];
+    const key=x=>x[0]+','+x[1], set=new Set(hits.map(key)), seen=new Set(), out=[], stack=[];
+    for(const s of [a,b]) if(set.has(key(s))){ stack.push(s); seen.add(key(s)); }
+    if(!stack.length) return hits;
+    while(stack.length){ const [r,c]=stack.pop(); out.push([r,c]);
+      for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){ const k=nr+','+nc;
+        if(set.has(k)&&!seen.has(k)){ seen.add(k); stack.push([nr,nc]); } } }
+    return out;
+  };
+  const trySwap=(r1,c1,r2,c2)=>{
+    if(!board[r1][c1].active||!board[r2][c2].active) return null;
+    if(!inPlayWindow(r1,c1)||!inPlayWindow(r2,c2)) return null;
+    if(isChained(r1,c1)||isChained(r2,c2)||isCrate(r1,c1)||isCrate(r2,c2)) return null;
+    if(board[r1][c1].gem===null&&board[r2][c2].gem===null) return null;
+    const g1=board[r1][c1].gem,g2=board[r2][c2].gem;
+    board[r1][c1].gem=g2;board[r2][c2].gem=g1;
+    let result=null;
+    if(find3().length>0) result=connectedResult([r1,c1],[r2,c2]);
+    board[r1][c1].gem=g1;board[r2][c2].gem=g2;   // ALWAYS restore — a test, never a move
+    return result;
+  };
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)
+    if(board[r][c].active&&board[r][c].pu&&inPlayWindow(r,c)&&!isChained(r,c))
+      moves.push({swap:[[r,c]],result:[[r,c]]});   // a pre-placed power-up is a move too
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    let res;
+    if(c+1<C&&(res=trySwap(r,c,r,c+1))) moves.push({swap:[[r,c],[r,c+1]],result:res});
+    if(r+1<R&&(res=trySwap(r,c,r+1,c))) moves.push({swap:[[r,c],[r+1,c]],result:res});
+  }
+  return moves;
+}
+function _hintLayer(){
+  const wrap=document.getElementById('board-wrap'); if(!wrap) return null;
+  let L=document.getElementById('hint-layer');
+  if(!L){ L=document.createElement('div'); L.id='hint-layer';
+    L.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:25;'; wrap.appendChild(L); }
+  return L;
+}
+function clearHintFuse(){ const L=document.getElementById('hint-layer'); if(L) L.innerHTML=''; }
+// The firecracker fuse: a light ring on the two cells you SWAP, and a bright fuse
+// burning around the RESULT match itself (the cells that will pop).
+function drawHintFuse(move){
+  const L=_hintLayer(); if(!L) return;
+  const hs=CELL_SIZE/2;
+  let rings='';
+  for(const [r,c] of move.swap){ const p=cellPos(r,c);
+    rings+='<rect x="'+(p.x-hs+2)+'" y="'+(p.y-hs+2)+'" width="'+(CELL_SIZE-4)+'" height="'+(CELL_SIZE-4)+'" rx="8" fill="none" stroke="#2a1500" stroke-width="3" opacity="0.5"/>'; }
+  let minR=1e9,maxR=-1,minC=1e9,maxC=-1;
+  for(const [r,c] of move.result){ if(r<minR)minR=r; if(r>maxR)maxR=r; if(c<minC)minC=c; if(c>maxC)maxC=c; }
+  const tl=cellPos(minR,minC), br=cellPos(maxR,maxC), pad=5;
+  const x=tl.x-hs-pad, y=tl.y-hs-pad, w=(br.x+hs+pad)-x, h=(br.y+hs+pad)-y;
+  const rx=Math.min(hs, Math.min(w,h)/2), per=2*(w+h);
+  // The outline as a real PATH so a spark can travel it (animateMotion needs a path).
+  const d='M'+(x+rx)+' '+y+'H'+(x+w-rx)+'A'+rx+' '+rx+' 0 0 1 '+(x+w)+' '+(y+rx)
+    +'V'+(y+h-rx)+'A'+rx+' '+rx+' 0 0 1 '+(x+w-rx)+' '+(y+h)
+    +'H'+(x+rx)+'A'+rx+' '+rx+' 0 0 1 '+x+' '+(y+h-rx)
+    +'V'+(y+rx)+'A'+rx+' '+rx+' 0 0 1 '+(x+rx)+' '+y+'Z';
+  const uid='fz'+(Math.random()*1e6|0), DUR='1.15s';
+  const tail=Math.max(30, per*0.16);
+  // A bright SPARK (glowing dot + hot white core) races around the match, dragging a
+  // glowing tail behind it — an actual burning fuse, not a static stroke.
+  L.innerHTML='<svg width="100%" height="100%" style="position:absolute;inset:0;overflow:visible">'
+    +'<defs>'
+    +'<filter id="'+uid+'g" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="4"/></filter>'
+    +'<path id="'+uid+'p" d="'+d+'" fill="none"/>'
+    +'</defs>'
+    +rings
+    +'<use href="#'+uid+'p" stroke="#3a2000" stroke-width="2.5" opacity="0.5"/>'                                     /* faint outline so the shape reads */
+    +'<use href="#'+uid+'p" stroke="#ff8a1e" stroke-width="6" stroke-linecap="round" filter="url(#'+uid+'g)" stroke-dasharray="'+tail+' 100000"><animate attributeName="stroke-dashoffset" from="0" to="'+(-per)+'" dur="'+DUR+'" repeatCount="indefinite"/></use>' /* glowing tail */
+    +'<circle r="8" fill="#ff8a1e" filter="url(#'+uid+'g)"><animateMotion dur="'+DUR+'" repeatCount="indefinite" rotate="auto"><mpath href="#'+uid+'p"/></animateMotion></circle>'  /* spark glow */
+    +'<circle r="3.5" fill="#fff6c8"><animateMotion dur="'+DUR+'" repeatCount="indefinite" rotate="auto"><mpath href="#'+uid+'p"/></animateMotion></circle>'                        /* white-hot core */
+    +'</svg>';
+}
+function setMovesLeft(v){ const el=document.getElementById('phud-moves-left'); if(el) el.textContent=(v===''||v==null)?'–':v; }
+function hintStep(){
+  if(!boardSettled()||!_hintMoves.length){ clearHintFuse(); return; }
+  drawHintFuse(_hintMoves[_hintIdx % _hintMoves.length]); _hintIdx++;
+  _hintStepT=setTimeout(hintStep,HINT_STEP_MS);
+}
+function hintArm(){
+  hintDisarm();
+  if(!(playerMode||editorSandboxPlay)||!playing||!boardSettled()){ setMovesLeft(''); return; }
+  _hintMoves=enumerateHintMoves(); _hintIdx=0;
+  setMovesLeft(_hintMoves.length);
+  if(!_hintMoves.length) return;
+  _hintViewT=setTimeout(function(){ if(boardSettled()&&_hintMoves.length) hintStep(); }, HINT_VIEW_MS);
+}
+function hintDisarm(){
+  if(_hintViewT){ clearTimeout(_hintViewT); _hintViewT=null; }
+  if(_hintStepT){ clearTimeout(_hintStepT); _hintStepT=null; }
+  clearHintFuse();
 }
 
 // Rearrange the free gems (in the play window) until the board has no matches AND
@@ -5323,6 +5437,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
 }
 
 function playTap(r,c){
+  hintDisarm(); // any player input cancels the hint cycle; it re-arms on the next settle
   // A choosing-state tap (Grasshopper / Akasha Ball target pick) is a UI selection
   // the board is WAITING on — it must land regardless of per-cell motion, exactly
   // as it did under Engine 1's global `!animating` gate. Only real board moves
@@ -6158,7 +6273,7 @@ function animateFall(fallMoves,onDone){
   if(!_fallActive)_runNextFall();
 }
 function _runNextFall(){
-  if(!_fallQueue.length){_fallActive=false;return;}
+  if(!_fallQueue.length){_fallActive=false; if(playing)hintArm(); return;} // board at rest → (re)arm the hint
   _fallActive=true;
   const [moves,cb]=_fallQueue.shift();
   animateFallNow(moves,()=>{ try{ if(cb)cb(); } finally { _runNextFall(); } });
@@ -8095,6 +8210,7 @@ function clearChoosing(){
 }
 function exitToGrid(){
   clearChoosing();   // no reticle survives leaving the board
+  hintDisarm();      // leaving the board — kill the hint cycle + fuse
   stopFlowPreview(); // leaving the board — kill the loop and its idle timer
   playing=false; Motion.releaseAll(); playerMode=false;
   flyTeardown(); // clear any flyover camera window/transform
