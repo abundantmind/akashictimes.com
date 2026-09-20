@@ -6843,7 +6843,18 @@ function exitToGrid(){
   document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
 
 // ── SERVICE WORKER — instant-open offline shell (network-first; see /sw.js) ──
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+// PROD ONLY (Jed 2026-09-19): off-prod (localhost/preview) unregister + drop caches
+// so dev builds are never served stale; register only on the real host.
+(function(){
+  if(!('serviceWorker' in navigator)) return;
+  var host=location.hostname;
+  if(host==='akashictimes.com' || host.endsWith('.akashictimes.com')){
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+  } else {
+    navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ r.unregister(); }); }).catch(function(){});
+    if(window.caches&&caches.keys) caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); }).catch(function(){});
+  }
+})();
 
 // ── Entry routing ─────────────────────────────────────────────────────────────
 // The editor is gated: only visitors who completed the Qualifying entrance
