@@ -555,6 +555,20 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 .phud-cap{font-size:var(--fz-sm);color:#665580;text-transform:uppercase;letter-spacing:.1em;}
 .phud-moves{display:flex;flex-direction:column;align-items:center;}
 .phud-num{font-size:52px;color:#e0d0f0;font-weight:500;line-height:1;}
+/* Hint stepper (Jed 2026-09-21): ‹ n/N › — page eligible moves at your own leisure */
+.phud-hintstep{display:flex;align-items:center;justify-content:center;gap:8px;}
+.phud-hintstep .phud-num{font-size:32px;min-width:2.6em;text-align:center;}
+.phud-arrow{width:36px;height:46px;border:0.5px solid #3d3560;border-radius:8px;background:transparent;
+  color:#c8bfe0;font-size:26px;line-height:1;cursor:pointer;font-family:var(--font-sans);
+  display:flex;align-items:center;justify-content:center;padding:0;}
+.phud-arrow:disabled{cursor:default;}
+.phud-arrow:active:not(:disabled){background:#241d3a;}
+/* Undo reads as a wide keyboard key (Jed 2026-09-21): landscape, larger label, key-cap edge */
+.phud-undo{width:100%;max-width:190px;margin-top:8px;padding:12px 18px;
+  font-size:var(--fz-lg);font-weight:600;letter-spacing:.02em;
+  border:0.5px solid #4a3f70;border-radius:10px;background:#241d3a;color:#d8cef0;
+  cursor:pointer;font-family:var(--font-sans);box-shadow:0 2px 0 #17122a;}
+.phud-undo:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 0 #17122a;}
 /* Player play-speed dial — compact row of the shared .tb buttons, under Moves */
 .phud-speed{display:flex;flex-direction:column;align-items:center;gap:6px;}
 .phud-speed-row{display:flex;gap:4px;}
@@ -570,6 +584,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   #phud .pback{align-self:center;}
   .phud-level{font-size:var(--fz-lg);}
   .phud-num{font-size:28px;}
+  .phud-hintstep .phud-num{font-size:22px;}
+  .phud-arrow{width:30px;height:38px;font-size:22px;}
+  .phud-undo{max-width:150px;padding:9px 14px;}
   .goal-row{padding:2px 0;gap:6px;}
   .goal-icon{width:24px;height:24px;}
   .goal-icon svg{width:24px;height:24px;}
@@ -1041,10 +1058,17 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   <div class="phud-moves"><div class="phud-num" id="phud-moves">0</div><div class="phud-cap" data-i18n="moves_cap">Moves</div></div>
   <!-- Hint (Jed 2026-09-19): Mahjong-style count of moves currently open; the fuse
        that cycles them draws on the board itself after a view-the-grid beat. -->
-  <div class="phud-moves"><div class="phud-num" id="phud-moves-left">–</div><div class="phud-cap" data-i18n="open_cap">Moves open</div></div>
+  <div class="phud-moves">
+    <div class="phud-hintstep">
+      <button class="phud-arrow" id="phud-hint-prev" onclick="hintNav(-1)" aria-label="Previous hint" disabled style="opacity:.2">‹</button>
+      <div class="phud-num" id="phud-moves-left">–</div>
+      <button class="phud-arrow" id="phud-hint-next" onclick="hintNav(1)" aria-label="Next hint" disabled style="opacity:.2">›</button>
+    </div>
+    <div class="phud-cap" data-i18n="open_cap">Moves open</div>
+  </div>
   <!-- Undo (Jed 2026-09-19, rule A): one step back on a settled board; using it forfeits
        the star/record for this run. Dim/disabled until there's a move to undo. -->
-  <button class="tb" id="phud-undo" onclick="doPlayerUndo()" data-i18n="undo_cap" style="opacity:.35;margin-top:2px" disabled>↶ Undo</button>
+  <button class="phud-undo" id="phud-undo" onclick="doPlayerUndo()" data-i18n="undo_cap" style="opacity:.35" disabled>↶ Undo</button>
   <!-- Player play-speed dial (Jed 2026-09-16): the editor's four speed steps, given
        to the player. Its own variable/storage (setPlayerSpeed) — never the architect dial. -->
   <div class="phud-speed" id="phud-speed">
@@ -4278,9 +4302,8 @@ function hasValidMove(){
 // and cycle a "firecracker fuse" that outlines the RESULT of each possible move.
 // Any input cancels it; it re-arms on the next settle. enumerateHintMoves()
 // generalizes hasValidMove()'s swap-and-check — every move + the match it forms.
-let _hintViewT=null,_hintStepT=null,_hintMoves=[],_hintIdx=0;
-const HINT_VIEW_MS=2500;   // "opportunity to view the grid" before hints begin
-const HINT_STEP_MS=1600;   // dwell per move in the cycle
+let _hintViewT=null,_hintMoves=[],_hintIdx=0;
+const HINT_VIEW_MS=2500;   // "opportunity to view the grid" before the first hint appears
 function boardSettled(){    // nothing animating — enumerating swaps mutates gems, only safe at rest
   return !_fallActive && _fallQueue.length===0
     && (typeof inFlight==='undefined' || inFlight.size===0)
@@ -4362,23 +4385,44 @@ function drawHintFuse(move){
     +'<circle r="3.5" fill="#fff6c8"><animateMotion dur="'+DUR+'" repeatCount="indefinite" rotate="auto"><mpath href="#'+uid+'p"/></animateMotion></circle>'                        /* white-hot core */
     +'</svg>';
 }
-function setMovesLeft(v){ const el=document.getElementById('phud-moves-left'); if(el) el.textContent=(v===''||v==null)?'–':v; }
-function hintStep(){
+// The "Moves open" readout is a STEPPER now (Jed 2026-09-21): "n/N" flanked by ‹ ›
+// arrows so an explorer pages the eligible moves at their own leisure, rather than
+// the fuse auto-cycling one after another.
+function setHintStep(){
+  const el=document.getElementById('phud-moves-left');
+  const N=_hintMoves.length;
+  if(el) el.textContent = N ? ((_hintIdx%N)+1)+'/'+N : '–';
+  const prev=document.getElementById('phud-hint-prev'), next=document.getElementById('phud-hint-next');
+  const on=N>1;                                  // only worth stepping when there's more than one move
+  if(prev){ prev.disabled=!on; prev.style.opacity=on?'0.9':'0.2'; }
+  if(next){ next.disabled=!on; next.style.opacity=on?'0.9':'0.2'; }
+}
+function hintShowCurrent(){                       // draw the fuse for the move at _hintIdx — ONE move, no cycle
   if(!boardSettled()||!_hintMoves.length){ clearHintFuse(); return; }
-  drawHintFuse(_hintMoves[_hintIdx % _hintMoves.length]); _hintIdx++;
-  _hintStepT=setTimeout(hintStep,HINT_STEP_MS);
+  drawHintFuse(_hintMoves[_hintIdx % _hintMoves.length]);
+  setHintStep();
+}
+function hintNav(dir){                            // ‹ / › : the explorer steps to the prev/next move
+  if(!_hintMoves.length) return;
+  if(_hintViewT){ clearTimeout(_hintViewT); _hintViewT=null; } // engaging cancels the view-the-grid beat
+  _hintIdx=(_hintIdx+dir+_hintMoves.length)%_hintMoves.length;
+  hintShowCurrent();
 }
 function hintArm(){
   hintDisarm();
-  if(!(playerMode||editorSandboxPlay)||!playing||!boardSettled()){ setMovesLeft(''); return; }
+  if(!(playerMode||editorSandboxPlay)||!playing||!boardSettled()){ _hintMoves=[]; setHintStep(); return; }
+  // Goal already met → the run is won; stop offering hints (and never surface an
+  // "impossible" post-win move). Jed 2026-09-21.
+  if(playerGoals.length&&playerGoals.every(goalDone)){ _hintMoves=[]; setHintStep(); return; }
   _hintMoves=enumerateHintMoves(); _hintIdx=0;
-  setMovesLeft(_hintMoves.length);
+  setHintStep();
   if(!_hintMoves.length) return;
-  _hintViewT=setTimeout(function(){ if(boardSettled()&&_hintMoves.length) hintStep(); }, HINT_VIEW_MS);
+  // A beat to view the grid, then reveal ONE hint (the current step). The rest are
+  // reached with the arrows — no more auto-rotation through every move.
+  _hintViewT=setTimeout(function(){ if(boardSettled()&&_hintMoves.length) hintShowCurrent(); }, HINT_VIEW_MS);
 }
 function hintDisarm(){
   if(_hintViewT){ clearTimeout(_hintViewT); _hintViewT=null; }
-  if(_hintStepT){ clearTimeout(_hintStepT); _hintStepT=null; }
   clearHintFuse();
 }
 
