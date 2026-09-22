@@ -790,25 +790,14 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <h3>New level — choose grid size</h3>
     <p>Select a preset or enter custom dimensions.</p>
     <div class="preset-grid">
+      <!-- Three options only (Jed 2026-09-21): 9×11 (Township landscape), 11×9 (portrait), Custom -->
       <button class="preset-btn selected" data-r="9" data-c="11" id="pre-township">
-        <span class="preset-name">Township</span>
-        <span class="preset-dim">9R × 11C</span>
+        <span class="preset-name">9 × 11</span>
+        <span class="preset-dim">Township</span>
       </button>
-      <button class="preset-btn" data-r="7" data-c="7" id="pre-standard">
-        <span class="preset-name">Standard</span>
-        <span class="preset-dim">7R × 7C</span>
-      </button>
-      <button class="preset-btn" data-r="8" data-c="8" id="pre-square">
-        <span class="preset-name">Square</span>
-        <span class="preset-dim">8R × 8C</span>
-      </button>
-      <button class="preset-btn" data-r="9" data-c="9" id="pre-9x9">
-        <span class="preset-name">Wide</span>
-        <span class="preset-dim">9R × 9C</span>
-      </button>
-      <button class="preset-btn" data-r="6" data-c="10" id="pre-wide">
-        <span class="preset-name">Cinematic</span>
-        <span class="preset-dim">6R × 10C</span>
+      <button class="preset-btn" data-r="11" data-c="9" id="pre-11x9">
+        <span class="preset-name">11 × 9</span>
+        <span class="preset-dim">portrait</span>
       </button>
       <button class="preset-btn" data-r="0" data-c="0" id="pre-custom">
         <span class="preset-name">Custom</span>
