@@ -563,6 +563,15 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   display:flex;align-items:center;justify-content:center;padding:0;}
 .phud-arrow:disabled{cursor:default;}
 .phud-arrow:active:not(:disabled){background:#241d3a;}
+/* "Hints" caption doubles as the opt-in toggle (Jed 2026-09-21): off = count only,
+   tap to reveal + step. The pip fills when hints are on. A hint-free clear is a badge. */
+.phud-hintcap{display:inline-flex;align-items:center;gap:6px;margin-top:4px;padding:3px 8px;
+  background:none;border:0.5px solid transparent;border-radius:6px;cursor:pointer;
+  font-size:var(--fz-sm);color:#665580;text-transform:uppercase;letter-spacing:.1em;font-family:var(--font-sans);}
+.phud-hintcap:hover{border-color:#3d3560;color:#8878a8;}
+.phud-hintcap.on{color:#c792ea;}
+.hintpip{width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;box-sizing:border-box;flex:0 0 auto;}
+.phud-hintcap.on .hintpip{background:currentColor;}
 /* Undo reads as a wide keyboard key (Jed 2026-09-21): landscape, larger label, key-cap edge */
 .phud-undo{width:100%;max-width:190px;margin-top:8px;padding:12px 18px;
   font-size:var(--fz-lg);font-weight:600;letter-spacing:.02em;
@@ -1064,7 +1073,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <div class="phud-num" id="phud-moves-left">–</div>
       <button class="phud-arrow" id="phud-hint-next" onclick="hintNav(1)" aria-label="Next hint" disabled style="opacity:.2">›</button>
     </div>
-    <div class="phud-cap" data-i18n="open_cap">Moves open</div>
+    <button class="phud-cap phud-hintcap" id="phud-hint-toggle" onclick="toggleHints()" aria-pressed="false"><span class="hintpip" id="phud-hint-pip"></span><span data-i18n="open_cap">Hints</span></button>
   </div>
   <!-- Undo (Jed 2026-09-19, rule A): one step back on a settled board; using it forfeits
        the star/record for this run. Dim/disabled until there's a move to undo. -->
@@ -1255,7 +1264,7 @@ en:{
   products_pick:'Pick a level to edit.',products_back:'← Bundles',
   pback_bundles:'← Bundles',pback_levels:'← Levels',pback_home:'← Home',
   rotate_msg:'Rotate your device',rotate_sub:'Screen won’t turn? Turn off rotation lock.',
-  moves_cap:'Moves',goals_cap:'Goals',speed_cap:'Speed',open_cap:'Moves open',undo_cap:'↶ Undo',
+  moves_cap:'Moves',goals_cap:'Goals',speed_cap:'Speed',open_cap:'Hints',undo_cap:'↶ Undo',
   bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
   bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
   community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
@@ -1358,7 +1367,7 @@ ko:{
   products_pick:'편집할 레벨을 선택하세요.',products_back:'← 번들',
   pback_bundles:'← 번들',pback_levels:'← 레벨 목록',pback_home:'← 홈',
   rotate_msg:'기기를 가로로 돌려주세요',rotate_sub:'화면이 안 돌아가나요? 회전 잠금을 끄세요.',
-  moves_cap:'이동',goals_cap:'목표',speed_cap:'속도',open_cap:'가능한 수',undo_cap:'↶ 되돌리기',
+  moves_cap:'이동',goals_cap:'목표',speed_cap:'속도',open_cap:'힌트',undo_cap:'↶ 되돌리기',
   bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
   bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
   community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
@@ -1466,7 +1475,7 @@ es:{
   products_pick:'Elige un nivel para editar.',products_back:'← Paquetes',
   pback_bundles:'← Paquetes',pback_levels:'← Niveles',pback_home:'← Inicio',
   rotate_msg:'Gira tu dispositivo',rotate_sub:'¿La pantalla no gira? Desactiva el bloqueo de rotación.',
-  moves_cap:'Movimientos',goals_cap:'Objetivos',speed_cap:'Velocidad',open_cap:'Jugadas',undo_cap:'↶ Deshacer',
+  moves_cap:'Movimientos',goals_cap:'Objetivos',speed_cap:'Velocidad',open_cap:'Pistas',undo_cap:'↶ Deshacer',
   bundle_title:'Déjate llevar',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
   bundle_play:'Jugar',grid_sub:'Paquete 1 · 25 niveles',soon:'Pronto',
   community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
@@ -4304,6 +4313,13 @@ function hasValidMove(){
 // generalizes hasValidMove()'s swap-and-check — every move + the match it forms.
 let _hintViewT=null,_hintMoves=[],_hintIdx=0;
 const HINT_VIEW_MS=2500;   // "opportunity to view the grid" before the first hint appears
+// Hints are OPT-IN (Jed 2026-09-21): OFF by default; the player taps the "Hints"
+// caption to turn them on. hintsOn is a device preference; runHintUsed is a per-RUN
+// flag set the instant a hint is actually revealed — a clear with it still false is a
+// future "no-hints" leaderboard badge, mirroring runUndoUsed.
+let hintsOn=false; try{ hintsOn=localStorage.getItem('akashicswaps-hints')==='1'; }catch(e){}
+let runHintUsed=false;
+function setHintsOn(v){ hintsOn=!!v; try{ localStorage.setItem('akashicswaps-hints', hintsOn?'1':'0'); }catch(e){} }
 function boardSettled(){    // nothing animating — enumerating swaps mutates gems, only safe at rest
   return !_fallActive && _fallQueue.length===0
     && (typeof inFlight==='undefined' || inFlight.size===0)
@@ -4391,24 +4407,37 @@ function drawHintFuse(move){
 function setHintStep(){
   const el=document.getElementById('phud-moves-left');
   const N=_hintMoves.length;
-  if(el) el.textContent = N ? ((_hintIdx%N)+1)+'/'+N : '–';
+  // Count is ALWAYS visible (Jed: "Moves Open is always visible"). When hints are on
+  // the readout is a "n/N" step position; when off it's just the count of open moves.
+  if(el) el.textContent = !N ? '–' : (hintsOn ? ((_hintIdx%N)+1)+'/'+N : String(N));
   const prev=document.getElementById('phud-hint-prev'), next=document.getElementById('phud-hint-next');
-  const on=N>1;                                  // only worth stepping when there's more than one move
-  if(prev){ prev.disabled=!on; prev.style.opacity=on?'0.9':'0.2'; }
-  if(next){ next.disabled=!on; next.style.opacity=on?'0.9':'0.2'; }
+  const canStep=hintsOn&&N>1;                     // arrows are live only when hints are on
+  if(prev){ prev.disabled=!canStep; prev.style.opacity=canStep?'0.9':'0.2'; }
+  if(next){ next.disabled=!canStep; next.style.opacity=canStep?'0.9':'0.2'; }
+  const tog=document.getElementById('phud-hint-toggle');
+  if(tog){ tog.classList.toggle('on',hintsOn); tog.setAttribute('aria-pressed',hintsOn?'true':'false'); }
 }
 function hintShowCurrent(){                       // draw the fuse for the move at _hintIdx — ONE move, no cycle
-  if(!boardSettled()||!_hintMoves.length){ clearHintFuse(); return; }
+  if(!boardSettled()||!_hintMoves.length||!hintsOn){ clearHintFuse(); return; }
+  runHintUsed=true;                               // a hint was actually revealed this run (future leaderboard tag)
   drawHintFuse(_hintMoves[_hintIdx % _hintMoves.length]);
   setHintStep();
 }
 function hintNav(dir){                            // ‹ / › : the explorer steps to the prev/next move
-  if(!_hintMoves.length) return;
+  if(!hintsOn||!_hintMoves.length) return;
   if(_hintViewT){ clearTimeout(_hintViewT); _hintViewT=null; } // engaging cancels the view-the-grid beat
   _hintIdx=(_hintIdx+dir+_hintMoves.length)%_hintMoves.length;
   hintShowCurrent();
 }
-function hintArm(){
+// The "Hints" caption is the opt-in toggle. Turning ON reveals immediately (an explicit
+// request shouldn't wait out the view beat); turning OFF hides the fuse, count stays.
+function toggleHints(){
+  if(!(playerMode||editorSandboxPlay)||!playing) return;
+  setHintsOn(!hintsOn);
+  if(hintsOn) hintArm(true);
+  else { hintDisarm(); setHintStep(); }
+}
+function hintArm(immediate){
   hintDisarm();
   if(!(playerMode||editorSandboxPlay)||!playing||!boardSettled()){ _hintMoves=[]; setHintStep(); return; }
   // Goal already met → the run is won; stop offering hints (and never surface an
@@ -4416,9 +4445,10 @@ function hintArm(){
   if(playerGoals.length&&playerGoals.every(goalDone)){ _hintMoves=[]; setHintStep(); return; }
   _hintMoves=enumerateHintMoves(); _hintIdx=0;
   setHintStep();
-  if(!_hintMoves.length) return;
-  // A beat to view the grid, then reveal ONE hint (the current step). The rest are
-  // reached with the arrows — no more auto-rotation through every move.
+  if(!_hintMoves.length||!hintsOn) return;        // opt-in: nothing is revealed until the player turns Hints on
+  if(immediate){ hintShowCurrent(); return; }     // explicit toggle → show now
+  // Otherwise a beat to view the grid, then reveal ONE hint (the current step). The
+  // rest are reached with the arrows — no auto-rotation through every move.
   _hintViewT=setTimeout(function(){ if(boardSettled()&&_hintMoves.length) hintShowCurrent(); }, HINT_VIEW_MS);
 }
 function hintDisarm(){
@@ -4459,7 +4489,7 @@ function doPlayerUndo(){
   Motion.releaseAll(); inFlight.clear(); _fallQueue.length=0; _fallActive=false; _pendingUndoSnap=null;
   render(); if(typeof updatePlayerHUD==='function')updatePlayerHUD(); updStats(); updateUndoBtn(); hintArm();
 }
-function resetPlayerUndo(){ _undoStack=[]; _pendingUndoSnap=null; runUndoUsed=false; updateUndoBtn(); }
+function resetPlayerUndo(){ _undoStack=[]; _pendingUndoSnap=null; runUndoUsed=false; runHintUsed=false; updateUndoBtn(); }
 
 // Rearrange the free gems (in the play window) until the board has no matches AND
 // at least one valid move. Only plain gems move — chains/crates/keys/PUs/empties
