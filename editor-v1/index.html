@@ -6863,6 +6863,9 @@ function exitToGrid(){
 // entrance and land on their track. Replaying it requires clearing site data.
 if(location.hash==='#dev' || isLocalDev()){
   localStorage.setItem('akashicswaps-qualified','1'); // dev/architect bypass — localhost never re-qualifies
+  // #play must still land on Explore even under the dev/localhost bypass — the Engine 1
+  // card deep-links here because creating for Engine 1 is retired (Jed 2026-09-21).
+  if(location.hash==='#play'||location.hash==='#player') renderBundles();
 }else if(location.hash==='#play'||location.hash==='#player'){
   renderBundles();
 }else{
