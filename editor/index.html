@@ -608,6 +608,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 @media (orientation:portrait) and (max-width:840px){
   body.player-playing #rotate-note{display:flex;position:fixed;inset:0;z-index:400;background:#0d0a14;
     align-items:center;justify-content:center;text-align:center;color:#c792ea;font-size:var(--fz-2xl);}
+  body.player-playing.board-portrait #rotate-note{display:none;} /* portrait board is played in portrait — no rotate nag (Jed 2026-09-22) */
 }
 #pwin{position:fixed;inset:0;background:rgba(13,10,20,.88);display:none;align-items:center;justify-content:center;z-index:200;}
 #pwin.open{display:flex;}
@@ -7936,6 +7937,9 @@ function beginPlaySession(){
   document.getElementById('home').style.display='none';
   document.getElementById('editor').style.display='flex';
   document.body.classList.add('player-playing');
+  // Portrait board (more rows than cols, e.g. 11×9): played in portrait, so the
+  // landscape "rotate your device" curtain must not fire (Jed 2026-09-22).
+  document.body.classList.toggle('board-portrait', R>C);
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
   buildGPal();buildPUPal();buildObsPal(); applyLayerPalette();
