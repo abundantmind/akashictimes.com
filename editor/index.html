@@ -475,10 +475,7 @@ body.player-playing #eframe{display:contents;background:none;}
 #pbody{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;}
 
 /* bundle card */
-/* Two engine cards side by side (Jed 2026-09-21); wraps to a column on narrow screens */
-.bundle-row{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;align-items:stretch;width:100%;}
-.bundle-row .bundle-card{margin-bottom:0;}
-.bundle-card{background:#130a20;border:0.5px solid #3d2060;border-radius:var(--border-radius-lg,12px);padding:40px 36px;text-align:center;cursor:pointer;max-width:340px;width:100%;flex:1 1 300px;transition:border-color .2s,transform .2s;}
+.bundle-card{background:#130a20;border:0.5px solid #3d2060;border-radius:var(--border-radius-lg,12px);padding:40px 36px;text-align:center;cursor:pointer;max-width:340px;width:100%;transition:border-color .2s,transform .2s;}
 .bundle-card:hover{border-color:#c792ea;transform:translateY(-3px);}
 .bundle-card h2{font-size:var(--fz-3xl);color:#c792ea;margin-bottom:6px;font-weight:500;}
 .bundle-card .bsub{font-size:var(--fz-base);color:#887a9a;margin-bottom:18px;}
@@ -7083,28 +7080,16 @@ function renderBundles(){
   // "{name}'s Bundles" + the star total earned on each (Jed 2026-08-12: Explore
   // shows the visitor's bundles with the stars on each).
   const t=bundleStarTotals();
-  // TWO ENGINES, ONE BUNDLE (Jed 2026-09-14): the same 25 levels, playable under
-  // either engine so the difference is visible side by side. v2 = Engine 2 (this
-  // build, continuous "Still Water" flow — where all future work lives). v1 =
-  // Engine 1 (the original turn-based build, FROZEN at /editor-v1/ — a dead codebase
-  // kept as an archive). The v1 card navigates OUT to that separate build; it is not
-  // a runtime toggle, so neither engine had to be refactored to share a file.
+  // ONE ENGINE (Jed 2026-09-23): Engine 1's frozen /editor-v1/ build and its v1 card
+  // are retired — Engine 2 is the only engine. (Engine 1 lives on in git history and
+  // the `engine1-stable` tag; its level DATA still loads here via the engineVersion pin.)
   document.getElementById('pbody').innerHTML=
     '<div id="pgrid-title">'+escHtml(possBundles())+'</div>'+
-    '<div class="bundle-row">'+                          /* two engines side by side (Jed 2026-09-21) */
-      '<div class="bundle-card" onclick="renderGrid()">'+
-        '<h2>'+TXT('bundle_title')+' (v2)</h2>'+
-        '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
-        '<div class="bsub" style="opacity:.75;">⚙ Engine 2 — continuous flow (current)</div>'+
-        '<div class="bcount">'+TXT('bundle_n')+' · ★ '+t.have+' / '+t.max+'</div>'+
-        '<div class="bplay">'+TXT('bundle_play')+'</div>'+
-      '</div>'+
-      '<div class="bundle-card" onclick="location.href=\'/editor-v1/#play\'">'+  /* straight to Explore — creating for Engine 1 is retired (Jed 2026-09-21) */
-        '<h2>'+TXT('bundle_title')+' (v1)</h2>'+
-        '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
-        '<div class="bsub" style="opacity:.75;">⚙ Engine 1 — turn-based, the original (frozen)</div>'+
-        '<div class="bplay">'+TXT('bundle_play')+'</div>'+
-      '</div>'+
+    '<div class="bundle-card" onclick="renderGrid()">'+
+      '<h2>'+TXT('bundle_title')+'</h2>'+
+      '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
+      '<div class="bcount">'+TXT('bundle_n')+' · ★ '+t.have+' / '+t.max+'</div>'+
+      '<div class="bplay">'+TXT('bundle_play')+'</div>'+
     '</div>'+
     '<div id="community-bundles"></div>';
   renderCommunityBundleList();
