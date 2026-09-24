@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#000000"/>
   <title>Pricing — Create, Publish, Play</title>
 
-  <meta name="description" content="What it costs on Akashic Swaps: playing is free forever. Architects pay a small subscription to build and a $2 flat fee to publish; players pay $2 once to own a bundle. Architects keep 90%."/>
+  <meta name="description" content="What it costs on Akashic Swaps: playing is free forever and building is free. Architects pay a $2 flat fee only when they publish; players pay $2 once to own a bundle. Architects keep 90%."/>
   <link rel="canonical" href="https://akashictimes.com/pricing/"/>
   <meta property="og:title" content="Akashic Swaps — Pricing"/>
-  <meta property="og:description" content="Playing is free forever. Build for a small subscription, publish for $2, and keep 90% of every sale."/>
+  <meta property="og:description" content="Playing is free forever. Build for free, publish for $2, and keep 90% of every sale."/>
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://akashictimes.com/pricing/"/>
   <meta property="og:image" content="https://akashictimes.com/og-image.jpg"/>
@@ -49,7 +49,7 @@
 
     /* Points of purchase */
     .pop { display: grid; grid-template-columns: 1fr; gap: 16px; margin: 8px 0 34px; }
-    @media (min-width: 640px) { .pop { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 640px) { .pop { grid-template-columns: repeat(2, 1fr); } }  /* two points of purchase: publish + own (no subscription, Jed 2026-09-23) */
     .card { border: 1px solid #0a3a0a; border-radius: 5px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; background: #010e01; }
     .card .who { font-size: 0.68em; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.6; }
     .card h2 { font-size: 1.05em; letter-spacing: 0.04em; font-weight: bold; }
@@ -91,17 +91,10 @@
 
   <main>
     <h1>Pricing</h1>
-    <p class="lede">Playing is free, and always will be. You only pay if you want to <em>build</em> — and players only ever pay a small, flat fee to own a bundle. Here's every number, in plain sight.</p>
+    <p class="lede">Playing is free, and always will be. Building is free too — an Architect pays only when they <em>publish</em>, and players only ever pay a small, flat fee to own a bundle. Here's every number, in plain sight.</p>
     <p class="soonline">Checkout is launching soon — these are the rates we're wiring up now.</p>
 
     <div class="pop">
-      <div class="card">
-        <span class="who">Architect pays</span>
-        <h2>Subscribe — to create</h2>
-        <div class="price">$8 / month<small>or $2.50 / week</small></div>
-        <div class="desc">Unlocks the Editor to build and edit your bundles. Cancel anytime.</div>
-        <span class="soon">Launching soon</span>
-      </div>
       <div class="card">
         <span class="who">Architect pays</span>
         <h2>Publish — to list</h2>
@@ -123,7 +116,7 @@
       <p style="margin:6px 0 0;">When a player buys your bundle, <strong>$1.80 of every $2 is yours.</strong> AkashicTimes keeps $0.20 to run the marketplace.</p>
     </div>
 
-    <p class="free">The free bundles cost nothing to play, and they never will. No ads, no energy, no timers — the subscription is only for building.</p>
+    <p class="free">The free bundles cost nothing to play, and they never will. No ads, no energy, no timers, no subscriptions — building is free, and the only fee an Architect ever pays is $2 to publish.</p>
 
     <div class="cta-row">
       <a class="cta solid" href="/objective/">See how an Architect earns →</a>
