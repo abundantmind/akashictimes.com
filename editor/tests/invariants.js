@@ -211,8 +211,8 @@ window.runInvariants = async function(){
     paintCell(2,2); layerPaints.base=board[2][2].active===true;
     setLayer('tile'); selBrush={type:'gem',id:0}; board[2][2].gem=1;
     paintCell(2,2); layerPaints.tile=board[2][2].gem===0;
-    setLayer('flow'); flow[2][2]='down';
-    paintCell(2,2); layerPaints.flow=flow[2][2]!=='down';
+    setFlowBrush('up'); flow[2][2]='down';            // setFlowBrush also engages the Flow layer
+    paintCell(2,2); layerPaints.flow=flow[2][2]==='up';
     ok('editor · every selectable layer actually paints on click', Object.values(layerPaints).every(Boolean), layerPaints);
     // Same rule one level up: a TOOL you can select must change the cell you click.
     // Fill and Mirror were removed 2026-08-27 because they only ever acted under a
@@ -232,21 +232,28 @@ window.runInvariants = async function(){
     setTool('paint');
     ok('editor · every tool button actually changes the cell it clicks',
        Object.keys(toolActs).length>0&&Object.values(toolActs).every(Boolean), toolActs);
-    ok('editor · picking the Flow layer engages custom painting', (setLayer('flow'),flowMode==='custom'), flowMode);
-    // A whole-board flow preset is destructive; it must be undoable.
-    setFlow('custom'); paintCell(5,5); paintCell(5,5);
+    // Flow brush (Jed 2026-09-24): ONE click lands the chosen direction, from ANY
+    // starting direction — the old click-to-cycle needed up to three clicks.
+    const oneClick={};
+    ['down','up','left','right'].forEach(d=>{
+      setFlowBrush(d);
+      ['down','up','left','right'].forEach(from=>{ flow[6][6]=from; paintCell(6,6); oneClick[from+'→'+d]=flow[6][6]===d; });
+    });
+    ok('editor · one click paints the selected flow direction, from any start', Object.values(oneClick).every(Boolean), oneClick);
+    // Fill board is destructive; it must be undoable.
+    setFlowBrush('up'); flow[5][5]='left'; paintCell(5,5);
     const handPainted=flow[5][5];
-    setFlow('down');
+    setFlowBrush('down'); fillFlow();
     const wiped=flow[5][5];
     doUndo();
-    ok('editor · a flow preset wipe is recoverable with undo', flow[5][5]===handPainted&&wiped!==handPainted, {handPainted,wiped,afterUndo:flow[5][5]});
+    ok('editor · a Fill-board flow wipe is recoverable with undo', flow[5][5]===handPainted&&wiped!==handPainted, {handPainted,wiped,afterUndo:flow[5][5]});
     // Flow must ride in the undo snapshot at all — it used to be omitted entirely.
     ok('editor · undo snapshots carry the flow layer', (()=>{try{return JSON.parse(snapState()).f!==undefined;}catch(e){return false;}})(), 'snapState missing flow');
     // THE PALETTE SHOWS ONLY WHAT THE LAYER CAN PAINT (Jed 2026-08-27: every swatch
     // was visible on every layer, and most of them were inert). The map is the
     // contract — assert each layer's visible sections ARE its mapped ones, so a new
     // section can't quietly appear on a layer that ignores it.
-    const _visible=()=>['base-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','itm-pal']
+    const _visible=()=>['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','itm-pal']
       .filter(id=>{const e=document.getElementById(id);return e&&getComputedStyle(e).display!=='none';});
     const _palOK={};
     Object.keys(LAYER_SECTIONS).forEach(L=>{
@@ -355,7 +362,7 @@ window.runInvariants = async function(){
     playerGoals=_savedGoals; editorObjectives=_savedObjs; playerMode=_savedMode;
     await startPlayerLevel(1,false); await wait(45); playing=false;
 
-    setLayer('tile'); setFlow('down');
+    setFlowBrush('down'); setLayer('tile');
 
     // A NEW blank level must not inherit the previous level's identity. openEditor()
     // never cleared curLevelNum (and it initializes to 1), so "＋ Add level" opened

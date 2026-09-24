@@ -345,6 +345,9 @@ body.font-lg{--base-font:20px;}
 .bbtn{display:flex;align-items:center;gap:5px;width:100%;padding:4px 5px;font-size:var(--fz-ui);border:0.5px solid transparent;border-radius:5px;background:transparent;color:#a090c0;cursor:pointer;font-family:var(--font-sans);}
 .bbtn:hover{background:#1a1530;}
 .bbtn.on{background:#2a1d4a;color:#c8a8ff;border-color:#5a3a9a;}
+/* Flow brush arrows (Jed 2026-09-24) — Flow-layer green, so the brush reads as that layer */
+.fbarrow{width:14px;text-align:center;color:#1D9E75;font-weight:700;flex:0 0 auto;}
+.bbtn.fbfill{margin-top:6px;justify-content:center;border-color:#2d2540;}
 /* SCENE LAYER (Jed 2026-07-10): the darkness behind the board IS the bottom
    layer — inactive cells are true holes showing it. When Akashic artwork
    exists, set a background-image here and it replaces the dark, one layer
@@ -459,7 +462,6 @@ body.player-playing #eframe{display:contents;background:none;}
 .paletteswatch.on:hover{opacity:1;}
 .objempty{font-size:var(--fz-sm);color:#5a4a7a;font-style:italic;margin:3px 0;}
 #sbar{padding:3px 10px;font-size:var(--fz-sm);color:#5a4a7a;background:#0d0a14;border-top:0.5px solid #1a1530;display:flex;gap:12px;flex-shrink:0;}
-#flowbar{display:none;gap:4px;padding:4px 10px;background:#0d0a14;border-bottom:0.5px solid #2d2540;flex-shrink:0;}
 .mbadge{padding:2px 7px;font-size:var(--fz-sm);border-radius:4px;background:#1a3a1a;color:#4a9a4a;}
 .mbadge.play{background:#3a1a1a;color:#9a4a4a;}
 #gem-pal{display:block;}
@@ -496,7 +498,7 @@ body.player-playing #eframe{display:contents;background:none;}
 #pgrid-sub{font-size:var(--fz-sm);color:#665580;margin-bottom:20px;text-transform:uppercase;letter-spacing:.08em;}
 
 /* player HUD + win overlay, shown over the reused editor board during play */
-body.player-playing #etopbar,body.player-playing #lpanel,body.player-playing #rpanel,body.player-playing #sbar,body.player-playing #flowbar{display:none !important;}
+body.player-playing #etopbar,body.player-playing #lpanel,body.player-playing #rpanel,body.player-playing #sbar{display:none !important;}
 /* Player HUD as a vertical panel to the LEFT of the board (Township-style) */
 /* HUD + board read as one unit: shell hugs the board, the [HUD|board] pair is
    centered together in the viewport, HUD flush against the grid's left edge. */
@@ -875,14 +877,6 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <button class="tb" onclick="setFontSize('lg')" title="Large text">L</button>
     </div>
   </div>
-  <div id="flowbar">
-    <span class="elbl" style="margin-right:2px;">Flow</span>
-    <button class="tb on" id="fl-down" onclick="setFlow('down')">↓ Down</button>
-    <button class="tb" id="fl-right" onclick="setFlow('right')">→ Right</button>
-    <button class="tb" id="fl-left" onclick="setFlow('left')">← Left</button>
-    <button class="tb" id="fl-up" onclick="setFlow('up')">↑ Up</button>
-    <button class="tb" id="fl-custom" onclick="setFlow('custom')">Custom</button>
-  </div>
   <div id="emid">
     <div id="lpanel">
       <div class="psec">
@@ -900,6 +894,17 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="ptitle">Base</div>
         <button class="bbtn on" id="b-hole" onclick="setBase('inactive')"><span class="ldot" style="background:#0d0a14;box-shadow:0 0 0 1px #444"></span>Hole</button>
         <button class="bbtn" id="b-active" onclick="setBase('active')"><span class="ldot" style="background:#7F77DD"></span>Active</button>
+      </div>
+      <!-- Flow brush (Jed 2026-09-24): pick a direction, then ONE click per cell sets it.
+           Replaces click-to-cycle (down→right→left→up), which took 3 clicks to reach Up.
+           Fill board = the old whole-board presets, now explicitly separate from painting. -->
+      <div class="psec" id="flow-pal">
+        <div class="ptitle">Flow</div>
+        <button class="bbtn on" id="fb-down" onclick="setFlowBrush('down')"><span class="fbarrow">↓</span>Down</button>
+        <button class="bbtn" id="fb-up" onclick="setFlowBrush('up')"><span class="fbarrow">↑</span>Up</button>
+        <button class="bbtn" id="fb-left" onclick="setFlowBrush('left')"><span class="fbarrow">←</span>Left</button>
+        <button class="bbtn" id="fb-right" onclick="setFlowBrush('right')"><span class="fbarrow">→</span>Right</button>
+        <button class="bbtn fbfill" id="fb-fill" onclick="fillFlow()" title="Set EVERY cell to the selected direction (⌘Z undoes it)">Fill board ↓</button>
       </div>
       <!-- Gem colours are a TEST tool, not level data: they build an exact position
            to hit Play on. The saved level stores only "there is a gem here" — which
@@ -2123,7 +2128,7 @@ let playing=false,mdown=false,selCell=null,choosingRainbow=null,choosingGrasshop
 // always Edit — you're building a blank board — and leaves this preference alone).
 let architectPlaying=true;
 let dragSwap=null; // active drag-swap gesture: {r,c,x,y,id,fired} from pointerdown on a cell in play mode
-let undoQ=[],redoQ=[],moves=0,cleared=0,flowMode='down';
+let undoQ=[],redoQ=[],moves=0,cleared=0,flowBrush='down';  // flowBrush: the direction a Flow-layer click paints
 window.moveHistory=[];
 
 /* ── SETUP MODAL ── */
@@ -3508,12 +3513,12 @@ const LAYER_SECTIONS={
   base:    ['base-pal'],
   tile:    ['gem-pal','pu-pal','src-pal','blk-pal','itm-pal'],
   obstacle:['sub-pal','ovl-pal','blk-pal'],
-  flow:    [],
+  flow:    ['flow-pal'],
   border:  [],
 };
 function applyLayerPalette(){
   const shown=LAYER_SECTIONS[layer]||[];
-  ['base-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','itm-pal'].forEach(id=>{
+  ['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','itm-pal'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.style.display=shown.includes(id)?'':'none';
   });
@@ -3523,16 +3528,11 @@ function setLayer(l){
   document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('on'));
   document.getElementById('l-'+l).classList.add('on');
   document.getElementById('sb1').textContent='Layer: '+l[0].toUpperCase()+l.slice(1);
-  document.getElementById('flowbar').style.display=l==='flow'?'flex':'none';
-  // Entering the Flow layer ENGAGES custom painting. Same contract as setBase()
-  // engaging Base and a swatch engaging Tile: grabbing the tool IS the selection.
-  // Without this, picking the Flow layer left flowMode on a preset and every click
-  // on the board silently did NOTHING (Jed 2026-08-25, painting a 9x11 serpentine).
-  // That is the THIRD instance of this exact disease — see the Obstacle-tab and
-  // Base-brush dead ends fixed 2026-08-24, documented in paintCell below. A layer
-  // you can select but not paint on must never be reachable.
+  // A layer you can select but not paint on must never be reachable (Jed 2026-08-25:
+  // the old Flow layer sat on a whole-board preset and every click did NOTHING — the
+  // third instance of that disease). The Flow layer can't dead-end now: flowBrush is
+  // always a real direction, so every click on the Flow layer paints.
   applyLayerPalette();   // show only the swatches this layer can actually paint
-  if(l==='flow'&&flowMode!=='custom'){setFlow('custom');return;} // setFlow renders
   render();
 }
 
@@ -3562,14 +3562,21 @@ function setTool(t){
   document.getElementById('sb2').textContent='Tool: '+t[0].toUpperCase()+t.slice(1);
 }
 
-function setFlow(f){
-  // A preset REPLACES every cell's flow. Snapshot FIRST so ⌘Z brings hand-painted
-  // custom flow back — this used to be silent, total, and unrecoverable.
-  if(f!=='custom')save();
-  flowMode=f;
-  document.querySelectorAll('[id^="fl-"]').forEach(b=>b.classList.remove('on'));
-  document.getElementById('fl-'+f).classList.add('on');
-  if(f!=='custom')for(let r=0;r<R;r++)for(let c=0;c<C;c++)flow[r][c]=f;
+// FLOW BRUSH (Jed 2026-09-24, building a portrait L25): pick a direction once, then
+// ONE click per cell sets it. The old click-to-cycle (down→right→left→up) cost three
+// clicks to reach Up on every cell.
+const FLOW_ARROW={down:'↓',up:'↑',left:'←',right:'→'};
+function setFlowBrush(d){
+  flowBrush=d;
+  ['down','up','left','right'].forEach(x=>document.getElementById('fb-'+x).classList.toggle('on',x===d));
+  document.getElementById('fb-fill').textContent='Fill board '+FLOW_ARROW[d];
+  if(layer!=='flow') setLayer('flow');   // grabbing the brush IS selecting the layer
+}
+// Fill board: EVERY cell gets the selected direction. Destructive, so snapshot FIRST —
+// ⌘Z brings hand-painted flow back (a wipe used to be silent and unrecoverable).
+function fillFlow(){
+  save();
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)flow[r][c]=flowBrush;
   render();
 }
 
@@ -3613,10 +3620,10 @@ function paintCell(r,c){
         else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=b.id;cd.startEmpty=false;} // item: occupies gem slot
       }
     }
-  } else if(layer==='flow'&&flowMode==='custom'){
-    save(); // flow edits are undoable now (the snapshot carries board AND flow)
-    const dirs=['down','right','left','up'];
-    flow[r][c]=dirs[(dirs.indexOf(flow[r][c])+1)%4];
+  } else if(layer==='flow'){
+    // One click = the selected brush direction. No snapshot when the cell already
+    // points that way, so re-clicking doesn't pad the undo stack with no-ops.
+    if(flow[r][c]!==flowBrush){ save(); flow[r][c]=flowBrush; } // undoable: the snapshot carries board AND flow
   }
   // Incremental repaint: only the touched cell redraws, so painting no longer
   // thrashes the whole board (the flicker fix). Every remaining tool is one cell
