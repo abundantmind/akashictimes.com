@@ -101,9 +101,14 @@ create policy "insert own credits"           on public.credits for insert with c
 -- bundles: published ones are the storefront; authors see + manage their own
 create policy "read published or own"        on public.bundles for select
   using (published or author = auth.uid());
-create policy "insert own bundles"           on public.bundles for insert with check (author = auth.uid());
-create policy "update own bundles"           on public.bundles for update using (author = auth.uid());
-create policy "delete own bundles"           on public.bundles for delete using (author = auth.uid());
+-- PUBLISHED = FINAL (migration 004): authors insert/edit/delete DRAFTS only; publishing
+-- is Jed's review flip (service role). Buyers never see a bought bundle change or vanish.
+create policy "insert own drafts"            on public.bundles for insert
+  with check (author = auth.uid() and published = false);
+create policy "update own drafts"            on public.bundles for update
+  using (author = auth.uid() and published = false) with check (author = auth.uid() and published = false);
+create policy "delete own drafts"            on public.bundles for delete
+  using (author = auth.uid() and published = false);
 
 -- ═══ TABLE GRANTS — the layer BENEATH RLS ══════════════════════════════════════
 -- RLS filters which ROWS a role sees; a role still needs a base table GRANT to
