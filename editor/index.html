@@ -273,6 +273,28 @@ body.font-lg{--base-font:20px;}
 .prod-card .pc-name{font-size:var(--fz-lg);color:#c9b8e8;font-weight:500;}
 .prod-card .pc-meta{font-size:var(--fz-xs);color:#665580;text-transform:uppercase;letter-spacing:.08em;margin-top:3px;}
 .prod-card .pc-arrow{color:#8a74b0;font-size:var(--fz-xl);}
+/* Bundle list = two side-by-side columns, Landscape LEFT · Portrait RIGHT (Jed 2026-09-30).
+   The OUTER box is bare while the columns show — no outline, no scrollbar (Jed: "purposeless");
+   each COLUMN carries the outline, and only a column's card list scrolls if it outgrows the
+   screen (header + "+ New" button stay put). Phones stack the columns and scroll the page. */
+#products:has(.bcols){background:#0d0a14;}  /* opaque: with no box, the page behind would ghost through the 94% scrim */
+#products .wbox:has(.bcols){max-width:860px;border:none;background:transparent;padding:8px 0;display:flex;flex-direction:column;overflow:hidden;}
+.bcols{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);gap:18px;text-align:left;flex:1 1 auto;min-height:0;}
+.bcol{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:16px 18px;}
+.bcol h3{font-size:var(--fz-md,15px);color:#c8a8ff;font-weight:500;letter-spacing:.06em;text-transform:uppercase;border-bottom:0.5px solid #3d2060;padding-bottom:6px;margin:0;}
+.bcol .blist{display:flex;flex-direction:column;gap:10px;flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#3d2060 transparent;scrollbar-gutter:stable;}  /* short screens only: a thin dark bar, never the white default */
+.bcol .prod-card{padding:14px 16px;flex:none;}
+.bcol .prod-card:hover{transform:none;}   /* the lift would clip against a scrolling list */
+.bcol .bempty{color:#665580;font-size:var(--fz-sm);font-family:var(--font-sans);padding:6px 2px;}
+#products .bcol .prod-close{margin-top:0;flex:none;}  /* id-level, to beat #products .prod-close */
+.bfoot{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:14px;flex:none;}
+#products .bfoot .prod-close{margin-top:0;}
+#products .pmsg a{color:#c8a8ff;}
+@media (max-width:600px){
+  #products .wbox:has(.bcols){overflow:auto;}
+  .bcols{grid-template-columns:1fr;grid-template-rows:none;flex:none;}
+  .bcol .blist{overflow:visible;}
+}
 .prodlvls{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:4px;}
 .prodlvl{padding:12px 0;border:0.5px solid #2d2040;border-radius:8px;cursor:pointer;color:#c9b8e8;background:#160c24;font-size:var(--fz-base);font-family:var(--font-sans);transition:border-color .15s,background .15s;}
 .prodlvl:hover{border-color:#c792ea;background:#1e1130;}
@@ -793,14 +815,15 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <h3>New level — choose grid size</h3>
     <p>Select a preset or enter custom dimensions.</p>
     <div class="preset-grid">
-      <!-- Three options only (Jed 2026-09-21): 9×11 (Township landscape), 11×9 (portrait), Custom -->
-      <button class="preset-btn selected" data-r="9" data-c="11" id="pre-township">
+      <!-- Three options only (Jed 2026-09-21): 9×11 landscape, 11×9 portrait, Custom.
+           No "Township" in the webapp (Jed 2026-09-30) — the presets are Landscape / Portrait. -->
+      <button class="preset-btn selected" data-r="9" data-c="11" id="pre-landscape">
         <span class="preset-name">9 × 11</span>
-        <span class="preset-dim">Township</span>
+        <span class="preset-dim">Landscape</span>
       </button>
-      <button class="preset-btn" data-r="11" data-c="9" id="pre-11x9">
+      <button class="preset-btn" data-r="11" data-c="9" id="pre-portrait">
         <span class="preset-name">11 × 9</span>
-        <span class="preset-dim">portrait</span>
+        <span class="preset-dim">Portrait</span>
       </button>
       <button class="preset-btn" data-r="0" data-c="0" id="pre-custom">
         <span class="preset-name">Custom</span>
@@ -2155,7 +2178,7 @@ let undoQ=[],redoQ=[],moves=0,cleared=0,flowBrush='down';  // flowBrush: the dir
 window.moveHistory=[];
 
 /* ── SETUP MODAL ── */
-let selectedPreset=document.getElementById('pre-township');
+let selectedPreset=document.getElementById('pre-landscape');
 
 document.querySelectorAll('.preset-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -2193,13 +2216,13 @@ document.getElementById('setup-confirm').addEventListener('click',()=>{
   openEditor();
 });
 
-// Open the grid-size setup modal for a fresh blank level (Township 9×11 default).
+// Open the grid-size setup modal for a fresh blank level (9×11 landscape default).
 // Reached from the bundle picker's "+ New level" now that the home is button-only.
 function openNewLevel(){
   document.getElementById('inp-r').value=9;
   document.getElementById('inp-c').value=11;
   document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('selected'));
-  document.getElementById('pre-township').classList.add('selected');
+  document.getElementById('pre-landscape').classList.add('selected');
   validateSetup();
   document.getElementById('setup-wrap').classList.add('open');
 }
@@ -2342,28 +2365,46 @@ function openProducts(){
   if(AUTH_ENABLED && !isLocalDev() && window.AkashicAuth && !AkashicAuth.user){ AkashicAuth.open(); return; }
   renderProductsList();
   document.getElementById('products').classList.add('open');
+  refreshUserBundles();   // same click re-grants folder access → rescan the bundles home → repaint
 }
 function closeProducts(){document.getElementById('products').classList.remove('open');}
 
 // Step 1 — list the editor's bundles.
 function renderProductsList(){
   let html='<h2>'+escHtml(possBundles())+'</h2><div class="pmsg">'+TXT('products_msg')+'</div>';
-  PRODUCTS.forEach(p=>{
-    html+='<div class="prod-card" onclick="renderBundleLevels(\''+p.id+'\')">'+
-      '<div><div class="pc-name">'+TXT(p.nameKey)+'</div>'+
-        '<div class="pc-meta">'+TXT('bundle_n')+' · '+bundleLevelCount(p)+' '+TXT('products_levels')+'</div></div>'+
-      '<div class="pc-arrow">→</div></div>';
-  });
-  // The architect's own bundles — each a folder of real JSON files on their machine.
-  USER_BUNDLES.forEach(b=>{
-    html+='<div class="prod-card" onclick="openUserBundle(\''+b.id+'\')">'+
+  // Two columns, Landscape LEFT · Portrait RIGHT (Jed 2026-09-30). Each column = its
+  // bundles (folders of real JSON files on the architect's machine, grouped by the
+  // orientation folder they live in) + its own "+ New … bundle" button at the foot.
+  const card=b=>'<div class="prod-card" onclick="openUserBundle('+jsArg(b.id)+')">'+
       '<div><div class="pc-name">'+escHtml(b.name)+'</div>'+
         '<div class="pc-meta">Your bundle · on disk</div></div>'+
       '<div class="pc-arrow">→</div></div>';
+  html+='<div class="bcols">';
+  BUNDLE_ORIENTS.forEach(o=>{
+    html+='<div class="bcol"><h3>'+o+'</h3><div class="blist">';
+    // the built-in free pack (Go with the Flow) is a landscape bundle → top of the left column
+    if(o==='Landscape') PRODUCTS.forEach(p=>{
+      html+='<div class="prod-card" onclick="renderBundleLevels(\''+p.id+'\')">'+
+        '<div><div class="pc-name">'+TXT(p.nameKey)+'</div>'+
+          '<div class="pc-meta">'+TXT('bundle_n')+' · '+bundleLevelCount(p)+' '+TXT('products_levels')+'</div></div>'+
+        '<div class="pc-arrow">→</div></div>';
+    });
+    const group=USER_BUNDLES.filter(b=>b.orient===o);
+    group.forEach(b=>{ html+=card(b); });
+    if(!group.length&&o!=='Landscape') html+='<div class="bempty">No '+o.toLowerCase()+' bundles yet</div>';
+    html+='</div><button class="prod-close" style="background:#2a1d48;color:#c8a8ff;border-color:#6a4aaa;" onclick="createBundle(\''+o+'\')">+ New '+o+' bundle</button>';
+    html+='</div>';
   });
-  html+='<button class="prod-close" style="background:#2a1d48;color:#c8a8ff;border-color:#6a4aaa;margin-bottom:8px;" onclick="createBundle()">+ New bundle</button>';
-  html+='<button class="prod-close" style="margin-bottom:8px;" onclick="closeProducts();openNewLevel()">'+TXT('btn_new_level')+'</button>';
-  html+='<button class="prod-close" onclick="closeProducts()">'+TXT('products_close')+'</button>';
+  html+='</div>';
+  // Bundles sitting loose in the home (outside Landscape/ or Portrait/) still list, below.
+  const loose=USER_BUNDLES.filter(b=>!b.orient);
+  if(loose.length){ html+='<div class="pmsg" style="margin:16px 0 8px;">Unsorted — move into Landscape/ or Portrait/</div><div class="bcol" style="flex:none;">'; loose.forEach(b=>{ html+=card(b); }); html+='</div>'; }
+  // Where the bundles live, and a way to point at a different home (e.g. editor/Bundles).
+  if(window.showDirectoryPicker) html+='<div class="pmsg" style="font-size:12px;margin:16px 0 0;">Bundles home: '+
+    (bundleRoot?'<b>'+escHtml(bundleRoot.name)+'</b>':'not chosen yet')+
+    ' · <a href="#" onclick="refreshUserBundles(true);return false;">'+(bundleRoot?'change':'choose')+'</a></div>';
+  html+='<div class="bfoot"><button class="prod-close" onclick="closeProducts();openNewLevel()">'+TXT('btn_new_level')+'</button>';
+  html+='<button class="prod-close" onclick="closeProducts()">'+TXT('products_close')+'</button></div>';
   document.querySelector('#products .wbox').innerHTML=html;
 }
 
@@ -2395,23 +2436,36 @@ function editorToBundle(){
   renderBundleLevels(b);
 }
 
-// ═══ USER BUNDLES — a NEW bundle = a FOLDER OF REAL JSON FILES on the architect's
+// ═══ USER BUNDLES — a bundle = a FOLDER OF REAL JSON FILES on the architect's
 // machine (Chrome File System Access). The folder holds bundle.json (manifest) +
-// level-0NN.json files. Folder handles persist in IndexedDB so bundles reappear on
-// reload (permission re-granted on first touch). This is the creator spine: name a
-// bundle → build levels into it as real files → the sellable unit.
-let USER_BUNDLES=[];           // [{id,name,dir:FileSystemDirectoryHandle}]
+// level-0NN.json files. This is the creator spine: name a bundle → build levels
+// into it as real files → the sellable unit.
+//
+// BUNDLES HOME LAYOUT (Jed 2026-09-30): the picked home (e.g. editor/Bundles) holds
+// one folder per board orientation, and one folder per bundle inside those:
+//     Bundles/Landscape/Akashic-Window/level-001.json …
+//     Bundles/Portrait/Go-With-Portrait-Flow/level-001.json …
+// The home is SCANNED, not registered: any folder with a bundle.json shows up in the
+// list, including ones built on disk outside the editor. (The old model remembered
+// only bundles made via "+ New bundle", so a folder already on disk never appeared —
+// Jed named "Akashic Window" and got an empty new folder instead of its 9 levels.)
+// The last scan is cached in IndexedDB so the list paints before permission is re-granted.
+const BUNDLE_ORIENTS=['Landscape','Portrait']; // the orientation folders, in list order
+let USER_BUNDLES=[];           // [{id:'Landscape/Akashic-Window',name,dir:FileSystemDirectoryHandle,orient}]
 let currentUserBundle=null;    // the user bundle whose level grid is showing
 let saveTargetBundle=null;     // id of the bundle the editor saves INTO (null = classic editor/levels)
 let bundleEditNum=null;        // level # being edited (null = adding new → auto-number)
-let bundleRoot=null;           // the parent folder that holds one named subfolder per bundle
+let bundleRoot=null;           // the bundles HOME: holds Landscape/ + Portrait/, one subfolder per bundle
 const escHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// A string as a JS argument inside an onclick="…" attribute. Folder names come off the
+// disk now, so they can hold quotes — JSON-quote them, then HTML-escape the result.
+const jsArg=s=>escHtml(JSON.stringify(String(s)));
 
 // tiny IndexedDB kv store, just to remember the bundle-folder handles across reloads
 function _idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('akashic-bundles',1);
   r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function persistUserBundles(){ try{ const db=await _idb(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite');
-  tx.objectStore('kv').put(USER_BUNDLES.map(b=>({id:b.id,name:b.name,dir:b.dir})),'list'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('bundle persist',e);} }
+  tx.objectStore('kv').put(USER_BUNDLES.map(b=>({id:b.id,name:b.name,dir:b.dir,orient:b.orient})),'list'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('bundle persist',e);} }
 async function persistBundleRoot(){ try{ const db=await _idb(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite');
   tx.objectStore('kv').put(bundleRoot,'root'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('root persist',e);} }
 async function loadUserBundles(){ try{ const db=await _idb();
@@ -2419,30 +2473,74 @@ async function loadUserBundles(){ try{ const db=await _idb();
     const q=tx.objectStore('kv').get('list'); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>rej(q.error); });
   bundleRoot=await new Promise((res)=>{ const tx=db.transaction('kv','readonly');
     const q=tx.objectStore('kv').get('root'); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); });
+  // Pre-layout caches used 'ub-<time>' ids from the registered model — drop them; the scan rebuilds.
+  USER_BUNDLES=USER_BUNDLES.filter(b=>b.orient!==undefined);
+  // Chrome may keep the grant across reloads — if so, refresh from disk right away.
+  if(bundleRoot&&(await bundleRoot.queryPermission({mode:'readwrite'}))==='granted') await scanBundles();
 }catch(e){console.warn('bundle load',e);} }
 
-// Make sure we have a writable PARENT folder for bundles. Picked once (then remembered);
-// each bundle becomes a named subfolder inside it. Must run inside a click gesture.
-async function ensureBundleRoot(){
-  if(bundleRoot){ try{ if((await bundleRoot.queryPermission({mode:'readwrite'}))==='granted') return true;
+// Read the whole bundles home → USER_BUNDLES. A folder counts as a bundle only if it
+// holds a bundle.json (its display name comes from there). Bundles sitting directly in
+// the home, outside an orientation folder, still list (orient '') so nothing on disk hides.
+async function scanBundles(){
+  if(!bundleRoot) return;
+  const found=[];
+  const scanDir=async(dir,orient)=>{
+    for await(const [n,h] of dir.entries()){
+      if(h.kind!=='directory'||(orient===''&&BUNDLE_ORIENTS.includes(n))) continue;
+      let name;
+      try{ const j=JSON.parse(await (await (await h.getFileHandle('bundle.json')).getFile()).text()); name=j.name||n.replace(/-/g,' '); }
+      catch(e){ continue; }                                   // no readable manifest → not a bundle
+      found.push({id:(orient?orient+'/':'')+n,name,dir:h,orient});
+    }
+  };
+  try{
+    for(const o of BUNDLE_ORIENTS){ let od=null; try{ od=await bundleRoot.getDirectoryHandle(o); }catch(e){} if(od) await scanDir(od,o); }
+    await scanDir(bundleRoot,'');
+  }catch(e){ console.warn('bundle scan',e); return; }
+  found.sort((a,b)=>a.name.localeCompare(b.name));
+  USER_BUNDLES=found; await persistUserBundles();
+}
+
+// Make sure we have a writable bundles HOME. Picked once (then remembered). Must run
+// inside a click gesture. `repick` forces the folder picker (the "change" link).
+async function ensureBundleRoot(repick){
+  if(bundleRoot&&!repick){ try{ if((await bundleRoot.queryPermission({mode:'readwrite'}))==='granted') return true;
     if((await bundleRoot.requestPermission({mode:'readwrite'}))==='granted') return true; }catch(e){} bundleRoot=null; }
   try{ bundleRoot=await window.showDirectoryPicker({id:'akashic-bundle-root',mode:'readwrite'}); await persistBundleRoot(); return true; }
   catch(e){ if(e.name!=='AbortError') alert('Could not open a folder: '+e.message); return false; }
 }
 
-// "+ New bundle" — the NAME you type becomes a real folder inside your bundles home.
-async function createBundle(){
+// Opening the bundle list (a click) re-grants folder access and rescans, then repaints
+// if the list is still what's on screen. `repick` = choose a different bundles home.
+async function refreshUserBundles(repick){
+  if(!window.showDirectoryPicker) return;
+  if(!bundleRoot&&!repick){ renderProductsList(); return; }   // no home yet — the list offers to pick one
+  if(!(await ensureBundleRoot(repick))) return;
+  await scanBundles();
+  if(document.getElementById('products').classList.contains('open')&&productsView==null&&currentUserBundle==null) renderProductsList();
+}
+
+// "+ New Landscape / Portrait bundle" — the NAME you type becomes a real folder inside
+// <home>/<orient>/. Naming a folder that already exists OPENS it (its levels and its
+// bundle.json are left alone) instead of making a second, empty bundle.
+async function createBundle(orient){
   if(!window.showDirectoryPicker){ alert('Creating a bundle needs a Chromium browser (File System Access) — Chrome or Edge.'); return; }
   if(!(await ensureBundleRoot())) return;                    // pick where bundles live (once), grant access
-  const name=(prompt('Name your new bundle:','')||'').trim(); if(!name) return;
+  const name=(prompt('Name your new '+orient+' bundle:','')||'').trim(); if(!name) return;
   const folder=name.replace(/[^\w \-]+/g,'').replace(/\s+/g,'-') || ('bundle-'+Date.now()); // safe folder name
   let dir;
-  try{ dir=await bundleRoot.getDirectoryHandle(folder,{create:true}); }               // the NAME creates the folder
+  try{ const od=await bundleRoot.getDirectoryHandle(orient,{create:true});             // Landscape/ or Portrait/
+    dir=await od.getDirectoryHandle(folder,{create:true}); }                            // the NAME creates (or finds) the folder
   catch(e){ alert('Could not create the bundle folder: '+e.message); return; }
-  try{ const fh=await dir.getFileHandle('bundle.json',{create:true}); const w=await fh.createWritable();
-    await w.write(JSON.stringify({schema:'akashic-bundle/1',name,created:new Date().toISOString()},null,2)+'\n'); await w.close();
-  }catch(e){ alert('Could not write into the bundle folder: '+e.message); return; }
-  USER_BUNDLES.push({id:'ub-'+Date.now(),name,dir}); await persistUserBundles(); renderProductsList();
+  let hasManifest=true; try{ await dir.getFileHandle('bundle.json'); }catch(e){ hasManifest=false; }
+  if(!hasManifest){
+    try{ const fh=await dir.getFileHandle('bundle.json',{create:true}); const w=await fh.createWritable();
+      await w.write(JSON.stringify({schema:'akashic-bundle/1',name,orientation:orient,created:new Date().toISOString()},null,2)+'\n'); await w.close();
+    }catch(e){ alert('Could not write into the bundle folder: '+e.message); return; }
+  }
+  await scanBundles();
+  await openUserBundle(orient+'/'+folder);                    // straight into it — new or existing
 }
 
 // Open a user bundle → list its level-0NN.json files + a ＋ Add-level tile.
@@ -2455,10 +2553,10 @@ async function openUserBundle(id){
   levels.sort();
   currentUserBundle=id;
   let html='<h2>'+escHtml(b.name)+'</h2><div class="pmsg">Real JSON files on your disk. Click a number to edit, or ＋ to add a level.</div><div class="prodlvls">';
-  levels.forEach(fn=>{ const num=+fn.match(/(\d+)/)[1]; html+='<button class="prodlvl" onclick="editUserBundleLevel(\''+id+'\',\''+fn+'\')">'+num+'</button>'; });
-  html+='<button class="prodlvl" style="border-style:dashed;color:#c8a8ff" onclick="addLevelToBundle(\''+id+'\')">＋</button>';
+  levels.forEach(fn=>{ const num=+fn.match(/(\d+)/)[1]; html+='<button class="prodlvl" onclick="editUserBundleLevel('+jsArg(id)+','+jsArg(fn)+')">'+num+'</button>'; });
+  html+='<button class="prodlvl" style="border-style:dashed;color:#c8a8ff" onclick="addLevelToBundle('+jsArg(id)+')">＋</button>';
   html+='</div>';
-  if(levels.length) html+='<button class="prod-submit" id="prod-submit-btn" onclick="submitUserBundle(\''+id+'\')">'+TXT('submit_bundle_btn')+'</button>';
+  if(levels.length) html+='<button class="prod-submit" id="prod-submit-btn" onclick="submitUserBundle('+jsArg(id)+')">'+TXT('submit_bundle_btn')+'</button>';
   html+='<button class="prod-close" onclick="currentUserBundle=null;renderProductsList()">← Bundles</button>';
   document.querySelector('#products .wbox').innerHTML=html;
 }
@@ -2564,10 +2662,12 @@ function reviewLoadJSON(json){
 }
 
 // ＋ Add level → target this bundle, then the normal New-Level (grid size) dialog.
+// The default grid follows the bundle's folder: Portrait → 11×9, otherwise 9×11.
 function addLevelToBundle(id){ saveTargetBundle=id; bundleEditNum=null; closeProducts();
-  document.getElementById('inp-r').value=9; document.getElementById('inp-c').value=11;
+  const portrait=(USER_BUNDLES.find(x=>x.id===id)||{}).orient==='Portrait';
+  document.getElementById('inp-r').value=portrait?11:9; document.getElementById('inp-c').value=portrait?9:11;
   document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('selected'));
-  document.getElementById('pre-township').classList.add('selected'); validateSetup();
+  document.getElementById(portrait?'pre-portrait':'pre-landscape').classList.add('selected'); validateSetup();
   document.getElementById('setup-wrap').classList.add('open'); }
 
 // Open an existing bundle level into the editor, read from its JSON file on disk.
@@ -3494,7 +3594,7 @@ function buildObsPal(){
 }
 
 // Layer 3 Source palette — paint an Inlet (authoritative spawn point). Drain /
-// Portal join here later; Inlet is what the pyramid hook needs (Jed 2026-07-31).
+// Window join here later; Inlet is what the pyramid hook needs (Jed 2026-07-31).
 function buildSrcPal(){
   const p=document.getElementById('srcpal');if(!p)return;p.innerHTML='';
   const cl=document.createElement('div'); // clear-source swatch

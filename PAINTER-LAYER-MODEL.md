@@ -37,7 +37,7 @@ a layer.
 |---|---|---|---|
 | 1 | **Board** | Active · Hole | — |
 | 2 | **Flow** | ↓ ↑ ← → (default ↓) | — |
-| 3 | **Source/Portal** | Inlet · Drain · Portal-A↔B | portal link id |
+| 3 | **Source/Window** | Inlet · Drain · Window-A↔B | window link id |
 | 4 | **Substrate** | Clover · Oil · none | — |
 | 5 | **Contents** | Gem · Empty · Power-up · Item · Block(crate/weight/LP-record) · Generator | HP (crate/record); generator emission-table |
 | 6 | **Overlay** | Chain · Leaf · Ice · Soap · none | HP |
@@ -68,7 +68,7 @@ useless against it. The DATA stays simple: `{seam, type, hp}`.
 ## Serialization shape (what the serializer emits)
 
 - Layers **1, 2, 4** → pure single-char ASCII grids.
-- Layers **3, 5, 6, 7** → a **type grid + a companion props map** (portal links,
+- Layers **3, 5, 6, 7** → a **type grid + a companion props map** (window links,
   HP, generator config). The `patterns` ASCII section already added 2026-07-25
   (clover/crate/active) is the seed of this — extend it to every layer.
 - Flyover map + seeding policy → top-level level fields.
@@ -79,7 +79,7 @@ useless against it. The DATA stays simple: `{seam, type, hp}`.
 
 1. **Sources are PAINTED** (layer 3) — authoritative. The topology-inference code
    ("open sky"/"starved pocket") that caused this session's spawn bugs gets retired.
-2. **Drains are real and needed** — layer 3 ships with Inlet · Drain · Portal
+2. **Drains are real and needed** — layer 3 ships with Inlet · Drain · Window
    (L25: gems exit top-right, keys exit bottom).
 3. **Generator = Contents (layer 5) fixture** — occupies its cell (mut. excl. with
    a gem), so NOT a source; emission table is a property. Future Township feature.
