@@ -17,7 +17,7 @@
 <!-- NATIVE FEEL (Jed 2026-07-17): app-style viewport — no pinch zoom, edge-to-edge behind notches -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0d0a14">
-<!-- PWA: add-to-home-screen launches standalone fullscreen landscape (manifest) -->
+<!-- PWA: add-to-home-screen launches standalone fullscreen (manifest). Orientation is "any": play locks to each board's shape (enterNativePlay) — portrait bundles exist since 2026-09-22 -->
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
@@ -587,6 +587,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 /* Narrow screens (phones): HUD becomes a compact bar ABOVE the board instead of a side panel */
 @media(max-width:640px){
   body.player-playing{flex-direction:column;justify-content:flex-start;}
+  /* the board area takes the slack: booster strip docks at the bottom edge like an
+     app's tab bar, board centred between it and the HUD (Jed 2026-09-26) */
+  body.player-playing #shell{flex:1 1 auto;}
   body.player-playing #phud{flex:0 0 auto;min-width:0;flex-direction:row;flex-wrap:wrap;width:100%;gap:10px 18px;padding:10px 12px;justify-content:space-around;align-items:center;border-right:none;border-bottom:0.5px solid #1e1830;}
   /* narrow (portrait phones): booster palette becomes a bottom strip */
   body.player-playing #bpanel{flex:0 0 auto;min-width:0;flex-direction:row;width:100%;order:99;padding:8px 12px;gap:12px;border-left:none;border-top:0.5px solid #1e1830;overflow:visible;justify-content:center;max-height:none;}
@@ -7860,13 +7863,28 @@ function fitPlayBoard(){
   const vh=window.innerHeight, vw=window.innerWidth;
   const narrow=vw<=640;      // portrait phones: HUD bar above, booster strip below
   const shortLand=vh<=480;   // landscape phones: board owns nearly the full height
+  const upright=vh>vw;       // phone/tablet held in portrait
   // flyover boards size cells to the camera WINDOW, not the full board — a tall
   // board sizes to viewRows, a wide board (axis x) to viewCols so one zone fills
   // the screen at a playable cell size.
   const effR=(flyover&&flyover.axis!=='x')?flyover.viewRows:R;
   const effC=(flyover&&flyover.axis==='x')?flyover.viewCols:C;
-  const fitR=Math.max(effR,PLAY_MAX_R), fitC=Math.max(effC,PLAY_MAX_C);
-  const byH=Math.floor((vh*(shortLand?0.92:(narrow?0.55:0.65))-(fitR-1)*CELL_GAP)/fitR);
+  // The reserved grid keeps cell size stable from level to level (small boards just
+  // centre). On an UPRIGHT screen it is turned — 11 rows × 9 cols — to match the
+  // portrait boards played that way. Sizing a 9-column portrait board for 11 columns
+  // across a narrow phone left it at 43% of the screen height (Jed 2026-09-26).
+  const resR=upright?PLAY_MAX_C:PLAY_MAX_R, resC=upright?PLAY_MAX_R:PLAY_MAX_C;
+  const fitR=Math.max(effR,resR), fitC=Math.max(effC,resC);
+  // Height budget. Narrow screens stack HUD bar / board / booster strip, so once those
+  // are laid out the board gets EXACTLY what they leave (no dead band at the bottom);
+  // the flat fractions are the fallback before first layout and for wider screens.
+  let availH=vh*(shortLand?0.92:(narrow?0.55:0.65));
+  if(narrow&&document.body.classList.contains('player-playing')){
+    const hud=document.getElementById('phud'), bp=document.getElementById('bpanel');
+    const used=(hud?hud.offsetHeight:0)+(bp?bp.offsetHeight:0);
+    if(used>0) availH=vh-used-16;   // 16 = breathing room above/below the board
+  }
+  const byH=Math.floor((availH-(fitR-1)*CELL_GAP)/fitR);
   const byW=Math.floor(((vw-(narrow?0:PLAY_PANEL_W*2))*0.94-(fitC-1)*CELL_GAP)/fitC);
   CELL_SIZE=Math.max(24,Math.min(96,Math.min(byH,byW)));
 }
@@ -7912,9 +7930,13 @@ function enterNativePlay(){
   if(!window.matchMedia('(pointer:coarse)').matches) return;
   const el=document.documentElement;
   const fs=el.requestFullscreen?el.requestFullscreen({navigationUI:'hide'}):Promise.reject();
+  // Lock to the BOARD's shape, not always landscape (Jed 2026-09-26): a portrait
+  // bundle (R>C, e.g. 11×9) was being forced sideways on phones that honour the lock.
+  // R/C are already loaded when beginPlaySession calls this.
+  const want=(R>C)?'portrait':'landscape';
   Promise.resolve(fs).catch(()=>{}).then(()=>{
     if(screen.orientation&&screen.orientation.lock)
-      screen.orientation.lock('landscape').catch(()=>{}); // browsers that refuse: rotate curtain handles it
+      screen.orientation.lock(want).catch(()=>{}); // browsers that refuse: rotate curtain handles it
   }); // the resize listener refits the board once fullscreen dimensions land
 }
 
@@ -7946,6 +7968,9 @@ function beginPlaySession(){
   render();
   togglePlay(false); // fills empty active cells, removes initial matches, starts Play — NOT sandbox
   updatePlayerHUD();
+  // Narrow screens size the board from the HUD bar + booster strip, which only have
+  // their real heights once both are populated — refit now that they are.
+  if(window.innerWidth<=640){ fitPlayBoard(); flyWindow(); render(); }
   // Flow preview (Township parity): after a beat, run the wave so the player sees
   // where gems enter and which way they travel BEFORE their first move. Delayed so
   // the board has visibly settled first; cancelled by the first tap (playTap).
