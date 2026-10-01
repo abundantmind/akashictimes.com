@@ -936,6 +936,26 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="ptitle">Blocks</div>
         <div id="blkpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
       </div>
+      <!-- GENERATORS (Jed 2026-09-29/30) — Obstacle menu ONLY. It used to live inside Blocks,
+           which both Tile and Obstacle show, so it appeared in two menus. -->
+      <div class="psec" id="gen-pal">
+        <div class="ptitle">Generators</div>
+        <div id="genpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+        <div id="gen-cfg" style="margin-top:6px;font-size:var(--fz-xs);color:#8878a8;line-height:1.5;">
+          <div>Special</div>
+          <select id="gen-emit" onchange="setGenCfg()" style="width:100%;background:#130a20;color:#c8bfe0;border:0.5px solid #3d3560;border-radius:4px;font:inherit;">
+            <option value="helicopter">Grasshopper</option>
+            <option value="bomb">Scarab</option>
+            <option value="rainbow">Akasha Ball</option>
+            <option value="rocket_h">Dragonfly ↔</option>
+            <option value="rocket_v">Dragonfly ↕</option>
+          </select>
+          <!-- N is a CEILING: each cycle the special lands on a random drop from the 2nd to
+               the Nth — sometimes the 3rd, sometimes the 4th, always by the 5th. -->
+          <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">on drop 2 to
+            <input id="gen-every" type="number" min="2" max="30" value="5" onchange="setGenCfg()" style="width:42px;background:#130a20;color:#c8bfe0;border:0.5px solid #3d3560;border-radius:4px;font:inherit;"></div>
+        </div>
+      </div>
       <div class="psec" id="itm-pal">
         <div class="ptitle">Items</div>
         <div id="itmpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
@@ -2243,7 +2263,7 @@ function enterEditorWithLevel(startPlaying){
   // filling ALL active non-PU cells, so opening L14+ for edit DESTROYED its
   // field.empty cells (they came back as gems — Jed 2026-08-01). field.empty must
   // survive an edit: those cells stay gem-free until the first swap feeds them.
-  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isSolid(r,c))board[r][c].gem=randGem();
   clean(); // no pre-made matches on open
   document.getElementById('home').style.display='none';
   document.getElementById('editor').style.display='flex';
@@ -2560,7 +2580,7 @@ async function editUserBundleLevel(id,fn){
   if(!loadLevelData(json,num))return;                        // parsed JSON → editor board (same loader as templates); pin can refuse
   playerMode=false;playing=false;entranceMode=false;Motion.releaseAll(); flyTeardown(); fitEditorBoard();
   document.body.classList.remove('player-playing');
-  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isSolid(r,c))board[r][c].gem=randGem();
   clean();
   document.getElementById('home').style.display='none';
   document.getElementById('editor').style.display='flex';
@@ -2628,7 +2648,7 @@ function clean(){
       if(!bad.size)break;
       for(const k of bad){
         const [r,c]=k.split(',').map(Number);
-        if(board[r][c].active&&!board[r][c].pu&&board[r][c].gem!==null&&!isCrate(r,c))board[r][c].gem=randGem();
+        if(board[r][c].active&&!board[r][c].pu&&board[r][c].gem!==null&&!isSolid(r,c))board[r][c].gem=randGem();
       }
     }
   } finally { scanFullBoard=false; }
@@ -2691,6 +2711,24 @@ function gemSVG(idx,size){
 
 // Power-up artwork — hand-drawn inline SVG creatures, one per type.
 // Same seam real art assets would use later: swap the body of this function.
+// GENERATOR TILE — the "explain" (Jed 2026-09-29): a player must read a generator at a
+// glance. A DARK fixture (the animation-contrast rule: dark bodies against the sand
+// cells) showing WHAT it makes (its special's icon), HOW OFTEN (N, top-right: every Nth
+// drop) and WHERE it drops (a chevron on the edge its flow arrow points at).
+const GEN_NAMES={helicopter:'Grasshopper',bomb:'Scarab',rainbow:'Akasha Ball',rocket_h:'Dragonfly ↔',rocket_v:'Dragonfly ↕'};
+function ordinal(n){const t=n%100,o=n%10;return n+((t>=11&&t<=13)?'th':o===1?'st':o===2?'nd':o===3?'rd':'th');}
+function genHTML(g,dir,size){
+  const d=dir||'down';
+  const edge={down:'bottom:-3px;left:50%;transform:translateX(-50%)',up:'top:-3px;left:50%;transform:translateX(-50%)',
+              left:'left:-3px;top:50%;transform:translateY(-50%)',right:'right:-3px;top:50%;transform:translateY(-50%)'}[d];
+  return '<div style="position:relative;width:'+size+'px;height:'+size+'px;border-radius:22%;'
+    +'background:radial-gradient(circle at 50% 38%,#2c2048,#110b1e);box-shadow:inset 0 0 0 2px #7a5cc0,0 1px 3px rgba(0,0,0,.6);'
+    +'display:flex;align-items:center;justify-content:center;">'
+    +puSVG(g.emit,Math.round(size*0.56))
+    +'<span style="position:absolute;top:2px;right:4px;font:700 '+Math.max(9,Math.round(size*0.27))+'px/1 sans-serif;color:#ffcb6b;text-shadow:0 0 3px #000">≤'+g.every+'</span>'
+    +'<span style="position:absolute;'+edge+';line-height:0">'+chevronSVG(d,Math.round(size*0.34),'#c792ea')+'</span>'
+    +'</div>';
+}
 function puSVG(type,size){
   const s=size||44,h=s/2;
   let art='';
@@ -2866,11 +2904,13 @@ function buildCellEl(r,c,dropping){
       el.style.borderRadius='0';
       el.style.boxShadow='0 0 0 1.5px '+o.color;
     }}
-    // Middle layer: item, power-up, or gem (mutually exclusive)
-    if(cd.item){const o=OBS_TYPES.find(x=>x.id===cd.item);if(o)inner.innerHTML=obsSVG(o,gemSize());}
+    // Middle layer: generator, item, power-up, or gem (mutually exclusive)
+    if(cd.gen){inner.innerHTML=genHTML(cd.gen,flow[r]&&flow[r][c],gemSize());
+      el.title='Generator — a '+(GEN_NAMES[cd.gen.emit]||cd.gen.emit)+' on a random drop from the 2nd to the '+ordinal(cd.gen.every)+' (always by the '+ordinal(cd.gen.every)+')';}
+    else if(cd.item){const o=OBS_TYPES.find(x=>x.id===cd.item);if(o)inner.innerHTML=obsSVG(o,gemSize());}
     else if(cd.pu){inner.innerHTML=puSVG(cd.pu,gemSize());}
     else if(cd.gem!==null){inner.innerHTML=gemSVG(cd.gem,gemSize());}
-    else if(!cd.sub&&!cd.obs){el.classList.add('empty-hint');}
+    else if(!cd.sub&&!cd.obs&&!cd.gen){el.classList.add('empty-hint');}
     // Top layer: overlay obstacle (chain/leaf) — renders over gem, semi-transparent
     if(cd.obs){
       const ov=document.createElement('div');
@@ -3023,7 +3063,7 @@ function boardCounts(){
   let clover=0,key=0,acorn=0,crate=0;
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     const cd=board[r][c]; if(!cd||!cd.active)continue;
-    if(!isCrate(r,c)&&cd.sub!=='clover')clover++;
+    if(!isSolid(r,c)&&cd.sub!=='clover')clover++;
     if(cd.item==='key')key++;
     if(cd.item==='acorn')acorn++;
     if(isCrate(r,c))crate++;                       // any-HP crate cell = one to clear
@@ -3116,7 +3156,7 @@ function recommendObjectives(){
 // records the cell TYPE only. Layers 3 (Source) + 7 (Borders) are unpainted for
 // MVP-25 → they emit "none" and round-trip trivially.
 //   L1 Board '#'active '.'hole   L2 Flow v^<>   L3 Source '.'(none)
-//   L4 Substrate 'c'lover 'o'il '.'   L5 Contents g/e/k/a/x + PU(S,H,V,A,W)
+//   L4 Substrate 'c'lover 'o'il '.'   L5 Contents g/e/k/a/x/G(enerator) + PU(S,H,V,A,W)
 //   L6 Overlay 'B'ind 'L'eaf '.'      L7 Borders []
 const PU_CH={helicopter:'S',rocket_h:'H',rocket_v:'V',bomb:'A',rainbow:'W'};
 function serializeLevel(){
@@ -3130,6 +3170,7 @@ function serializeLevel(){
     substrate: grid(cd=>!cd.active?'.':cd.sub==='clover'?'c':cd.sub==='oil'?'o':'.'),
     contents:  grid((cd,r,c)=>{
       if(!cd.active)return '.';
+      if(cd.gen){cprops['R'+r+'C'+c]={gen:{emit:cd.gen.emit,every:cd.gen.every}};return 'G';} // generator: settings ride in props (the drop counter is runtime, not saved)
       if(isCrate(r,c)){const hp=+cd.obs.replace('crate','')||1;if(hp>1)cprops['R'+r+'C'+c]={hp};return 'x';}
       if(cd.pu)return PU_CH[cd.pu]||'?';
       if(cd.item==='key')return 'k';
@@ -3402,6 +3443,7 @@ function buildObsPal(){
   const containers={sub:'subpal',obs:'ovlpal',item:'itmpal'};
   Object.values(containers).forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
   const blkEl=document.getElementById('blkpal');if(blkEl)blkEl.innerHTML='';
+  const genEl=document.getElementById('genpal');if(genEl)genEl.innerHTML='';
   const allPalDivs=[];
   // Helper: create a palette div with click behavior
   const makeDiv=(id,html,title,targetEl)=>{
@@ -3419,7 +3461,7 @@ function buildObsPal(){
     return d;
   };
   // Add clear icon to each section
-  const clearIds={subpal:'_clear_sub',ovlpal:'_clear_obs',blkpal:'_clear_obs',itmpal:'_clear_item'};
+  const clearIds={subpal:'_clear_sub',ovlpal:'_clear_obs',blkpal:'_clear_obs',genpal:'_clear_gen',itmpal:'_clear_item'};
   Object.entries(clearIds).forEach(([palId,clearId])=>{
     const p=document.getElementById(palId);if(!p)return;
     makeDiv(clearId,clearXSVG(34),'Clear this layer',p);
@@ -3436,6 +3478,17 @@ function buildObsPal(){
     if(obs.layer==='sub'){d.style.background=obs.color;d.style.borderRadius='2px';}
     else if(obs.layer==='obs'){d.style.background='#d4b483';}
   });
+  // GENERATOR swatch — draws the current settings, so what you paint is what you see
+  if(genEl){
+    const d=document.createElement('div');
+    d.style.cssText='width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#1a1020;';
+    d.innerHTML=genHTML(genCfg,'down',34);
+    d.title='Generator — drops gems into the cell its flow arrow points at, plus a '+GEN_NAMES[genCfg.emit]+' on a random drop from the 2nd to the '+ordinal(genCfg.every);
+    d.dataset.bid='gen:gen';
+    if(selBrush.type==='gen')d.style.borderColor='#c8a8ff';
+    d.onclick=()=>pickBrush('gen','gen',d);
+    genEl.appendChild(d);
+  }
   buildSrcPal();      // Layer 3 Source swatches (Inlet)
   markLevelBrushes(); // promote the swatches this level actually uses
 }
@@ -3465,6 +3518,16 @@ function buildSrcPal(){
 // swatch + the Base brush, so exactly one thing is ever selected — the Smalltalk-
 // browser model. Replaces the old per-palette cross-clearing that let a stale
 // selPU/selObs hijack paintCell (the "gem won't paint on a cleared clover cell" bug).
+// Generator brush settings. every >= 2 so a generator ALWAYS makes gems (Jed: "will
+// always generate gems") — N=1 would make it a power-up fountain.
+let genCfg={emit:'helicopter',every:5};
+function setGenCfg(){
+  const e=document.getElementById('gen-emit'), n=document.getElementById('gen-every');
+  const every=Math.min(30,Math.max(2,Math.round(+n.value)||5)); n.value=every;
+  genCfg={emit:e.value,every};
+  buildObsPal();                                            // the swatch shows the new special + N
+  pickBrush('gen','gen',document.querySelector('[data-bid="gen:gen"]')); // changing the settings = you mean to paint one
+}
 function pickBrush(type,id,el){
   selBrush={type,id};
   // Grabbing a swatch engages a paint layer (mirrors setBase engaging Base). Tile
@@ -3473,7 +3536,7 @@ function pickBrush(type,id,el){
   // swatch the author just filtered away, one click after filtering them.
   if(layer!=='tile'&&layer!=='obstacle')setLayer('tile');
   document.querySelectorAll('#base-pal .bbtn').forEach(b=>b.classList.remove('on')); // Base is a different layer — drop its highlight
-  document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#itmpal div')
+  document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#genpal div,#itmpal div')
     .forEach(x=>x.style.borderColor='transparent');
   if(el)el.style.borderColor='#c8a8ff';
 }
@@ -3494,6 +3557,7 @@ function markLevelBrushes(){
     if(cd.sub)present.add('obs:'+cd.sub);
     if(cd.obs)present.add('obs:'+cd.obs);
     if(cd.item)present.add('obs:'+cd.item);
+    if(cd.gen)present.add('gen:gen');
   }
   document.querySelectorAll('[data-bid]').forEach(el=>{
     el.style.boxShadow=present.has(el.dataset.bid)?'inset 0 0 0 2px #7F77DD':'none';
@@ -3505,23 +3569,25 @@ function markLevelBrushes(){
 // NOT invented here — it is PAINTER-LAYER-MODEL.md's locked taxonomy, collapsed
 // onto the five layer buttons the editor actually has:
 //   Base     → Layer 1 Board
-//   Tile     → Layer 5 Contents (gem · power-up · block · item) + Layer 3 Source,
-//              which paints on the same click pass
-//   Obstacle → Layer 4 Substrate + Layer 6 Overlay + the blocks that are authored
-//              as obstacles (a crate is Contents by schema, an obstacle by intent)
-//   Flow     → no swatches: the direction bar in the toolbar IS the tool
+//   Tile     → Layer 5 Contents (gem · power-up · item) + Layer 3 Source, which
+//              paints on the same click pass
+//   Obstacle → Layer 4 Substrate + Layer 6 Overlay + Blocks + Generators. Blocks and
+//              generators are Contents by SCHEMA but obstacles by INTENT, and they
+//              live in this menu ONLY (Jed 2026-09-30) — showing them under Tile too
+//              was confusing. The saved JSON is unchanged: still layers.contents.
+//   Flow     → the four direction brushes + Fill board (flow-pal)
 //   Border   → Layer 7, NOT IMPLEMENTED — paintCell has no 'border' branch at all,
 //              so the layer paints nothing whatever the palette shows.
 const LAYER_SECTIONS={
   base:    ['base-pal'],
-  tile:    ['gem-pal','pu-pal','src-pal','blk-pal','itm-pal'],
-  obstacle:['sub-pal','ovl-pal','blk-pal'],
+  tile:    ['gem-pal','pu-pal','src-pal','itm-pal'],
+  obstacle:['sub-pal','ovl-pal','blk-pal','gen-pal'],   // Blocks live in Obstacle ONLY (Jed 2026-09-30)
   flow:    ['flow-pal'],
   border:  [],
 };
 function applyLayerPalette(){
   const shown=LAYER_SECTIONS[layer]||[];
-  ['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','itm-pal'].forEach(id=>{
+  ['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','gen-pal','itm-pal'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.style.display=shown.includes(id)?'':'none';
   });
@@ -3601,26 +3667,28 @@ function paintCell(r,c){
     // painted gem colour is never serialized — so each was a tool that edited data
     // the save discards, on the one brush type where that is true. Erase stays: it
     // clears every layer of a cell, which IS saved.
-    if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;}
+    if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;cd.gen=null;}
     else if(tool==='paint'){
       save();
       if(b.type==='clear'){                                             // clear-brush: null one layer, leave the rest
         if(b.id==='_clear_sub')cd.sub=null;
         else if(b.id==='_clear_obs')cd.obs=null;
+        else if(b.id==='_clear_gen')cd.gen=null;                         // Generators section clear
         else if(b.id==='_clear_item')cd.item=null;
         else if(b.id==='_clear_pu')cd.pu=null;
         else if(b.id==='_clear_src')cd.source=null;
       }
       else if(b.type==='source'){cd.source=b.id;}                       // Layer 3 Inlet — additive spawn marker, keeps contents
-      else if(b.type==='empty'){cd.gem=null;cd.pu=null;cd.item=null;cd.startEmpty=true;} // Contents=Empty: active but gem-free until move #1 (field.empty); keeps sub (clover ground)
-      else if(b.type==='gem'){cd.gem=b.id;cd.pu=null;cd.item=null;cd.startEmpty=false;}  // gem replaces PU/item, un-empties, keeps sub/obs
-      else if(b.type==='pu'){cd.pu=b.id;cd.gem=null;cd.startEmpty=false;}                // PU replaces gem, un-empties, keeps sub/obs
+      else if(b.type==='gen'){cd.gen={emit:genCfg.emit,every:genCfg.every,n:0,k:0};cd.gem=null;cd.pu=null;cd.item=null;cd.obs=null;cd.startEmpty=false;} // Layer 5 fixture: occupies the cell
+      else if(b.type==='empty'){cd.gem=null;cd.pu=null;cd.item=null;cd.startEmpty=true;cd.gen=null;} // Contents=Empty: active but gem-free until move #1 (field.empty); keeps sub (clover ground)
+      else if(b.type==='gem'){cd.gem=b.id;cd.pu=null;cd.item=null;cd.startEmpty=false;cd.gen=null;}  // gem replaces PU/item, un-empties, keeps sub/obs
+      else if(b.type==='pu'){cd.pu=b.id;cd.gem=null;cd.startEmpty=false;cd.gen=null;}                // PU replaces gem, un-empties, keeps sub/obs
       else if(b.type==='obs'){
         const ot=OBS_TYPES.find(x=>x.id===b.id);
         if(ot.layer==='sub'){cd.sub=b.id;}                             // substrate: additive, doesn't touch gem/obs (clover can sit under an empty cell)
-        else if(ot.layer==='obs'&&ot.solid){cd.obs=b.id;cd.gem=null;cd.pu=null;cd.startEmpty=false;} // solid block: replaces gem
+        else if(ot.layer==='obs'&&ot.solid){cd.obs=b.id;cd.gem=null;cd.pu=null;cd.startEmpty=false;cd.gen=null;} // solid block: replaces gem (and a generator)
         else if(ot.layer==='obs'){cd.obs=b.id;}                        // overlay: additive, sits over gem
-        else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=b.id;cd.startEmpty=false;} // item: occupies gem slot
+        else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=b.id;cd.startEmpty=false;cd.gen=null;} // item: occupies gem slot
       }
     }
   } else if(layer==='flow'){
@@ -3864,7 +3932,7 @@ function togglePlay(sandbox=true){
     // solid box with no gem inside, so filling it planted an invisible gem that
     // find3 matched THROUGH (crates weren't excluded from the match scan). Skip
     // crates (isCrate); they refill normally once broken.
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isCrate(r,c))board[r][c].gem=randGem();
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isSolid(r,c))board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
     if(!flyover&&!hasValidMove())shuffleBoard(); // opening board must have a move (skip authored flyover boards)
     editorSandboxPlay=sandbox; playerMode=true;
@@ -3964,6 +4032,15 @@ const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2',
 function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
 function isLeafy(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('leaf'));}
 function isCrate(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('crate'));}
+// GENERATOR (Jed 2026-09-29, for Township 26-50) — a PERMANENT Contents-layer fixture
+// (PAINTER-LAYER-MODEL locked call #3). Solid like a crate — gems route around it, it
+// can't be swapped or filled — but NEVER damaged and never counted as a crate. Each time
+// the cell its FLOW ARROW points at is empty it drops something in: gems, plus one special
+// (a power-up) per cycle on a random drop from the 2nd to the Nth. cd.gen = {emit, every,
+// n, k}: `every` = N (the ceiling), `n` = drops this cycle, `k` = this cycle's rolled
+// special drop. n/k are runtime only — not saved; undo (a board snapshot) rewinds them.
+function isGen(r,c){return !!board[r][c].gen;}
+function isSolid(r,c){return isCrate(r,c)||isGen(r,c);} // "a wall" for gravity, swaps, fills
 function damageChain(r,c){
   const wasLeaf=isLeafy(r,c);
   const wasCrate=isCrate(r,c); // capture BEFORE obs is walked down — the crate-goal tick fires on its full break
@@ -4006,6 +4083,7 @@ function clearCell(r,c,phaseSet){
   if(phaseSet.has(k)) return; // already cleared this phase
   if(!inPlayWindow(r,c)) return; // flyover HARD RULE: no clear outside the camera
                                  // window — a blast/beam stops dead at the boundary
+  if(isGen(r,c)) return;         // a generator is permanent — blasts pass over it untouched
   // CHAIN ABSORB: one hit per phase; the gem is untouched and NOT counted cleared
   if(isChained(r,c)){
     phaseSet.chainHits=phaseSet.chainHits||new Set();
@@ -4146,7 +4224,7 @@ function autoGrasshopperTarget(r,c,excludeSet){
     :                    {kind:'collect',gemIdx:0,need:o.count,have:0});
   let goal=null,bestNeed=0;
   goals.forEach(g=>{const rem=g.need-g.have;if(rem>bestNeed){bestNeed=rem;goal=g;}});
-  const shielded=(nr,nc)=>isChained(nr,nc)||isCrate(nr,nc)||isLeafy(nr,nc);
+  const shielded=(nr,nc)=>isChained(nr,nc)||isSolid(nr,nc)||isLeafy(nr,nc);
   const advances=(nr,nc)=>{
     const cd=board[nr][nc];
     if(!goal)return cd.gem!==null;                                    // no goals → any gem
@@ -4291,7 +4369,7 @@ function hasValidMove(){
   const trySwap=(r1,c1,r2,c2)=>{
     if(!board[r1][c1].active||!board[r2][c2].active)return false;
     if(!inPlayWindow(r1,c1)||!inPlayWindow(r2,c2))return false;
-    if(isChained(r1,c1)||isChained(r2,c2)||isCrate(r1,c1)||isCrate(r2,c2))return false;
+    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2))return false;
     if(board[r1][c1].gem===null&&board[r2][c2].gem===null)return false; // nothing to move
     const g1=board[r1][c1].gem,g2=board[r2][c2].gem;
     board[r1][c1].gem=g2;board[r2][c2].gem=g1;
@@ -4340,7 +4418,7 @@ function enumerateHintMoves(){
   const trySwap=(r1,c1,r2,c2)=>{
     if(!board[r1][c1].active||!board[r2][c2].active) return null;
     if(!inPlayWindow(r1,c1)||!inPlayWindow(r2,c2)) return null;
-    if(isChained(r1,c1)||isChained(r2,c2)||isCrate(r1,c1)||isCrate(r2,c2)) return null;
+    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2)) return null;
     if(board[r1][c1].gem===null&&board[r2][c2].gem===null) return null;
     const g1=board[r1][c1].gem,g2=board[r2][c2].gem;
     board[r1][c1].gem=g2;board[r2][c2].gem=g1;
@@ -4498,7 +4576,7 @@ function shuffleBoard(){
   const cells=[],gems=[];
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     if(board[r][c].active&&board[r][c].gem!==null&&!board[r][c].pu&&!isChained(r,c)
-       &&!isCrate(r,c)&&!board[r][c].item&&inPlayWindow(r,c)){cells.push([r,c]);gems.push(board[r][c].gem);}
+       &&!isSolid(r,c)&&!board[r][c].item&&inPlayWindow(r,c)){cells.push([r,c]);gems.push(board[r][c].gem);}
   }
   if(cells.length<3)return false;
   for(let t=0;t<60;t++){
@@ -4787,6 +4865,7 @@ function clearCellD(r,c,phase,queue){
   if(phase.has(k))return;
   if(!inPlayWindow(r,c))return; // flyover HARD RULE: off-window cells never
                                 // detonate or clear — beams stop at the boundary
+  if(isGen(r,c))return;         // generator: permanent, no splash from its cell either
   // chain absorbs the hit — nothing underneath detonates or clears
   if(isChained(r,c)){clearCell(r,c,phase);return;}
   const pu=board[r][c].pu;
@@ -5693,8 +5772,10 @@ function playTap(r,c){
   // may have reached it since. Both ends of a swap must be still RIGHT NOW.
   if(!Motion.quietAt(sr,sc)||!Motion.quietAt(r,c)){render();return;}
   if(Math.abs(sr-r)+Math.abs(sc-c)!==1){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
-  // Chained gems cannot MOVE — the swap bounces; match them in place instead
-  if(isChained(sr,sc)||isChained(r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
+  // Chained gems cannot MOVE — the swap bounces; match them in place instead. Solid
+  // fixtures (crates, generators) can't be swapped at all — a drag into one bounces
+  // rather than carrying a gem into a cell it can't occupy.
+  if(isChained(sr,sc)||isChained(r,c)||isSolid(sr,sc)||isSolid(r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
   window._swapPU=0;window._comboSwap=false; // star sensor: new move, new count
@@ -5932,7 +6013,7 @@ function gravityWithMap(){
   // fill target. Without this a gem fell straight INTO the crate cell and vanished
   // behind the box (Jed's "gems disappearing into crates", 2026-07-24). Broken
   // crates clear their obs, so isCrate goes false and the cell refills normally.
-  const emptyActive=(r,c)=>inGrid(r,c)&&board[r][c].active&&!occ(r,c)&&!isCrate(r,c);
+  const emptyActive=(r,c)=>inGrid(r,c)&&board[r][c].active&&!occ(r,c)&&!isSolid(r,c);
 
   // carrier[r][c] = move record of the gem sitting at (r,c) IF it has already
   // moved this gravity pass — lets one gem accumulate a multi-bend path.
@@ -5978,7 +6059,7 @@ function gravityWithMap(){
   };
   const entry=board.map((row,r)=>row.map((cd,c)=>{
     if(!cd.active)return false;
-    if(isCrate(r,c))return false;                          // a solid crate is never a spawn source
+    if(isSolid(r,c))return false;                         // a solid crate / generator is never an open-sky source
     if(fedByNeighbor(r,c))return false;                    // something feeds it → not a source
     const [dr,dc]=vecAt(r,c);
     // Only TRUE open sky — the upstream is OFF THE BOARD (top edge) — is a base
@@ -6012,7 +6093,7 @@ function gravityWithMap(){
   // other — the active-cell mask (see animateFall) hides the descent over the
   // holes, so no special "fade in place" case is needed (Jed, 2026-08-06).
   if(!paintedInlet){ // authoritative sources suppress starved-pocket promotion — cells no Inlet can reach stay empty by design
-    const feed=board.map((row,r)=>row.map((cd,c)=>cd.active&&entry[r][c]));
+    const feed=board.map((row,r)=>row.map((cd,c)=>cd.active&&(entry[r][c]||!!cd.gen))); // a generator is its own spring
     for(;;){
       let grew=false;
       for(let r=0;r<R;r++)for(let c=0;c<C;c++){
@@ -6151,6 +6232,7 @@ function gravityWithMap(){
       for(;;){
         if(!inGrid(br,bc))break;                       // open sky: spawns feed it
         if(!board[br][bc].active){blockedForever=true;break;} // hole gap
+        if(isGen(br,bc))break;                         // a generator feeds this cell — wait for its drop, don't slip
         if(isCrate(br,bc)){blockedForever=true;break;} // solid box: gems route around it like a hole
         if(occ(br,bc)){blockedForever=isChained(br,bc)||(!!board[br][bc].item&&!isFaller(br,bc));break;} // a falling key isn't a forever-block — gems follow it down, not slip around
         br+=fdr;bc+=fdc;                               // empty active: keep walking toward the source
@@ -6181,13 +6263,33 @@ function gravityWithMap(){
       // spawn. Without this, a sealed region with no open-sky feed got PROMOTED
       // to a starved-pocket source and spawned gems from below — L25's
       // canal filled its bottom sections from the bottom edge up (Jed, 2026-07-25).
-      if(!entry[r][c]||occ(r,c)||isCrate(r,c)||board[r][c].startEmpty)continue; // never spawn into a solid crate or an authored-empty cell
+      if(!entry[r][c]||occ(r,c)||isSolid(r,c)||board[r][c].startEmpty)continue; // never spawn into a solid crate or an authored-empty cell
       const [dr,dc]=vecAt(r,c);
       const n=++spawnN[r][c];
       board[r][c].gem=randGem();board[r][c].pu=null;
       const m={gem:board[r][c].gem,pu:null,fr:r-dr*n,fc:c-dc*n,tr:r,tc:c,isNew:true,
                path:[{r:r-dr*n,c:c-dc*n},{r,c}]}; // every source FALLS in; the active-cell mask hides the descent over holes
       moves.push(m);carrier[r][c]=m;progress=true;
+    }
+    // 4) GENERATORS (Jed 2026-09-29/30) — each drops into the cell its flow arrow points
+    //    at WHENEVER that cell is empty: gems, and one special per cycle. `every` (N) is a
+    //    CEILING: each cycle rolls its special's drop at random from the 2nd to the Nth —
+    //    "sometimes the 3rd, sometimes the 4th, always by the 5th". Drop 1 of a cycle is
+    //    always a gem, so a generator never makes back-to-back specials. The drop visibly
+    //    slides OUT of the generator (its path starts on the generator's own cell).
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      const g=board[r][c].gen;
+      if(!g||!board[r][c].active)continue;
+      const [dr,dc]=vecAt(r,c), tr=r+dr, tc=c+dc;
+      if(!emptyActive(tr,tc))continue;                 // its target is full, off-board, a hole or a fixture
+      if(!g.k)g.k=2+Math.floor(Math.random()*(Math.max(2,g.every)-1)); // this cycle's special drop: 2..N
+      g.n=(g.n||0)+1;                                  // drops so far this cycle
+      const special=g.n>=g.k;
+      if(special){g.n=0;g.k=0;}                        // cycle done — the next one rolls again
+      const pu=special?g.emit:null;                    // the architect picks the exact PU (Dragonfly ↔ or ↕, never a coin flip)
+      board[tr][tc].gem=special?null:randGem(); board[tr][tc].pu=pu;
+      const m={gem:board[tr][tc].gem,pu,fr:r,fc:c,tr,tc,isNew:true,path:[{r,c},{r:tr,c:tc}]};
+      moves.push(m);carrier[tr][tc]=m;progress=true;
     }
     if(!progress)break;
   }
@@ -7380,6 +7482,10 @@ function loadCanonicalLayers(json){
         if(sb==='c')cell.sub='clover'; else if(sb==='o')cell.sub='oil';
         const ct=at(L.contents,r,c);                          // L5 Contents
         if(ct==='x'){const hp=(cprops['R'+r+'C'+c]||{}).hp||1;cell.obs='crate'+hp;} // solid box
+        else if(ct==='G'){                                     // generator — permanent fixture
+          const g=(cprops['R'+r+'C'+c]||{}).gen||{};
+          cell.gen={emit:GEN_NAMES[g.emit]?g.emit:'helicopter',every:Math.min(30,Math.max(2,Math.round(+g.every)||5)),n:0,k:0};
+        }
         else if(PU_FROM[ct])cell.pu=PU_FROM[ct];
         else if(ct==='k')cell.item='key';
         else if(ct==='a')cell.item='acorn';

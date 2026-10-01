@@ -72,6 +72,58 @@ window.runInvariants = async function(){
     ok('L2 · no gem ever sits in an inactive hole', holeGem===0, holeGem);
     ok('L2 · no gem flies/spawns FROM a hole', flyFromHole===0, flyFromHole);
 
+    // 2d. GENERATORS (Jed 2026-09-29/30, Township 26-50): a permanent fixture that drops
+    // into the cell its flow arrow points at EVERY time that cell is cleared — gems, plus
+    // one special per cycle on a random drop from the 2nd to the Nth (N = a ceiling).
+    // Pinned: the cycle bounds, "nothing ever enters it", "nothing ever breaks it",
+    // "it never swaps", and the save round-trip.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    {
+      const GR=2,GC=3, TR=3, TC=3;                         // generator flows DOWN into (3,3)
+      const gcd=board[GR][GC]; gcd.gem=null;gcd.pu=null;gcd.obs=null;gcd.item=null;
+      const clearDrops=(n)=>{ const d=[];
+        for(let i=0;i<n;i++){ board[TR][TC].gem=null; board[TR][TC].pu=null; gravityWithMap();
+          d.push(board[TR][TC].pu?board[TR][TC].pu:(board[TR][TC].gem!==null?'gem':'EMPTY')); }
+        return d; };
+      // cycle lengths = drops from one special to the next, inclusive of the special
+      const cycles=(d)=>{ const out=[]; let run=0; for(const x of d){ run++; if(x!=='gem'){out.push(run);run=0;} } return out; };
+      gcd.gen={emit:'bomb',every:5,n:0,k:0}; flow[GR][GC]='down';
+      const d5=clearDrops(60), c5=cycles(d5);
+      ok('generator · refills its target every time it is cleared (60 clears, never left empty)', !d5.includes('EMPTY'), d5.indexOf('EMPTY'));
+      ok('generator · N=5 is a CEILING: every special lands on drop 2..5 of its cycle',
+         c5.length>=12&&c5.every(n=>n>=2&&n<=5), c5);
+      ok('generator · the special really varies within the range (not a fixed rhythm)', new Set(c5).size>=2, [...new Set(c5)]);
+      ok('generator · only its chosen special is emitted', d5.every(x=>x==='gem'||x==='bomb'), [...new Set(d5)]);
+      gcd.gen={emit:'bomb',every:2,n:0,k:0};
+      const c2=cycles(clearDrops(20));
+      ok('generator · N=2 is exact: a special on every 2nd drop', c2.length===10&&c2.every(n=>n===2), c2);
+      // nothing ever falls INTO it, whatever gravity does around it
+      let intoGen=0;
+      for(let i=0;i<12;i++){
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].active&&!board[r][c].gen&&Math.random()<0.5){board[r][c].gem=null;board[r][c].pu=null;}
+        gravityWithMap(); if(board[GR][GC].gem!==null||board[GR][GC].pu)intoGen++;
+      }
+      ok('generator · no gem or power-up ever enters the generator cell (12-pass stress)', intoGen===0, intoGen);
+      // permanent: a blast over it (Scarab 3×3 centred beside it) leaves it untouched
+      const ph=new Set(); for(const [r,c] of scarabCells(GR,GC+1)) clearCellD(r,c,ph,[]);
+      ok('generator · a blast passes over it — still there, same settings',
+         !!board[GR][GC].gen&&board[GR][GC].gen.emit==='bomb'&&board[GR][GC].gen.every===2, board[GR][GC].gen);
+      // it is not a piece: no move ever swaps it
+      const hm=enumerateHintMoves();
+      ok('generator · never offered as a swap', hm.every(m=>m.swap.every(([r,c])=>!(r===GR&&c===GC))), hm.length);
+      // saves as 'G' + its settings, loads back with the counter reset to 0
+      board[GR][GC].gen.every=3; board[GR][GC].gen.n=7; board[GR][GC].gen.k=2;   // runtime state that must NOT be saved
+      const ser=serializeLevel();
+      const pr=(ser.props&&ser.props.contents||{})['R'+GR+'C'+GC];
+      ok('generator · serializes as G with its settings in props',
+         ser.layers.contents[GR][GC]==='G'&&pr&&pr.gen&&pr.gen.emit==='bomb'&&pr.gen.every===3&&pr.gen.n===undefined&&pr.gen.k===undefined, {ch:ser.layers.contents[GR][GC],pr});
+      loadLevelData(JSON.parse(JSON.stringify(ser)),1);
+      const lg=board[GR][GC].gen;
+      ok('generator · loads back with the same settings and a fresh cycle', !!lg&&lg.emit==='bomb'&&lg.every===3&&lg.n===0&&lg.k===0, lg);
+      ok('generator · serialize→load→serialize is a fixed point', JSON.stringify(serializeLevel())===JSON.stringify(ser), 'diverged');
+    }
+    await startPlayerLevel(1,false); await wait(45);       // leave a real level on the board
+
     // ═══ 3. CLOVER RULES (blank canvas, V-rocket = column) ═════════════════════
     const col=3, colClover=()=>[...Array(R).keys()].filter(r=>board[r][col].sub==='clover').length;
     await startPlayerLevel(14,false); await wait(45); // 8x7 rectangle canvas
@@ -253,7 +305,7 @@ window.runInvariants = async function(){
     // was visible on every layer, and most of them were inert). The map is the
     // contract — assert each layer's visible sections ARE its mapped ones, so a new
     // section can't quietly appear on a layer that ignores it.
-    const _visible=()=>['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','itm-pal']
+    const _visible=()=>['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','gen-pal','itm-pal']
       .filter(id=>{const e=document.getElementById(id);return e&&getComputedStyle(e).display!=='none';});
     const _palOK={};
     Object.keys(LAYER_SECTIONS).forEach(L=>{

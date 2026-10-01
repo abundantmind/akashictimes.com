@@ -49,7 +49,7 @@ Each grid is `rows` strings of `cols` characters, row-major.
 | 2 | `flow`      | `v` down · `^` up · `<` left · `>` right · `.` hole |
 | 3 | `source`    | `I` inlet · `D` drain · `.` none/hole |
 | 4 | `substrate` | `c` clover · `o` oil · `.` none/hole |
-| 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` acorn · `x` crate · `S H V A W` power-ups · `.` hole |
+| 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` acorn · `x` crate · `G` generator · `S H V A W` power-ups · `.` hole |
 | 6 | `overlay`   | `B` chain (bind) · `L` leaf · `.` none/hole |
 
 **`.` convention:** *hole* in `board`; *hole-or-none* in flow/source/substrate/overlay
@@ -65,6 +65,13 @@ and exact-dup detection work.
 ## `props` — HP companion maps (written only when hp > 1)
 
 - `props.contents` — crate HP, e.g. `{"R2C3":{hp:2}}`
+- `props.contents` — generator settings (always written for a `G` cell), e.g.
+  `{"R2C4":{"gen":{"emit":"bomb","every":5}}}`. `emit` is the special (a PU id:
+  `helicopter` Grasshopper · `bomb` Scarab · `rainbow` Akasha Ball · `rocket_h` /
+  `rocket_v` Dragonfly ↔/↕); `every` = N, 2–30, a CEILING. The generator drops into the
+  cell its own `flow` arrow points at whenever that cell is empty: gems, plus one `emit`
+  per cycle on a random drop from the 2nd to the Nth (always by the Nth). Permanent — never damaged, never counted as a crate. The drop counter is
+  runtime-only (every play starts at 0). Added 2026-09-29 for Township 26–50.
 - `props.overlay`  — chain/leaf HP, e.g. `{"R1C1":{hp:1}}`
 
 ## `objectives`
