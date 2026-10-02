@@ -2252,6 +2252,7 @@ function openEditor(){
     nextBundleLevelNum(tgtBundle).then(n=>{curLevelNum=n;updEditorFrame();}); // async dir read → HUD catches up
   updUB();updEditorFrame(); // a fresh board has no level# yet → HUD shows "—"
   updateBundleSaveBtn();    // show "▽ Save to <bundle>" when this new level targets a user bundle
+  document.getElementById('btn-to-bundle').style.display=saveTargetBundle?'':'none'; // ＋ from a bundle → "← Levels" returns there
 }
 
 // ── Township templates — gift the free levels to Architects as starting points ──
@@ -2427,13 +2428,16 @@ function editBundleLevel(n){editorBundle=productsView;productsView=null;closePro
 // Editor "← Levels" — back to the origin bundle's level grid (like Play mode's
 // back nav). Tears the editor down via goHome (restores GEM_POOL etc.), then
 // re-opens the picker straight to the bundle. Auth-gated like openProducts.
+// The origin is either a built-in bundle (editorBundle) or one of the architect's
+// own folder bundles (saveTargetBundle) — Jed 2026-10-01: Esc must go back ONE step,
+// to the level grid, not all the way home.
 function editorToBundle(){
-  const b=editorBundle;
+  const b=editorBundle, ub=saveTargetBundle;   // read before goHome clears both
   goHome();
-  if(!b)return;
+  if(!b&&!ub)return;
   if(AUTH_ENABLED && !isLocalDev() && window.AkashicAuth && !AkashicAuth.user){ AkashicAuth.open(); return; }
   document.getElementById('products').classList.add('open');
-  renderBundleLevels(b);
+  if(ub) openUserBundle(ub); else renderBundleLevels(b);
 }
 
 // ═══ USER BUNDLES — a bundle = a FOLDER OF REAL JSON FILES on the architect's
@@ -7452,7 +7456,18 @@ const ESC_CLOSABLE=['ghelp','leaderboard','settings','products','setup-wrap','ps
 function closeTopOverlay(){
   for(const id of ESC_CLOSABLE){
     const el=document.getElementById(id);
-    if(el&&el.classList.contains('open')){el.classList.remove('open');return true;}
+    if(!el||!el.classList.contains('open'))continue;
+    // ONE step back, not out (Jed 2026-10-01). Bundle picker: a level grid → the bundle list.
+    if(id==='products'&&(productsView!=null||currentUserBundle!=null)){ productsView=null; currentUserBundle=null; renderProductsList(); return true; }
+    el.classList.remove('open');
+    // New-level dialog is only ever opened from the picker → Esc returns there: the bundle's
+    // level grid when adding to a bundle (＋), else the bundle list ("+ New level").
+    if(id==='setup-wrap'){
+      const ub=saveTargetBundle; saveTargetBundle=null; bundleEditNum=null;
+      document.getElementById('products').classList.add('open');
+      if(ub) openUserBundle(ub); else renderProductsList();
+    }
+    return true;
   }
   return false;
 }
@@ -7464,7 +7479,7 @@ function navBack(){
     if(lastPView==='grid'){playerBack();return;}                                     // level grid → bundles
     goPlayerHome();return;                                                           // bundles → Create/Explore
   }
-  if(document.getElementById('editor').style.display!=='none'){goHome();return;}      // editor board → home
+  if(document.getElementById('editor').style.display!=='none'){editorToBundle();return;} // editor board → its bundle's level grid (or home if it has none)
 }
 // Point the one back button at whichever step is behind THIS screen.
 function setBackBtn(key){
