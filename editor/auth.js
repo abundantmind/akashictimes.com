@@ -300,6 +300,18 @@ const AkashicAuth = {
     return { ok:true, id: data && data.id };
   },
 
+  // Draft / In review / Published for the architect's LOCAL bundle folders: each
+  // folder's bundle.json remembers the row ids its submissions created, and this
+  // reads back their `published` flag. RLS ("read published or own") lets an author
+  // see their own drafts; signed out, only published rows come back — a missing id
+  // just stays "In review". Returns { id: published }.
+  async bundleStatuses(ids){
+    if(!ids || !ids.length) return {};
+    const { data, error } = await supabase.from('bundles').select('id,published').in('id', ids);
+    if(error){ console.warn('[auth] bundleStatuses failed', error.message); return {}; }
+    const out = {}; (data || []).forEach(r => { out[r.id] = !!r.published; }); return out;
+  },
+
   // ── Marketplace browse (Explore → community bundles, [[project_marketplace_pivot]]).
   // Read side of the submission pipeline above: list every APPROVED bundle
   // (published=true — Jed's hand-flip is the only path to true) so a real

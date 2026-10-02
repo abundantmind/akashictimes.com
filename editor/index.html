@@ -290,6 +290,10 @@ body.font-lg{--base-font:20px;}
 .bfoot{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:14px;flex:none;}
 #products .bfoot .prod-close{margin-top:0;}
 #products .pmsg a{color:#c8a8ff;}
+/* bundle status pill (Jed 2026-10-01): Draft · In review · 🔒 Published */
+.pc-tag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:4px;font-size:10px;letter-spacing:.06em;vertical-align:1px;border:0.5px solid #3d2060;color:#8a74b0;}
+.pc-tag.review{border-color:#7a6a2a;color:#e0c070;}
+.pc-tag.published{border-color:#2f7a52;color:#7fd8a4;}
 @media (max-width:600px){
   #products .wbox:has(.bcols){overflow:auto;}
   .bcols{grid-template-columns:1fr;grid-template-rows:none;flex:none;}
@@ -298,6 +302,19 @@ body.font-lg{--base-font:20px;}
 .prodlvls{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:4px;}
 .prodlvl{padding:12px 0;border:0.5px solid #2d2040;border-radius:8px;cursor:pointer;color:#c9b8e8;background:#160c24;font-size:var(--fz-base);font-family:var(--font-sans);transition:border-color .15s,background .15s;}
 .prodlvl:hover{border-color:#c792ea;background:#1e1130;}
+/* approved for submission (won in ▶ Play, then ✓ Approve) — green edge + tick */
+.prodlvl.approved{border-color:#4caf7a;color:#bfe8cf;position:relative;}
+.prodlvl.approved::after{content:'✓';position:absolute;top:2px;right:5px;font-size:10px;color:#4caf7a;}
+/* Submit before 25 approved levels: dimmed, but clickable — the click explains why */
+#products .prod-submit.gated{opacity:.55;}
+/* Submit gate popup (Jed 2026-10-01) — sits above the bundle picker */
+#submit-gate{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:230;padding:16px;}
+#submit-gate.open{display:flex;}
+#submit-gate .sg-box{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:22px 24px;max-width:420px;width:100%;font-family:var(--font-sans);color:#c9b8e8;font-size:var(--fz-sm);line-height:1.5;}
+#submit-gate h3{color:#c792ea;font-weight:500;font-size:var(--fz-lg);margin:0 0 10px;}
+#submit-gate p{margin:0 0 10px;}
+#submit-gate .sg-count{color:#e0d0ff;}
+#submit-gate button{margin-top:6px;background:#2a1d48;border:0.5px solid #6a4aaa;border-radius:6px;color:#e0d0ff;padding:8px 22px;cursor:pointer;font-family:var(--font-sans);}
 .new-btn:hover{border-color:#c792ea;color:#c792ea;background:#0d0818;}
 
 /* ── GRID SETUP MODAL ── */
@@ -485,6 +502,14 @@ body.player-playing #eframe{display:contents;background:none;}
 .objempty{font-size:var(--fz-sm);color:#5a4a7a;font-style:italic;margin:3px 0;}
 #sbar{padding:3px 10px;font-size:var(--fz-sm);color:#5a4a7a;background:#0d0a14;border-top:0.5px solid #1a1530;display:flex;gap:12px;flex-shrink:0;}
 .mbadge{padding:2px 7px;font-size:var(--fz-sm);border-radius:4px;background:#1a3a1a;color:#4a9a4a;}
+/* PUBLISHED = READ-ONLY (Jed 2026-10-01): a published bundle's level opens to view and
+   ▶ Play only — every authoring control is hidden and the board ignores paint clicks. */
+#ro-badge{display:none;padding:2px 8px;font-size:var(--fz-sm);border-radius:4px;background:#2a1d48;color:#e0c070;border:0.5px solid #6a4aaa;}
+body.level-readonly #ro-badge{display:inline-block;}
+body.level-readonly .edit-only{display:none!important;}
+body.level-readonly #objlist{pointer-events:none;}
+body.level-readonly #objlist button{display:none;}                       /* no ✕ remove on a final level */
+body.level-readonly #objlist :is(input,select){border-color:transparent;background:transparent;} /* counts read as text, not fields */
 .mbadge.play{background:#3a1a1a;color:#9a4a4a;}
 #gem-pal{display:block;}
 
@@ -809,6 +834,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   </div>
 </div>
 
+<!-- SUBMIT GATE — why "Submit for review" won't go yet (filled by showSubmitGate) -->
+<div id="submit-gate" onclick="if(event.target===this)this.classList.remove('open')"><div class="sg-box" id="submit-gate-box"></div></div>
+
 <!-- GRID SETUP MODAL -->
 <div id="setup-wrap">
   <div id="setup-box">
@@ -866,13 +894,13 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 <!-- EDITOR -->
 <div id="editor">
   <div id="etopbar">
-    <div class="tg"><span class="elbl">Mode</span><span id="mbadge" class="mbadge">Editor</span></div>
-    <div class="tg">
+    <div class="tg"><span class="elbl">Mode</span><span id="mbadge" class="mbadge">Editor</span><span id="ro-badge" title="This level belongs to a published bundle. Published bundles are final — you can view and ▶ Play it, not change it.">🔒 Published · read-only</span></div>
+    <div class="tg edit-only">
       <span class="elbl">Tool</span>
       <button class="tb on" id="tt-paint" onclick="setTool('paint')">Paint</button>
       <button class="tb" id="tt-erase" onclick="setTool('erase')">Erase</button>
     </div>
-    <div class="tg">
+    <div class="tg edit-only">
       <button class="tb" onclick="doRandom()">Random</button>
       <button class="tb" onclick="doClear()">Clear</button>
       <button class="tb" onclick="fillGrid()" title="Reset to a full rectangle — turn every cell active (fills all holes)">Full Grid</button>
@@ -881,6 +909,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     </div>
     <div class="tg">
       <button class="tb on" style="color:#c8a8ff;border-color:#6a4aaa;" onclick="togglePlay()" id="playbtn">▶ Play</button>
+      <button class="tb" onclick="stopRun()" id="stopbtn" style="display:none;" title="End this run and put the board back exactly as you designed it.">⏹ Stop</button>
     </div>
     <div class="tg">
       <!-- Back to the bundle's level grid (shown only when the level was opened
@@ -904,7 +933,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     </div>
   </div>
   <div id="emid">
-    <div id="lpanel">
+    <div id="lpanel" class="edit-only">
       <div class="psec">
         <div class="ptitle">Layers</div>
         <!-- Base/Board layer sits first: you define the board shape (active/hole) before painting on top of it (Painter Layer Model: Board = Layer 1). -->
@@ -1005,14 +1034,14 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <!-- MULTI-STAGE (Jed 2026-09-16): flyover authoring. The toggle turns the board
            into a 9x11 window; the 3x3 pad below shifts it (perimeter = 8 directions,
            centre ◉ = Save a flyover stop). Off the board so it can't paint a cell. -->
-      <div class="rsec" id="mstage-sec">
+      <div class="rsec edit-only" id="mstage-sec">
         <div class="rtitle">Multi-Stage</div>
         <button class="tb" id="mr-toggle" onclick="toggleMultiRegion()" style="width:100%;" title="Multi-Stage: build a tall/wide flyover level as a 9x11 window you shift one cell at a time. Forward grows (top-left origin stays fixed); reverse navigates back. The centre ◉ saves a flyover stop.">▦ Multi-Stage</button>
         <div id="mstage-pad"></div>
         <div id="mstage-list" style="margin-top:6px;"></div>
         <button class="tb" id="sp-flyit" onclick="flyIt()" style="width:100%;margin-top:4px;display:none;" title="Preview the flyover: the camera pans through your stops in order — the reveal the player sees on level open. No gameplay.">▶ Fly it</button>
       </div>
-      <div class="rsec">
+      <div class="rsec edit-only">
         <!-- Palette (Jed 2026-08-24): which gem colors spawn on THIS level's board.
              Backs directly onto GEM_POOL — the same array randGem() draws from and
              serializeLevel() emits as gemTypes, so toggling here is the whole feature;
@@ -1025,10 +1054,10 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <!-- Objectives list: board-derived goals (clover/key/acorn) auto-fill via Recommend;
              gem-color goals are added + edited by hand (the board can't guess color/count). -->
         <div id="objlist"></div>
-        <div class="objbtns">
+        <div class="objbtns edit-only">
           <button class="tb" onclick="recommendObjectives()" title="Auto-fill clover / key / acorn goals from what's painted on the board. Gem goals stay manual.">↺ Recommend</button>
         </div>
-        <div class="objbtns">
+        <div class="objbtns edit-only">
           <button class="tb" onclick="addObjective('gem')">+ Gem</button>
           <button class="tb" onclick="addObjective('clover')">+ Clover</button>
           <button class="tb" onclick="addObjective('key')">+ Key</button>
@@ -1038,8 +1067,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         </div>
         <div class="objbtns">
           <button class="tb" onclick="showSerialized()" title="Serialize the whole board to canonical 7-layer JSON (the Central Scrutinizer) and show it for review.">⌘ Serialize</button>
-          <button class="tb" onclick="saveLevelToDisk()" title="Save this board as canonical JSON straight into editor/levels/ (Chrome File System Access — one directory grant per session). These files seed Bundle 1.">▽ Save</button>
-          <button class="tb" id="btn-save-bundle" onclick="saveBoardToBundle()" style="display:none;color:#c8a8ff;" title="Save this board into your bundle folder as the next level-0NN.json file on your disk.">▽ Save to bundle</button>
+          <button class="tb edit-only" id="btn-save-disk" onclick="saveLevelToDisk()" title="Save this board as canonical JSON straight into editor/levels/ (Chrome File System Access — one directory grant per session). These files seed Bundle 1.">▽ Save</button>
+          <button class="tb edit-only" id="btn-save-bundle" onclick="saveBoardToBundle()" style="display:none;color:#c8a8ff;" title="Save this board into your bundle folder as the next level-0NN.json file on your disk.">▽ Save to bundle</button>
+          <button class="tb edit-only" id="btn-approve-level" onclick="approveLevel()" style="display:none;">✓ Approve</button>
         </div>
       </div>
       <div class="rsec" id="playstats" style="display:none;">
@@ -2228,7 +2258,8 @@ function openNewLevel(){
 }
 
 function openEditor(){
-  clearChoosing();   // a fresh editor board never inherits the last run's reticle
+  clearChoosing();
+  setReadOnly(false); designSnap=null; // a fresh board: editable, no run in progress   // a fresh editor board never inherits the last run's reticle
   document.getElementById('setup-wrap').classList.remove('open');
   document.getElementById('home').style.display='none';
   document.getElementById('editor').style.display='flex';
@@ -2279,6 +2310,7 @@ async function openTemplate(n){
 // sticky mode; Review passes false so Jed lands in edit to inspect first).
 function enterEditorWithLevel(startPlaying){
   playerMode=false;playing=false;entranceMode=false;Motion.releaseAll();
+  setReadOnly(false); // editable by default — editBundleLevel re-locks a PUBLISHED bundle's level after this
   flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
   fitEditorBoard(); // scale the grid to fill the viewport (device-independent), not a fixed 44px
   document.body.classList.remove('player-playing'); // editor styling (inactive ghost tiles)
@@ -2296,7 +2328,7 @@ function enterEditorWithLevel(startPlaying){
   document.getElementById('info-r').textContent=R;
   document.getElementById('info-c').textContent=C;
   buildGPal();buildPUPal();buildObsPal(); applyLayerPalette();
-  undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null;
+  undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null; designSnap=null; updRunBtns();
   setBase('inactive'); // always open with the Left Palette on Base (Hole), never Tile — a stray click paints the foundation, not a gem (Jed 2026-08-06)
   render();updUB();updEditorFrame(); // sync the play-frame HUD (Level#, goals, boosters)
   // Architect-directed sticky mode: a saved level opens in the Architect's current
@@ -2315,6 +2347,7 @@ function goHome(){
   GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
   editorBundle=null; // left the editor — no origin bundle to go back to
   saveTargetBundle=null; bundleEditNum=null; updateBundleSaveBtn(); // clear any bundle save-target
+  setReadOnly(false); designSnap=null; updRunBtns(); // no level → nothing locked, no run in progress
   updateHome(); // repaint the personalized greeting + Create/Explore labels
 }
 
@@ -2352,8 +2385,9 @@ function updateHome(){
 // `bundles` table (author-owned) is where PRODUCTS comes from once publishing lands.
 const PRODUCTS=[
   // Bundle 1 = MVP-25 "Go with the Flow" (the Township reverse-engineering pack).
-  {id:'flow', nameKey:'bundle_title'}
+  {id:'flow', nameKey:'bundle_title', published:true}  // live + sold → read-only in the editor
 ];
+const isPublishedProduct=id=>!!(PRODUCTS.find(p=>p.id===id)||{}).published;
 // Level count resolved lazily — MAX_BUILT_LEVEL is declared later in this script,
 // so reading it in PRODUCTS's initializer would hit its temporal dead zone.
 function bundleLevelCount(p){return MAX_BUILT_LEVEL;}
@@ -2377,7 +2411,7 @@ function renderProductsList(){
   // bundles (folders of real JSON files on the architect's machine, grouped by the
   // orientation folder they live in) + its own "+ New … bundle" button at the foot.
   const card=b=>'<div class="prod-card" onclick="openUserBundle('+jsArg(b.id)+')">'+
-      '<div><div class="pc-name">'+escHtml(b.name)+'</div>'+
+      '<div><div class="pc-name">'+escHtml(b.name)+statusTag(b.status)+'</div>'+
         '<div class="pc-meta">Your bundle · on disk</div></div>'+
       '<div class="pc-arrow">→</div></div>';
   html+='<div class="bcols">';
@@ -2386,7 +2420,7 @@ function renderProductsList(){
     // the built-in free pack (Go with the Flow) is a landscape bundle → top of the left column
     if(o==='Landscape') PRODUCTS.forEach(p=>{
       html+='<div class="prod-card" onclick="renderBundleLevels(\''+p.id+'\')">'+
-        '<div><div class="pc-name">'+TXT(p.nameKey)+'</div>'+
+        '<div><div class="pc-name">'+TXT(p.nameKey)+statusTag(p.published?'published':'draft')+'</div>'+
           '<div class="pc-meta">'+TXT('bundle_n')+' · '+bundleLevelCount(p)+' '+TXT('products_levels')+'</div></div>'+
         '<div class="pc-arrow">→</div></div>';
     });
@@ -2413,7 +2447,9 @@ function renderProductsList(){
 function renderBundleLevels(id){
   const p=PRODUCTS.find(x=>x.id===id); if(!p)return;
   productsView=id; // remember which bundle we're in for a language re-render
-  let html='<h2>'+TXT(p.nameKey)+'</h2><div class="pmsg">'+TXT('products_pick')+'</div><div class="prodlvls">';
+  let html='<h2>'+(p.published?'🔒 ':'')+TXT(p.nameKey)+'</h2><div class="pmsg">'+(p.published
+    ?'Published — final. Open a level to view or ▶ Play it; it can\'t be changed.'
+    :TXT('products_pick'))+'</div><div class="prodlvls">';
   for(let i=1;i<=bundleLevelCount(p);i++) html+='<button class="prodlvl" onclick="editBundleLevel('+i+')">'+i+'</button>';
   html+='</div><button class="prod-close" onclick="productsView=null;renderProductsList()">'+TXT('products_back')+'</button>';
   document.querySelector('#products .wbox').innerHTML=html;
@@ -2423,10 +2459,15 @@ let editorBundle=null; // bundle id the level in the editor came from (null = bl
 
 // Open a bundle level into the editor for editing, closing the picker. Remember
 // the origin bundle so the editor's "← Levels" button can return to its grid.
-function editBundleLevel(n){editorBundle=productsView;productsView=null;closeProducts();openTemplate(n);}
+// openTemplate fetches the level first, so the lock is applied once it has landed.
+async function editBundleLevel(n){const ro=isPublishedProduct(productsView);editorBundle=productsView;productsView=null;closeProducts();await openTemplate(n);setReadOnly(ro);}
+// Published bundles are FINAL (db/004): their levels open read-only — view and ▶ Play,
+// never paint or save. One flag, set where a level is opened, cleared on every other entry.
+let editorReadOnly=false;
+function setReadOnly(on){ editorReadOnly=!!on; document.body.classList.toggle('level-readonly',editorReadOnly); }
 
-// Editor "← Levels" — back to the origin bundle's level grid (like Play mode's
-// back nav). Tears the editor down via goHome (restores GEM_POOL etc.), then
+// Editor "← Levels" (and Esc) — back to the origin bundle's level grid (like Play
+// mode's back nav). Tears the editor down via goHome (restores GEM_POOL etc.), then
 // re-opens the picker straight to the bundle. Auth-gated like openProducts.
 // The origin is either a built-in bundle (editorBundle) or one of the architect's
 // own folder bundles (saveTargetBundle) — Jed 2026-10-01: Esc must go back ONE step,
@@ -2469,7 +2510,7 @@ const jsArg=s=>escHtml(JSON.stringify(String(s)));
 function _idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('akashic-bundles',1);
   r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function persistUserBundles(){ try{ const db=await _idb(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite');
-  tx.objectStore('kv').put(USER_BUNDLES.map(b=>({id:b.id,name:b.name,dir:b.dir,orient:b.orient})),'list'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('bundle persist',e);} }
+  tx.objectStore('kv').put(USER_BUNDLES.map(b=>({id:b.id,name:b.name,dir:b.dir,orient:b.orient,subs:b.subs,status:b.status})),'list'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('bundle persist',e);} }
 async function persistBundleRoot(){ try{ const db=await _idb(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite');
   tx.objectStore('kv').put(bundleRoot,'root'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('root persist',e);} }
 async function loadUserBundles(){ try{ const db=await _idb();
@@ -2492,10 +2533,10 @@ async function scanBundles(){
   const scanDir=async(dir,orient)=>{
     for await(const [n,h] of dir.entries()){
       if(h.kind!=='directory'||(orient===''&&BUNDLE_ORIENTS.includes(n))) continue;
-      let name;
-      try{ const j=JSON.parse(await (await (await h.getFileHandle('bundle.json')).getFile()).text()); name=j.name||n.replace(/-/g,' '); }
+      let name,subs;
+      try{ const j=JSON.parse(await (await (await h.getFileHandle('bundle.json')).getFile()).text()); name=j.name||n.replace(/-/g,' '); subs=j.submissions||[]; }
       catch(e){ continue; }                                   // no readable manifest → not a bundle
-      found.push({id:(orient?orient+'/':'')+n,name,dir:h,orient});
+      found.push({id:(orient?orient+'/':'')+n,name,dir:h,orient,subs,status:subs.length?'review':'draft'});
     }
   };
   try{
@@ -2503,8 +2544,20 @@ async function scanBundles(){
     await scanDir(bundleRoot,'');
   }catch(e){ console.warn('bundle scan',e); return; }
   found.sort((a,b)=>a.name.localeCompare(b.name));
+  await resolveBundleStatuses(found);
   USER_BUNDLES=found; await persistUserBundles();
 }
+// Draft (never submitted) · In review (submitted, not yet approved) · Published (any of
+// its submissions approved — published is FINAL, db/004). The server is the authority;
+// the folder only remembers which rows it created.
+async function resolveBundleStatuses(list){
+  const ids=[].concat(...list.map(b=>(b.subs||[]).map(x=>x.id))).filter(x=>x!=null);
+  if(!ids.length||!window.AkashicAuth||!AkashicAuth.bundleStatuses) return;
+  const pub=await AkashicAuth.bundleStatuses(ids);
+  list.forEach(b=>{ if((b.subs||[]).some(x=>pub[x.id])) b.status='published'; });
+}
+const statusTag=st=>st==='published'?'<span class="pc-tag published">🔒 Published</span>'
+  :st==='review'?'<span class="pc-tag review">In review</span>':'<span class="pc-tag">Draft</span>';
 
 // Make sure we have a writable bundles HOME. Picked once (then remembered). Must run
 // inside a click gesture. `repick` forces the folder picker (the "change" link).
@@ -2551,16 +2604,20 @@ async function createBundle(orient){
 async function openUserBundle(id){
   const b=USER_BUNDLES.find(x=>x.id===id); if(!b)return;
   try{ if((await b.dir.queryPermission({mode:'readwrite'}))!=='granted' && (await b.dir.requestPermission({mode:'readwrite'}))!=='granted'){ alert('Folder access denied.'); return; } }catch(e){}
-  const levels=[];
-  try{ for await(const [n] of b.dir.entries()) if(/^level-\d+\.json$/i.test(n)) levels.push(n); }
+  let lv;
+  try{ lv=await bundleApprovals(b); }
   catch(e){ alert('Could not read the bundle folder: '+e.message); return; }
-  levels.sort();
   currentUserBundle=id;
-  let html='<h2>'+escHtml(b.name)+'</h2><div class="pmsg">Real JSON files on your disk. Click a number to edit, or ＋ to add a level.</div><div class="prodlvls">';
-  levels.forEach(fn=>{ const num=+fn.match(/(\d+)/)[1]; html+='<button class="prodlvl" onclick="editUserBundleLevel('+jsArg(id)+','+jsArg(fn)+')">'+num+'</button>'; });
-  html+='<button class="prodlvl" style="border-style:dashed;color:#c8a8ff" onclick="addLevelToBundle('+jsArg(id)+')">＋</button>';
+  const pub=b.status==='published';
+  let html='<h2>'+escHtml(b.name)+statusTag(b.status)+'</h2><div class="pmsg">'+(pub
+    ?'Published — final. Open a level to view or ▶ Play it; it can\'t be changed.'
+    :'Real JSON files on your disk. Click a number to edit, or ＋ to add a level. <span style="color:#4caf7a">✓</span> = approved for submission.')+'</div><div class="prodlvls">';
+  lv.forEach(l=>{ html+='<button class="prodlvl'+(l.approved?' approved':'')+'" onclick="editUserBundleLevel('+jsArg(id)+','+jsArg(l.fn)+')">'+l.num+'</button>'; });
+  if(!pub) html+='<button class="prodlvl" style="border-style:dashed;color:#c8a8ff" onclick="addLevelToBundle('+jsArg(id)+')">＋</button>';
   html+='</div>';
-  if(levels.length) html+='<button class="prod-submit" id="prod-submit-btn" onclick="submitUserBundle('+jsArg(id)+')">'+TXT('submit_bundle_btn')+'</button>';
+  // Submit shows its progress; until the bundle is ready it is dimmed and the click explains why.
+  if(lv.length&&!pub) html+='<button class="prod-submit'+(bundleReady(lv)?'':' gated')+'" id="prod-submit-btn" onclick="submitUserBundle('+jsArg(id)+')">'+
+    TXT('submit_bundle_btn')+' · '+lv.filter(l=>l.approved).length+'/'+BUNDLE_SIZE+' approved</button>';
   html+='<button class="prod-close" onclick="currentUserBundle=null;renderProductsList()">← Bundles</button>';
   document.querySelector('#products .wbox').innerHTML=html;
 }
@@ -2573,11 +2630,11 @@ async function submitUserBundle(id){
   const b=USER_BUNDLES.find(x=>x.id===id); if(!b)return;
   if(!window.AkashicAuth||!AkashicAuth.submitBundle){ alert('Marketplace submission needs the auth module — try again in a moment.'); return; }
   const btn=document.getElementById('prod-submit-btn');
-  const fnames=[];
-  try{ for await(const [n] of b.dir.entries()) if(/^level-\d+\.json$/i.test(n)) fnames.push(n); }
+  let lv;
+  try{ lv=await bundleApprovals(b); }
   catch(e){ alert('Could not read the bundle folder: '+e.message); return; }
-  fnames.sort();
-  if(!fnames.length){ alert('This bundle has no levels yet.'); return; }
+  if(!bundleReady(lv)){ showSubmitGate(lv); return; }   // 25 levels, every one approved — or no submission
+  const fnames=lv.map(l=>l.fn);
   if(!confirm(TXT('submit_bundle_confirm')(b.name,fnames.length))) return;
   const levels=[];
   try{
@@ -2585,7 +2642,13 @@ async function submitUserBundle(id){
   }catch(e){ alert('Could not read level files: '+e.message); return; }
   if(btn){ btn.disabled=true; btn.textContent=TXT('submit_bundle_sending'); }
   const res=await AkashicAuth.submitBundle({ title:b.name, levels });
-  if(res.ok){ if(btn){ btn.textContent=TXT('submit_bundle_sent'); } }
+  if(res.ok){
+    if(btn){ btn.textContent=TXT('submit_bundle_sent'); }
+    // Remember the server row this submission created, so the list can show In review → Published.
+    try{ const m=await readManifest(b); m.submissions=(m.submissions||[]).concat({id:res.id,submittedAt:new Date().toISOString(),levels:fnames.length});
+      await writeManifest(b,m); b.subs=m.submissions; if(b.status!=='published') b.status='review'; await persistUserBundles(); }
+    catch(e){ console.warn('could not record the submission in bundle.json',e); }
+  }
   else{ alert(TXT('submit_bundle_err')+(res.error?' ('+res.error+')':'')); if(btn){ btn.disabled=false; btn.textContent=TXT('submit_bundle_btn'); } }
 }
 
@@ -2680,6 +2743,7 @@ async function editUserBundleLevel(id,fn){
   let json,num;
   try{ const fh=await b.dir.getFileHandle(fn); json=JSON.parse(await (await fh.getFile()).text()); num=+fn.match(/(\d+)/)[1]; }
   catch(e){ alert('Could not open that level: '+e.message); return; }
+  const pub=b.status==='published';
   saveTargetBundle=id; bundleEditNum=num; editorBundle=null; closeProducts();
   if(!loadLevelData(json,num))return;                        // parsed JSON → editor board (same loader as templates); pin can refuse
   playerMode=false;playing=false;entranceMode=false;Motion.releaseAll(); flyTeardown(); fitEditorBoard();
@@ -2688,9 +2752,10 @@ async function editUserBundleLevel(id,fn){
   clean();
   document.getElementById('home').style.display='none';
   document.getElementById('editor').style.display='flex';
-  document.getElementById('btn-to-bundle').style.display='none';
+  document.getElementById('btn-to-bundle').style.display='';   // came from a bundle's level grid → "← Levels" goes back to it
+  setReadOnly(pub);                                            // published = final: view + ▶ Play only
   document.getElementById('info-r').textContent=R; document.getElementById('info-c').textContent=C;
-  buildGPal();buildPUPal();buildObsPal(); applyLayerPalette(); undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null;
+  buildGPal();buildPUPal();buildObsPal(); applyLayerPalette(); undoQ=[];redoQ=[];moves=0;cleared=0;selCell=null; designSnap=null; updRunBtns();
   setBase('inactive'); render();updUB();updEditorFrame(); updateBundleSaveBtn();
   if(architectPlaying) togglePlay();
 }
@@ -2706,19 +2771,147 @@ async function nextBundleLevelNum(b){
 
 // Save the current board INTO the target bundle as a real level-0NN.json file.
 async function saveBoardToBundle(){
+  if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
   const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); if(!b){ alert('No target bundle set — open a bundle and ＋ Add level.'); return; }
   try{ if((await b.dir.queryPermission({mode:'readwrite'}))!=='granted' && (await b.dir.requestPermission({mode:'readwrite'}))!=='granted'){ alert('Folder access denied.'); return; } }catch(e){}
   let num=bundleEditNum;
   if(num==null) num=await nextBundleLevelNum(b);
   const name='level-'+String(num).padStart(3,'0')+'.json';
   try{ const fh=await b.dir.getFileHandle(name,{create:true}); const w=await fh.createWritable();
-    await w.write(JSON.stringify(serializeLevel(),null,2)+'\n'); await w.close();
+    const txt=levelText(); await w.write(txt); await w.close();
+    // Saving a DIFFERENT design than the one just won voids that win — prove the new one.
+    if(winProof&&winProof.bundle===b.id&&winProof.num===num&&(await sha256(txt))!==winProof.hash) winProof=null;
     bundleEditNum=num; curLevelNum=num; updateBundleSaveBtn();
     const sb=document.getElementById('sb3'); if(sb)sb.textContent='Saved '+name+' → '+b.name;
   }catch(e){ alert('Save failed: '+e.message); }
 }
 function updateBundleSaveBtn(){ const btn=document.getElementById('btn-save-bundle'); if(!btn)return;
-  const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); btn.style.display=b?'':'none'; if(b)btn.textContent='▽ Save to '+b.name; }
+  const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); btn.style.display=b?'':'none'; if(b)btn.textContent='▽ Save to '+b.name;
+  updateApproveBtn(); }
+
+// ═══ LEVEL APPROVAL — "approved for submission" (Jed 2026-10-01) ═════════════
+// A bundle goes to review only when it holds BUNDLE_SIZE levels and the architect
+// has approved every one — so nothing untested reaches a reviewer, let alone a buyer.
+// Approving takes PROOF: the architect must WIN the level in ▶ Play, from a fresh
+// start with no mid-run edits, and the board they won must be byte-identical to the
+// saved file. The approval is stored in bundle.json as that file's SHA-256:
+//     "approved": { "level-001.json": "<sha256 of the file text>" }
+// so ANY later change to the file — a re-save with edits, a hand edit on disk —
+// silently voids it. Nothing to remember to clear; the fingerprint just stops matching.
+const BUNDLE_SIZE=25;
+const lvlFile=n=>'level-'+String(n).padStart(3,'0')+'.json';
+const levelText=()=>JSON.stringify(serializeLevel(),null,2)+'\n'; // EXACTLY what ▽ Save writes
+let runSnap=null;      // levelText() of the board this ▶ Play run STARTED from (fresh runs only)
+let runTainted=false;  // the board was edited mid-run (Stop → edit → Play) → the run proves nothing
+let pausedSer=null;    // levelText() at the last Stop, to catch edits made while paused
+let winProof=null;     // {bundle,num,hash}: the board this architect just won cleanly
+
+async function sha256(t){ const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));
+  return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+async function readManifest(b){ try{ return JSON.parse(await (await (await b.dir.getFileHandle('bundle.json')).getFile()).text()); }catch(e){ return {}; } }
+async function writeManifest(b,m){ const w=await (await b.dir.getFileHandle('bundle.json',{create:true})).createWritable();
+  await w.write(JSON.stringify(m,null,2)+'\n'); await w.close(); }
+async function levelFileHash(b,fn){ try{ return await sha256(await (await (await b.dir.getFileHandle(fn)).getFile()).text()); }catch(e){ return null; } }
+// Every level file in a bundle with its approval state: [{fn,num,approved}], in level order.
+async function bundleApprovals(b){
+  const ap=(await readManifest(b)).approved||{}, fns=[];
+  for await(const [n] of b.dir.entries()) if(/^level-\d+\.json$/i.test(n)) fns.push(n);
+  fns.sort();
+  return Promise.all(fns.map(async fn=>({fn,num:+fn.match(/(\d+)/)[1],approved:!!ap[fn]&&ap[fn]===await levelFileHash(b,fn)})));
+}
+const bundleReady=lv=>lv.length>=BUNDLE_SIZE&&lv.every(l=>l.approved);
+
+// Called as the editor's ▶ Play starts or resumes. moves===0 = a fresh run: remember
+// the board it started from. A resume after edits made while paused taints the run.
+function trackRunStart(){
+  if(moves===0||!designSnap){
+    runSnap=levelText(); runTainted=false;
+    designSnap={board:structuredClone(board),flow:structuredClone(flow)}; // ⏹ Stop puts THIS back
+  }
+  else if(pausedSer!==null&&levelText()!==pausedSer) runTainted=true;
+  pausedSer=null; updRunBtns();
+}
+
+// ── ⏸ PAUSE vs ⏹ STOP (Jed 2026-10-01) ─────────────────────────────────────────
+// ⏸ Pause is the old Stop: the run waits, you can edit the board into a test
+// condition, and ▶ Resume continues the SAME run (move #4 after 3 swaps — Jed
+// 2026-08-06). ⏹ Stop ENDS the run and restores the board exactly as designed.
+// While a run exists (playing or paused) the board on screen is a PLAYED board, so
+// every Save is disabled — before this, ▽ Save after a test run wrote the half-played
+// board over the level. designSnap (non-null = a run exists) is the designed board.
+let designSnap=null;
+function updRunBtns(){
+  const pb=document.getElementById('playbtn'), sb=document.getElementById('stopbtn'); if(!pb)return;
+  pb.innerHTML=playing?'⏸ Pause':(designSnap?'▶ Resume':'▶ Play');
+  if(sb) sb.style.display=designSnap?'':'none';
+  ['btn-save-disk','btn-save-bundle'].forEach(id=>{ const b=document.getElementById(id); if(!b)return;
+    b.disabled=!!designSnap; b.style.opacity=designSnap?.45:'';
+    b.dataset.tip=b.dataset.tip||b.title; b.title=designSnap?'⏹ Stop the run first — the board on screen has been played.':b.dataset.tip; });
+}
+function stopRun(){
+  if(!designSnap&&!playing&&!editorSandboxPlay) return;
+  // A won (or lost) sandbox run ends with playing=false but still in Play mode → leave it properly.
+  if(!playing&&editorSandboxPlay) playing=true;
+  if(playing) togglePlay();
+  document.getElementById('pwin').classList.remove('open');
+  if(designSnap){ board=structuredClone(designSnap.board); flow=structuredClone(designSnap.flow); }
+  designSnap=null; pausedSer=null; moves=0; cleared=0; window.moveHistory=[];
+  resetPlayerUndo(); Motion.releaseAll(); updStats(); render(); updRunBtns();
+  const s=document.getElementById('sb3'); if(s)s.textContent='Stopped — board restored to your design';
+}
+// A sandbox WIN: if it was a clean run of a level saved in a bundle, keep the proof.
+async function recordWinProof(){
+  const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle);
+  winProof=(b&&bundleEditNum!=null&&runSnap&&!runTainted)?{bundle:b.id,num:bundleEditNum,hash:await sha256(runSnap)}:null;
+  updateApproveBtn();
+}
+// The ✓ Approve button's states: hidden (not a saved bundle level) · Approved ·
+// ready (won this exact file) · Save & approve (won it, file not yet byte-identical —
+// e.g. a file written outside the editor) · locked (win it first).
+// NOT "Save first": after a win the editor still shows the PLAYED board, so a plain
+// ▽ Save there would overwrite the level with a half-played board.
+async function updateApproveBtn(){
+  const btn=document.getElementById('btn-approve-level'); if(!btn)return;
+  const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle);
+  if(!b||bundleEditNum==null){ btn.style.display='none'; return; }
+  const fn=lvlFile(bundleEditNum), fileHash=await levelFileHash(b,fn), ap=((await readManifest(b)).approved||{})[fn];
+  const won=winProof&&winProof.bundle===b.id&&winProof.num===bundleEditNum;
+  btn.style.display='';
+  const set=(txt,dis,col,tip)=>{ btn.textContent=txt; btn.disabled=dis; btn.style.color=col; btn.style.opacity=dis?.6:1; btn.title=tip; };
+  if(fileHash&&ap===fileHash)            set('✓ Approved',true,'#4caf7a','This level is approved for submission. Changing and saving it clears the approval.');
+  else if(won&&winProof.hash===fileHash) set('✓ Approve for submission',false,'#4caf7a','You won this exact level — approve it for submission.');
+  else if(won)                           set('✓ Save & approve',false,'#4caf7a','Writes the exact board you won into '+fn+', then approves it for submission.');
+  else                                   set('✓ Approve — win it first',true,'#8a74b0','Win this level in ▶ Play, from the start and without editing mid-run, to unlock approval.');
+}
+async function approveLevel(){
+  const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); if(!b||bundleEditNum==null)return;
+  const fn=lvlFile(bundleEditNum), fileHash=await levelFileHash(b,fn);
+  if(!winProof||winProof.bundle!==b.id||winProof.num!==bundleEditNum){ updateApproveBtn(); return; } // never on faith
+  try{
+    // Save & approve: the file isn't byte-identical to the won board yet → write the WON board
+    // (runSnap, the start of the winning run — never the played board on screen).
+    if(winProof.hash!==fileHash){
+      if(!runSnap||(await sha256(runSnap))!==winProof.hash){ updateApproveBtn(); return; }
+      const w=await (await b.dir.getFileHandle(fn,{create:true})).createWritable(); await w.write(runSnap); await w.close();
+    }
+    const m=await readManifest(b); m.approved=Object.assign({},m.approved,{[fn]:winProof.hash}); await writeManifest(b,m); }
+  catch(e){ alert('Could not record the approval: '+e.message); return; }
+  const sb=document.getElementById('sb3'); if(sb)sb.textContent='Approved '+fn+' for submission → '+b.name;
+  updateApproveBtn();
+}
+// The explanation behind a dimmed "Submit for review": the rule, the count, what's missing.
+function showSubmitGate(lv){
+  const ok=lv.filter(l=>l.approved).length, todo=lv.filter(l=>!l.approved).map(l=>l.num), short=Math.max(0,BUNDLE_SIZE-lv.length);
+  let h='<h3>Not ready for review yet</h3>'+
+    '<p>A bundle is submitted only when it has <b>'+BUNDLE_SIZE+' levels</b> and you have <b>approved every one</b> for submission. That keeps levels that haven\'t been proven to work away from players.</p>'+
+    '<p>To approve a level: open it, <b>▶ Play</b> it from the start and win, then click <b>✓ Approve</b>. Changing and saving a level clears its approval — win it again.</p>'+
+    '<p class="sg-count">Approved: <b>'+ok+' of '+BUNDLE_SIZE+'</b></p>';
+  if(todo.length) h+='<p>Still to approve: level'+(todo.length>1?'s ':' ')+todo.join(', ')+'</p>';
+  if(short) h+='<p>Levels still to build: '+short+'</p>';
+  h+='<button onclick="document.getElementById(\'submit-gate\').classList.remove(\'open\')">OK</button>';
+  document.getElementById('submit-gate-box').innerHTML=h;
+  document.getElementById('submit-gate').classList.add('open');
+}
 
 loadUserBundles(); // restore the architect's bundles (folder handles) from IndexedDB
 
@@ -3340,6 +3533,8 @@ function showSerialized(){
 // later, separate session; this is the author-side durable save it depends on.)
 let levelsDirHandle=null; // readwrite handle for editor/levels/ (session-scoped)
 async function saveLevelToDisk(){
+  if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
+  if(editorReadOnly) return;   // published levels are final
   if(!window.showDirectoryPicker){
     alert('Local Save needs a Chromium browser (File System Access API). Use ⌘ Serialize → ⧉ Copy as a fallback.');return;
   }
@@ -3756,6 +3951,7 @@ function fillFlow(){
 function onCell(r,c,e){if(playing&&(choosingRainbow||choosingGrasshopper||Motion.quietAt(r,c))){playTap(r,c);}else if(!playing){paintCell(r,c);}}
 
 function paintCell(r,c){
+  if(editorReadOnly){ const sb=document.getElementById('sb3'); if(sb)sb.textContent='🔒 Published level — read-only. ▶ Play to test it.'; return; }
   const cd=board[r][c];
   if(layer==='base'){save();cd.active=(selBase==='active');} // SET to the chosen brush, not toggle
   // 'obstacle' shares the tile paint pass — its brushes (crate/chain/leaf) already
@@ -4026,7 +4222,7 @@ function togglePlay(sandbox=true){
   document.getElementById('mbadge').className='mbadge'+(playing?' play':'');
   document.getElementById('playstats').style.display=playing?'block':'none';
   document.getElementById('history-sec').style.display=playing?'block':'none';
-  document.getElementById('playbtn').innerHTML=playing?'⏹ Stop':'▶ Play';
+  updRunBtns(); // ▶ Play · ⏸ Pause · ▶ Resume, and ⏹ Stop while a run exists
   architectPlaying=playing; // remember the Architect's explicit choice — sticky across level switches
   if(playing){
     // startEmpty cells (field.empty in level JSONs — L8's sealed bottom and
@@ -4036,6 +4232,7 @@ function togglePlay(sandbox=true){
     // solid box with no gem inside, so filling it planted an invisible gem that
     // find3 matched THROUGH (crates weren't excluded from the match scan). Skip
     // crates (isCrate); they refill normally once broken.
+    if(sandbox) trackRunStart(); // approval proof: what board did this run start from? (before the gem fill)
     for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isSolid(r,c))board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
     if(!flyover&&!hasValidMove())shuffleBoard(); // opening board must have a move (skip authored flyover boards)
@@ -4066,6 +4263,7 @@ function togglePlay(sandbox=true){
       }).filter(Boolean);
     }
   } else {
+    if(editorSandboxPlay) pausedSer=levelText(); // a resume must find the board exactly as it was left
     editorSandboxPlay=false; playerMode=false; playerGoals=[];
     stopFlowPreview(); // left Play — kill the sweep and its idle timer
   }
@@ -7452,7 +7650,7 @@ function goPlayerHome(){
 // FIRST and only navigates once nothing is covering the board. pchoice/qsurvey are
 // deliberately absent: dismissing the path-choice would strand a new player with
 // no route forward.
-const ESC_CLOSABLE=['ghelp','leaderboard','settings','products','setup-wrap','pstar-splash','authbox'];
+const ESC_CLOSABLE=['submit-gate','ghelp','leaderboard','settings','products','setup-wrap','pstar-splash','authbox'];
 function closeTopOverlay(){
   for(const id of ESC_CLOSABLE){
     const el=document.getElementById(id);
@@ -8532,6 +8730,7 @@ function sandboxPlayerFinish(win){
   };
   document.getElementById('pwin').classList.add('open');
   if(win) celebrateStar(3); // same fireworks, no real star tied to it
+  if(win) recordWinProof();  // a clean win of a saved bundle level unlocks ✓ Approve
 }
 // Reset ONE level's stars + record + miss counter, then replay it so the player
 // can set a new (often deliberately terrible) first-star bar (Jed 2026-07-29).
