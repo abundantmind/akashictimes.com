@@ -4030,13 +4030,21 @@ function frameView(){ return { vr:PLAY_MAX_R, vc:PLAY_MAX_C }; }
 // In multi-region mode, clamp the board-wrap to exactly the 9x11 window and clip it,
 // so translating #board inside it reads as a shifting camera. Off = restore the
 // normal content-sized, centered editor board.
+// ONLY undoes a clip IT applied. togglePlay() → syncGrowArrows() calls this with
+// on=false on EVERY play start, and #board-wrap is shared with the PLAYER's flyover
+// camera (flyWindow sets its width + overflow:hidden first). Clearing unconditionally
+// wiped that camera window, so flyover levels (L20, L23) played with the whole board
+// showing and the first zone shoved off-screen (Jed 2026-10-02).
+let windowClipped=false;
 function setWindowClip(on){
   const bw=document.getElementById('board-wrap'); if(!bw) return;
   if(on){ const s=flyStep();
     bw.style.width=(PLAY_MAX_C*s)+'px'; bw.style.height=(PLAY_MAX_R*s)+'px';
     bw.style.overflow='hidden'; bw.style.padding='0'; bw.style.alignItems='flex-start'; bw.style.justifyContent='flex-start';
-  } else {
+    windowClipped=true;
+  } else if(windowClipped){
     bw.style.width=''; bw.style.height=''; bw.style.overflow=''; bw.style.padding=''; bw.style.alignItems=''; bw.style.justifyContent='';
+    windowClipped=false;
   }
 }
 // Extend the board with INACTIVE cells until it is at least needR x needC.
@@ -4291,6 +4299,9 @@ function togglePlay(sandbox=true){
     flyTeardown();      // null the runtime camera (editorFlyover survives the teardown)
     fitEditorBoard();   // restore full-board editor cell sizing
     applyFlyView();     // re-apply the Multi-Stage editor window offset, if any
+    // flyTeardown just cleared #board-wrap's styles — including the Multi-Stage 9x11
+    // frame syncGrowArrows had re-applied at the top of this toggle. Re-frame it.
+    windowClipped=false; syncGrowArrows();
   }
   // FLOW PREVIEW IN THE EDITOR TOO (Jed 2026-08-27). It used to start only from
   // beginPlaySession, i.e. real play — so an architect building a flow level had
