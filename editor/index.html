@@ -1020,6 +1020,20 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <div class="phud-level" id="ehud-level">Level —</div>
         <div id="ehud-goal"></div>
         <div class="phud-moves"><div class="phud-num" id="ehud-moves">0</div><div class="phud-cap">Moves</div></div>
+        <!-- ↶ Undo during the editor's ▶ Play (Jed 2026-10-02: a test move went wrong and the
+             editor had no Undo to reach for — the engine supported it, only the player HUD had
+             the button). Same doPlayerUndo; shown only while a run is in progress. -->
+        <!-- Hints during the editor's ▶ Play (Jed 2026-10-03) — the player HUD's control,
+             mirrored: open-move count, ‹ › to step, "Hints" caption = the opt-in toggle. -->
+        <div class="phud-moves" id="ehud-hints" style="display:none;">
+          <div class="phud-hintstep">
+            <button class="phud-arrow" id="ehud-hint-prev" onclick="hintNav(-1)" aria-label="Previous hint" disabled style="opacity:.2">‹</button>
+            <div class="phud-num" id="ehud-moves-left">–</div>
+            <button class="phud-arrow" id="ehud-hint-next" onclick="hintNav(1)" aria-label="Next hint" disabled style="opacity:.2">›</button>
+          </div>
+          <button class="phud-cap phud-hintcap" id="ehud-hint-toggle" onclick="toggleHints()" aria-pressed="false"><span class="hintpip"></span><span>Hints</span></button>
+        </div>
+        <button class="phud-undo" id="ehud-undo" onclick="doPlayerUndo()" style="display:none;opacity:.35" disabled>↶ Undo</button>
       </div>
       <div id="board-wrap"><div id="board"></div></div>
       <!-- RIGHT column: boosters (renderBoosterPanel mirrors #bpanel here). -->
@@ -2843,6 +2857,7 @@ let designSnap=null;
 function updRunBtns(){
   const pb=document.getElementById('playbtn'), sb=document.getElementById('stopbtn'); if(!pb)return;
   pb.innerHTML=playing?'⏸ Pause':(designSnap?'▶ Resume':'▶ Play');
+  updateUndoBtn(); // the editor's ↶ Undo shows only while ▶ Play is running
   if(sb) sb.style.display=designSnap?'':'none';
   ['btn-save-disk','btn-save-bundle'].forEach(id=>{ const b=document.getElementById(id); if(!b)return;
     b.disabled=!!designSnap; b.style.opacity=designSnap?.45:'';
@@ -4796,17 +4811,21 @@ function drawHintFuse(move){
 // arrows so an explorer pages the eligible moves at their own leisure, rather than
 // the fuse auto-cycling one after another.
 function setHintStep(){
-  const el=document.getElementById('phud-moves-left');
   const N=_hintMoves.length;
-  // Count is ALWAYS visible (Jed: "Moves Open is always visible"). When hints are on
-  // the readout is a "n/N" step position; when off it's just the count of open moves.
-  if(el) el.textContent = !N ? '–' : (hintsOn ? ((_hintIdx%N)+1)+'/'+N : String(N));
-  const prev=document.getElementById('phud-hint-prev'), next=document.getElementById('phud-hint-next');
-  const canStep=hintsOn&&N>1;                     // arrows are live only when hints are on
-  if(prev){ prev.disabled=!canStep; prev.style.opacity=canStep?'0.9':'0.2'; }
-  if(next){ next.disabled=!canStep; next.style.opacity=canStep?'0.9':'0.2'; }
-  const tog=document.getElementById('phud-hint-toggle');
-  if(tog){ tog.classList.toggle('on',hintsOn); tog.setAttribute('aria-pressed',hintsOn?'true':'false'); }
+  // Two copies of the control, same state: the player HUD (phud-*) and the editor's
+  // ▶ Play HUD (ehud-*, Jed 2026-10-03).
+  ['phud','ehud'].forEach(h=>{
+    const el=document.getElementById(h+'-moves-left');
+    // Count is ALWAYS visible (Jed: "Moves Open is always visible"). When hints are on
+    // the readout is a "n/N" step position; when off it's just the count of open moves.
+    if(el) el.textContent = !N ? '–' : (hintsOn ? ((_hintIdx%N)+1)+'/'+N : String(N));
+    const prev=document.getElementById(h+'-hint-prev'), next=document.getElementById(h+'-hint-next');
+    const canStep=hintsOn&&N>1;                   // arrows are live only when hints are on
+    if(prev){ prev.disabled=!canStep; prev.style.opacity=canStep?'0.9':'0.2'; }
+    if(next){ next.disabled=!canStep; next.style.opacity=canStep?'0.9':'0.2'; }
+    const tog=document.getElementById(h+'-hint-toggle');
+    if(tog){ tog.classList.toggle('on',hintsOn); tog.setAttribute('aria-pressed',hintsOn?'true':'false'); }
+  });
 }
 function hintShowCurrent(){                       // draw the fuse for the move at _hintIdx — ONE move, no cycle
   if(!boardSettled()||!_hintMoves.length||!hintsOn){ clearHintFuse(); return; }
@@ -4867,9 +4886,13 @@ function _commitPendingUndo(){        // at a settle: keep the snapshot only if 
   updateUndoBtn();
 }
 function updateUndoBtn(){
-  const b=document.getElementById('phud-undo'); if(!b)return;
   const can=(playerMode||editorSandboxPlay)&&playing&&boardSettled()&&_undoStack.length>0;
-  b.disabled=!can; b.style.opacity=can?'1':'0.35';
+  ['phud-undo','ehud-undo'].forEach(id=>{ const b=document.getElementById(id); if(!b)return;
+    b.disabled=!can; b.style.opacity=can?'1':'0.35'; });
+  // editor: only while ▶ Play runs (keyed on `playing` + the editor being on screen — togglePlay
+  // repaints the run buttons before it sets editorSandboxPlay)
+  const inEdPlay=playing&&document.getElementById('editor').style.display!=='none';
+  ['ehud-undo','ehud-hints'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display=inEdPlay?'':'none'; });
 }
 function doPlayerUndo(){
   if(!((playerMode||editorSandboxPlay)&&playing&&boardSettled()&&_undoStack.length)) return;
