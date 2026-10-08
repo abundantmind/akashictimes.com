@@ -4783,6 +4783,12 @@ function plantClover(cells,force){
     if(!inG(r,c))return;
     const cd=board[r][c];
     if(!cd.active||cd.sub==='clover')return;
+    // NO CLOVER UNDER AN ACORN (Jed 2026-10-07, Akashic Window L5): a clear that touches
+    // clover plants every cell in its set EXCEPT cells holding an Acorn — the blast only
+    // knocks the acorn's leaf down a hit. Every caller plants BEFORE it clears, so an
+    // acorn collected by this very blast still counts as "here". Once the acorn is gone,
+    // the cell is ordinary ground and a later clear plants it.
+    if(cd.item==='acorn')return;
     cd.sub='clover';planted++;
   });
   if(planted&&playerMode){

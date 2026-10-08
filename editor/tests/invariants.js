@@ -249,6 +249,24 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);
 
+    // NO CLOVER UNDER AN ACORN (Jed 2026-10-07, Akashic Window L5): a clear touching clover
+    // plants its whole set EXCEPT acorn cells; once the acorn is collected the cell plants normally.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    {
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.sub=null; cd.item=null; cd.obs=null; }
+      board[1][1].sub='clover';                                   // the set touches clover here
+      board[1][2].item='acorn'; board[1][2].obs='leaf2';          // an acorn under a 2-hit leaf
+      const set=[[1,1],[1,2],[1,3],[2,2]];
+      plantClover(set);
+      ok('clover · a clover-touching clear plants its set but NOT the acorn cell',
+         board[1][3].sub==='clover'&&board[2][2].sub==='clover'&&board[1][2].sub!=='clover', set.map(([r,c])=>board[r][c].sub));
+      plantClover(set,true);
+      ok('clover · forced plants (charged blasts, hopper landings) skip acorn cells too', board[1][2].sub!=='clover', board[1][2].sub);
+      board[1][2].item=null; board[1][2].obs=null;                // acorn collected
+      plantClover(set);
+      ok('clover · once the acorn is gone, the cell plants like any other', board[1][2].sub==='clover', board[1][2].sub);
+    }
+
     // ═══ 3. CLOVER RULES (blank canvas, V-rocket = column) ═════════════════════
     const col=3, colClover=()=>[...Array(R).keys()].filter(r=>board[r][col].sub==='clover').length;
     await startPlayerLevel(14,false); await wait(45); // 8x7 rectangle canvas
