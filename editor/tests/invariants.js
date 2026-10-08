@@ -124,6 +124,109 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);       // leave a real level on the board
 
+    // 2e. WINDOWS (Jed 2026-10-07): paired mouths, always 1:1. A piece resting in the BLUE
+    // Exit leaves through it and comes out of the ORANGE Re-entry; an Exit's flow points
+    // into a hole/off-grid and a Re-entry's upstream is a hole/off-grid. Pinned: the jump
+    // (colour kept, path carries a jump), "a Re-entry fills ONLY through its window",
+    // keys ride through instead of being collected, the placement rule, save round-trip.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    {
+      // carve a hole column at C=3: left side (cols 0-2) is fed by painted inlets on its
+      // top row; the right side's col 5 gets gems ONLY through window 1.
+      const HC=3, ER=R-1, EC=1, NR=0, NC=5;
+      for(let r=0;r<R;r++){ board[r][HC].active=false; board[r][HC].gem=null; board[r][HC].pu=null; board[r][HC].item=null; }
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ flow[r][c]='down'; const cd=board[r][c]; cd.obs=null; cd.item=null; cd.pu=null; cd.source=null; cd.win=null; cd.startEmpty=false; cd.gen=null; }
+      for(let c=0;c<HC;c++) board[0][c].source='inlet';
+      board[ER][EC].source='winExit'; board[ER][EC].win=1;
+      board[NR][NC].source='winEntry'; board[NR][NC].win=1;
+      ok('window · placement rule: bottom-row Exit / top-row Re-entry are open', winMouthOpen(ER,EC,'winExit')&&winMouthOpen(NR,NC,'winEntry'));
+      ok('window · placement rule: an interior cell is NOT a legal Exit', !winMouthOpen(2,EC,'winExit'));
+      ok('window · a complete, well-placed pair has no problems', windowProblems().length===0, windowProblems());
+      // 1. the jump: a gem resting in the Exit comes out of the Re-entry, same colour
+      for(let r=0;r<R;r++) board[r][NC].gem=null;
+      board[ER][EC].gem=2;
+      const mv=gravityWithMap();
+      const jm=mv.find(m=>m.fr===ER&&m.fc===EC);
+      ok('window · the Exit gem leaves through the window (path carries a jump)', !!jm&&jm.path.some(p=>p.jump), jm&&jm.path);
+      ok('window · it keeps its colour on the far side', !!jm&&jm.gem===2, jm&&jm.gem);
+      // 2. drain the right column repeatedly: every gem landing in col 5 came THROUGH the window
+      let notViaWindow=0, refills=0;
+      for(let i=0;i<10;i++){
+        for(let r=0;r<R;r++) board[r][NC].gem=null;
+        for(let k=0;k<40;k++){ const ms=gravityWithMap(); if(!ms.length)break;
+          ms.forEach(m=>{ if(m.tc===NC&&m.tr>=0){ if(!m.path.some(p=>p.jump)&&!(m.fc===NC)) notViaWindow++; } }); }
+        if(board[R-1][NC].gem!==null) refills++;
+      }
+      ok('window · the Re-entry column refills through the window (10 drains)', refills===10, refills);
+      ok('window · nothing reaches it any other way (no spawn, no slip)', notViaWindow===0, notViaWindow);
+      // 3. a Re-entry is never filled diagonally: Exit plugged (chained), neighbours resting
+      for(let r=0;r<R;r++) board[r][NC].gem=null;
+      board[ER][EC].gem=1; board[ER][EC].obs='bind1';              // the Exit's gem is chained in place
+      for(const c of [4,6]) for(let r=0;r<R;r++) board[r][c].gem=0;
+      for(let k=0;k<20;k++) gravityWithMap();
+      ok('window · a Re-entry with a plugged Exit stays EMPTY (never slip-fed)', board[NR][NC].gem===null, board[NR][NC].gem);
+      board[ER][EC].obs=null;
+      // 4. keys ride through a paired Exit instead of being collected there
+      for(let r=0;r<R;r++) board[r][NC].gem=null;
+      board[ER][EC].gem=null; board[ER][EC].item='key';
+      playerGoals=[{kind:'key',need:1,have:0,name:'key'}];
+      const got0=collectExitedKeys();
+      ok('window · a key in a paired Exit is NOT collected there', got0===0&&board[ER][EC].item==='key', got0);
+      gravityWithMap();
+      const keyAt=[]; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].item==='key') keyAt.push([r,c]);
+      ok('window · the key rides through to the far side', keyAt.length===1&&keyAt[0][1]===NC, keyAt);
+      for(let k=0;k<20;k++){ gravityWithMap(); collectExitedKeys(); }
+      ok('window · and is collected at the far side\'s dead end', playerGoals[0].have===1, playerGoals[0].have);
+      // 5. problems an architect must fix before saving
+      board[NR][NC].source=null; board[NR][NC].win=null;
+      ok('window · an Exit with no Re-entry is reported', windowProblems().some(t=>/no Re-entry/.test(t)), windowProblems());
+      board[NR][NC].source='winEntry'; board[NR][NC].win=1;
+      flow[ER][EC]='up';
+      ok('window · an Exit that flows into an active cell is reported', windowProblems().some(t=>/flows into an active cell/.test(t)), windowProblems());
+      flow[ER][EC]='down';
+      // 6. save round-trip: E / R in the Source layer, the pair number in props.source
+      const ser=serializeLevel();
+      ok('window · serializes as E + R with the pair in props.source',
+         ser.layers.source[ER][EC]==='E'&&ser.layers.source[NR][NC]==='R'&&ser.props.source&&ser.props.source['R'+ER+'C'+EC].pair===1&&ser.props.source['R'+NR+'C'+NC].pair===1,
+         {src:ser.layers.source, ps:ser.props.source});
+      loadLevelData(JSON.parse(JSON.stringify(ser)),1);
+      ok('window · loads back as the same pair', board[ER][EC].source==='winExit'&&board[ER][EC].win===1&&board[NR][NC].source==='winEntry'&&board[NR][NC].win===1);
+      ok('window · serialize→load→serialize is a fixed point', JSON.stringify(serializeLevel())===JSON.stringify(ser), 'diverged');
+    }
+    await startPlayerLevel(1,false); await wait(45);
+    ok('window · a level with no windows saves no props.source (old files unchanged)', !('source' in (serializeLevel().props||{})));
+    // a window whose Exit and Re-entry share a COLUMN must still jump — the path
+    // compressor used to merge exit→off-grid→entry into one straight flight up the board
+    playing=false;
+    {
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ flow[r][c]='down'; const cd=board[r][c]; cd.obs=null; cd.item=null; cd.pu=null; cd.source=null; cd.win=null; cd.startEmpty=false; }
+      board[R-1][2].source='winExit'; board[R-1][2].win=4; board[0][2].source='winEntry'; board[0][2].win=4;
+      for(let r=0;r<R;r++) board[r][2].gem=null;
+      board[R-1][2].gem=3;
+      const ms=gravityWithMap(), w=ms.find(m=>m.fr===R-1&&m.fc===2);
+      ok('window · same-column pair still JUMPS (never a straight flight back up)', !!w&&w.path.some(p=>p.jump), w&&w.path);
+    }
+    // L41 (Jed 2026-10-07): "gems above the exit fall even though the gem directly above
+    // the exit point hasn't started moving". Every gem LEAVING a cell must launch no later
+    // than the gem LANDING in that cell — through a window too. Left half drains through
+    // 5 bottom-row Exits into the right half's top-row Re-entries; clear right-hand cells.
+    {
+      const HC=5;
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.active=(c!==HC); cd.source=null; cd.win=null; cd.gem=cd.active?randGem():null; flow[r][c]='down'; }
+      const LW=Math.min(HC,C-HC-1);
+      for(let i=0;i<LW;i++){ board[R-1][i].source='winExit'; board[R-1][i].win=i+1; board[0][HC+1+i].source='winEntry'; board[0][HC+1+i].win=i+1; }
+      let bad=[];
+      for(let trial=0;trial<8;trial++){
+        for(let r=0;r<R;r++)for(let c=HC+1;c<C;c++) if(Math.random()<0.4) board[r][c].gem=null;
+        const plan=fallFlightPlan(gravityWithMap());
+        const leave=new Map(); plan.forEach(p=>{ const m=p.move; if(!m.isNew&&(m.fr!==m.tr||m.fc!==m.tc)) leave.set(m.fr+','+m.fc,p); });
+        plan.forEach(p=>{ const L=leave.get(p.move.tr+','+p.move.tc); if(L&&L!==p&&L.delay>p.delay) bad.push(`${L.move.fr},${L.move.fc} leaves at ${L.delay|0}ms but ${p.move.fr},${p.move.fc} lands there at ${p.delay|0}ms`); });
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].item) board[r][c].gem=randGem();
+      }
+      ok('window · no gem launches into a cell before its occupant leaves (through windows too)', bad.length===0, bad.slice(0,3));
+    }
+
+
     // ═══ 3. CLOVER RULES (blank canvas, V-rocket = column) ═════════════════════
     const col=3, colClover=()=>[...Array(R).keys()].filter(r=>board[r][col].sub==='clover').length;
     await startPlayerLevel(14,false); await wait(45); // 8x7 rectangle canvas

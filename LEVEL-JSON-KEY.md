@@ -47,7 +47,7 @@ Each grid is `rows` strings of `cols` characters, row-major.
 |---|---|---|
 | 1 | `board`     | `#` active · `.` hole |
 | 2 | `flow`      | `v` down · `^` up · `<` left · `>` right · `.` hole |
-| 3 | `source`    | `I` inlet · `D` drain · `.` none/hole |
+| 3 | `source`    | `I` inlet · `D` drain · `E` window Exit · `R` window Re-entry · `.` none/hole |
 | 4 | `substrate` | `c` clover · `o` oil · `.` none/hole |
 | 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` acorn · `x` crate · `G` generator · `S H V A W` power-ups · `.` hole |
 | 6 | `overlay`   | `B` chain (bind) · `L` leaf · `.` none/hole |
@@ -73,6 +73,12 @@ and exact-dup detection work.
   per cycle on a random drop from the 2nd to the Nth (always by the Nth). Permanent — never damaged, never counted as a crate. The drop counter is
   runtime-only (every play starts at 0). Added 2026-09-29 for Township 26–50.
 - `props.overlay`  — chain/leaf HP, e.g. `{"R1C1":{hp:1}}`
+- `props.source`   — window pair numbers (written only when the level has windows), e.g.
+  `{"R8C2":{"pair":3},"R0C8":{"pair":3}}`. WINDOWS are always 1:1: a piece resting in the
+  `E` Exit leaves through it and comes out of the `R` Re-entry with the same pair number.
+  An Exit's flow points into a hole or off the grid; a Re-entry's upstream is a hole or off
+  the grid (the editor enforces both, and refuses to save a half-built pair). Keys ride
+  through windows; they're collected only at a dead end. Added 2026-10-07 (Bundle 2).
 
 ## `objectives`
 

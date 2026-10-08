@@ -2786,6 +2786,7 @@ async function nextBundleLevelNum(b){
 // Save the current board INTO the target bundle as a real level-0NN.json file.
 async function saveBoardToBundle(){
   if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
+  { const wp=windowProblems(); if(wp.length){ alert('Fix the windows before saving:\n\n• '+wp.join('\n• ')); return; } }
   const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); if(!b){ alert('No target bundle set — open a bundle and ＋ Add level.'); return; }
   try{ if((await b.dir.queryPermission({mode:'readwrite'}))!=='granted' && (await b.dir.requestPermission({mode:'readwrite'}))!=='granted'){ alert('Folder access denied.'); return; } }catch(e){}
   let num=bundleEditNum;
@@ -3233,6 +3234,25 @@ function buildCellEl(r,c,dropping){
     // Layer 3 Source badge — a painted Inlet is an authoritative spawn point
     // (gems pour in here). Editor-only: hidden during play so the hook recording
     // stays clean (the spawn behavior is what shows on camera, not the marker).
+    if(cd.source==='winExit'||cd.source==='winEntry'){
+      // Blue Exit / orange Re-entry, drawn ON the edge that faces the hole: the Exit on
+      // its flow's downstream edge, the Re-entry on its upstream edge. Up/down flow →
+      // a horizontal oval; left/right flow → vertical (Jed 2026-10-07). Dark rim for
+      // contrast on the sand cells. Pair number shown while editing.
+      el.style.position='relative';
+      const ex=cd.source==='winExit';
+      const [fdr,fdc]=FLOW_VEC[(flow[r]&&flow[r][c])||'down'];
+      const sr=ex?fdr:-fdr, sc=ex?fdc:-fdc;                     // which edge: +1 = bottom/right
+      const wv=document.createElement('div');
+      wv.className='win-mouth';
+      wv.style.cssText='position:absolute;z-index:4;pointer-events:none;border-radius:50%;'
+        +'background:'+(ex?'#2f6fe0':'#f07a1a')+';border:2px solid #0d0a14;box-shadow:0 0 6px rgba(0,0,0,.45);'
+        +'color:#fff;font:700 10px/1 var(--font-sans);display:flex;align-items:center;justify-content:center;'
+        +(fdr!==0?('left:11%;width:78%;height:22%;'+(sr>0?'bottom:-1px;':'top:-1px;'))
+                 :('top:11%;height:78%;width:22%;'+(sc>0?'right:-1px;':'left:-1px;')));
+      if(!playing)wv.textContent=cd.win||'';
+      el.appendChild(wv);
+    }
     if(cd.source==='inlet'&&!playing){
       el.style.position='relative';
       const sb=document.createElement('div');
@@ -3474,11 +3494,15 @@ const PU_CH={helicopter:'S',rocket_h:'H',rocket_v:'V',bomb:'A',rainbow:'W'};
 function serializeLevel(){
   const grid=(fn)=>{const g=[];for(let r=0;r<R;r++){let s='';for(let c=0;c<C;c++)s+=fn(board[r][c],r,c);g.push(s);}return g;};
   const FL={down:'v',up:'^',left:'<',right:'>'};
-  const cprops={},oprops={}; // companion HP maps for Contents (crate) + Overlay (chain/leaf)
+  const cprops={},oprops={},sprops={}; // companion maps: Contents (crate HP), Overlay (chain/leaf HP), Source (window pair)
   const layers={
     board:     grid(cd=>cd.active?'#':'.'),
     flow:      grid((cd,r,c)=>cd.active?(FL[flow[r][c]]||'v'):'.'),
-    source:    grid(cd=>!cd.active?'.':cd.source==='inlet'?'I':cd.source==='drain'?'D':'.'), // L3 'I'nlet / 'D'rain
+    source:    grid((cd,r,c)=>{                                // L3 'I'nlet / 'D'rain / Window 'E'xit / 'R'e-entry
+      if(!cd.active)return '.';
+      if(cd.source==='winExit'||cd.source==='winEntry'){ sprops['R'+r+'C'+c]={pair:cd.win||1}; return cd.source==='winExit'?'E':'R'; }
+      return cd.source==='inlet'?'I':cd.source==='drain'?'D':'.';
+    }),
     substrate: grid(cd=>!cd.active?'.':cd.sub==='clover'?'c':cd.sub==='oil'?'o':'.'),
     contents:  grid((cd,r,c)=>{
       if(!cd.active)return '.';
@@ -3512,7 +3536,8 @@ function serializeLevel(){
     gemTypes:GEM_POOL.map(i=>GEM_JSON[i]),                     // carried Township palette
     seeding:'random',                                          // color policy (only option for now)
     layers,
-    props:{contents:cprops,overlay:oprops},
+    // props.source only when there are windows — older levels re-save byte-identically
+    props:Object.assign({contents:cprops,overlay:oprops},Object.keys(sprops).length?{source:sprops}:{}),
     borders:[],                                                // L7 — none for MVP-25
     objectives,
   };
@@ -3550,6 +3575,7 @@ let levelsDirHandle=null; // readwrite handle for editor/levels/ (session-scoped
 async function saveLevelToDisk(){
   if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
   if(editorReadOnly) return;   // published levels are final
+  { const wp=windowProblems(); if(wp.length){ alert('Fix the windows before saving:\n\n• '+wp.join('\n• ')); return; } }
   if(!window.showDirectoryPicker){
     alert('Local Save needs a Chromium browser (File System Access API). Use ⌘ Serialize → ⧉ Copy as a fallback.');return;
   }
@@ -3825,7 +3851,27 @@ function buildSrcPal(){
   d.textContent='▼';
   d.onclick=()=>pickBrush('source','inlet',d);
   p.appendChild(d);
+  // WINDOWS (Jed 2026-10-07): blue = Exit, orange = Re-entry, paired 1:1 by number.
+  [['winExit','#2f6fe0','Window EXIT (blue) — paint on a cell whose flow points into a hole or off the grid'],
+   ['winEntry','#f07a1a','Window RE-ENTRY (orange) — paint on a cell whose upstream is a hole or off the grid']].forEach(([id,col,tip])=>{
+    const sel=selBrush.type==='window'&&selBrush.id===id;
+    const w=document.createElement('div');
+    w.style.cssText=`width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid ${sel?'#c8a8ff':'transparent'};overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1a12;`;
+    w.dataset.bid='window:'+id; w.title=tip;
+    w.innerHTML=`<div style="width:70%;height:24%;border-radius:50%;background:${col};border:2px solid #0d0a14;color:#fff;font:600 9px/1 var(--font-sans);display:flex;align-items:center;justify-content:center;">${winCfg.pair}</div>`;
+    w.onclick=()=>pickBrush('window',id,w);
+    p.appendChild(w);
+  });
+  // the pair number both brushes paint (a <label>, not a div — the swatch-highlight sweep only touches divs)
+  const pl=document.createElement('label');
+  pl.style.cssText='grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:11px;color:#8a74b0;margin-top:2px;';
+  pl.innerHTML='Window pair <select id="win-pair" style="background:#160c24;color:#e0d0ff;border:0.5px solid #3d2060;border-radius:4px;">'
+    +[1,2,3,4,5,6,7,8,9].map(n=>`<option value="${n}"${n===winCfg.pair?' selected':''}>${n}</option>`).join('')+'</select>';
+  pl.querySelector('select').onchange=e=>{ winCfg.pair=+e.target.value; buildSrcPal(); };
+  p.appendChild(pl);
 }
+// The pair number the Window brushes paint (1-9): Exit N goes with Re-entry N.
+let winCfg={pair:1};
 
 // ── UNIFIED BRUSH selection (Jed 2026-07-31) ──────────────────────────────────
 // The ONE place a Tile-layer brush is chosen. Sets selBrush and clears EVERY other
@@ -3991,9 +4037,22 @@ function paintCell(r,c){
         else if(b.id==='_clear_gen')cd.gen=null;                         // Generators section clear
         else if(b.id==='_clear_item')cd.item=null;
         else if(b.id==='_clear_pu')cd.pu=null;
-        else if(b.id==='_clear_src')cd.source=null;
+        else if(b.id==='_clear_src'){cd.source=null;cd.win=null;}
       }
-      else if(b.type==='source'){cd.source=b.id;}                       // Layer 3 Inlet — additive spawn marker, keeps contents
+      else if(b.type==='source'){cd.source=b.id;cd.win=null;}            // Layer 3 Inlet — additive spawn marker, keeps contents
+      else if(b.type==='window'){                                        // Layer 3 Window mouth (Jed 2026-10-07)
+        const sb=document.getElementById('sb3');
+        if(!winMouthOpen(r,c,b.id)){                                     // Jed's rule: the mouth must face a hole / the edge
+          if(sb)sb.textContent=b.id==='winExit'
+            ?'Window Exit goes where the flow points into a HOLE or off the grid — set this cell\'s flow first'
+            :'Window Re-entry goes where the cell upstream is a HOLE or off the grid — set this cell\'s flow first';
+        } else {
+          // 1:1 — painting Exit N (or Re-entry N) moves it: clear the old mouth of the same kind + number
+          for(let rr=0;rr<R;rr++)for(let cc=0;cc<C;cc++){ const o=board[rr][cc]; if(o.source===b.id&&o.win===winCfg.pair){o.source=null;o.win=null;} }
+          cd.source=b.id; cd.win=winCfg.pair;
+          if(sb)sb.textContent=(b.id==='winExit'?'Exit ':'Re-entry ')+winCfg.pair+' placed';
+        }
+      }
       else if(b.type==='gen'){cd.gen={emit:genCfg.emit,every:genCfg.every,n:0,k:0};cd.gem=null;cd.pu=null;cd.item=null;cd.obs=null;cd.startEmpty=false;} // Layer 5 fixture: occupies the cell
       else if(b.type==='empty'){cd.gem=null;cd.pu=null;cd.item=null;cd.startEmpty=true;cd.gen=null;} // Contents=Empty: active but gem-free until move #1 (field.empty); keeps sub (clover ground)
       else if(b.type==='gem'){cd.gem=b.id;cd.pu=null;cd.item=null;cd.startEmpty=false;cd.gen=null;}  // gem replaces PU/item, un-empties, keeps sub/obs
@@ -4369,6 +4428,46 @@ function isCrate(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('cra
 // special drop. n/k are runtime only — not saved; undo (a board snapshot) rewinds them.
 function isGen(r,c){return !!board[r][c].gen;}
 function isSolid(r,c){return isCrate(r,c)||isGen(r,c);} // "a wall" for gravity, swaps, fills
+// ═══ WINDOWS (Jed 2026-10-07; were "portals") ═════════════════════════════════
+// Paired Layer-3 mouths, always 1:1: a gem that reaches a BLUE Exit leaves through it
+// and comes out of the ORANGE Re-entry with the same pair number. Jed's placement
+// rule: an Exit's downstream cell (along its flow) is ALWAYS a hole or off the grid,
+// and a Re-entry's upstream cell likewise — so the oval sits on that edge, horizontal
+// for up/down flow, vertical for left/right. cd.source = 'winExit' | 'winEntry',
+// cd.win = the pair number. The window is a mouth, not a fixture: the cell itself
+// holds gems, matches and blasts like any other.
+function isWinExit(r,c){return board[r][c].source==='winExit';}
+function isWinEntry(r,c){return board[r][c].source==='winEntry';}
+// The cell on the far side of a mouth: downstream of an Exit, upstream of a Re-entry.
+function winMouthCell(r,c,kind){
+  const [dr,dc]=FLOW_VEC[(flow[r]&&flow[r][c])||'down'];
+  return kind==='winExit'?[r+dr,c+dc]:[r-dr,c-dc];
+}
+// Jed's placement rule: the far side of the mouth must be a hole or off the grid.
+function winMouthOpen(r,c,kind){
+  const [nr,nc]=winMouthCell(r,c,kind);
+  return !(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active);
+}
+// pair number → {exit:[r,c], entry:[r,c]} for every window on the board
+function windowPairs(){
+  const pairs=new Map();
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c];
+    if(!cd.active||(cd.source!=='winExit'&&cd.source!=='winEntry'))continue;
+    const p=pairs.get(cd.win)||{}; p[cd.source==='winExit'?'exit':'entry']=[r,c]; pairs.set(cd.win,p); }
+  return pairs;
+}
+// What's wrong with this board's windows, in words an architect can act on. Saving
+// refuses while this is non-empty — a half-built window would swallow gems forever.
+function windowProblems(){
+  const out=[];
+  windowPairs().forEach((p,n)=>{
+    if(!p.exit) out.push('Window '+n+' has a Re-entry but no Exit');
+    if(!p.entry) out.push('Window '+n+' has an Exit but no Re-entry');
+    if(p.exit&&!winMouthOpen(p.exit[0],p.exit[1],'winExit')) out.push('Window '+n+' Exit (R'+p.exit[0]+'C'+p.exit[1]+') flows into an active cell — its flow must point into a hole or off the grid');
+    if(p.entry&&!winMouthOpen(p.entry[0],p.entry[1],'winEntry')) out.push('Window '+n+' Re-entry (R'+p.entry[0]+'C'+p.entry[1]+') is fed by an active cell — its upstream must be a hole or off the grid');
+  });
+  return out;
+}
 function damageChain(r,c){
   const wasLeaf=isLeafy(r,c);
   const wasCrate=isCrate(r,c); // capture BEFORE obs is walked down — the crate-goal tick fires on its full break
@@ -5126,6 +5225,7 @@ function collectExitedKeys(){
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     const cd=board[r][c];
     if(!cd.active||cd.item!=='key'||!inPlayWindow(r,c))continue; // frozen zone's keys wait their turn
+    if(cd.source==='winExit'&&windowPairs().get(cd.win)?.entry)continue; // a paired Exit is a doorway: the key rides through
     const [dr,dc]=FLOW_VEC[(flow[r]&&flow[r][c])||'down'];
     const nr=r+dr,nc=c+dc;
     const downstreamActive=nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active;
@@ -6355,6 +6455,11 @@ function gravityWithMap(){
   // moved this gravity pass — lets one gem accumulate a multi-bend path.
   const carrier=board.map(row=>row.map(()=>null));
 
+  // WINDOWS: Exit "r,c" → its Re-entry [r,c], and Re-entry "r,c" → its Exit [r,c].
+  // Only COMPLETE pairs act; a lone mouth is inert (and blocks the save, see windowProblems).
+  const winOut=new Map(), winIn=new Map();
+  windowPairs().forEach(p=>{ if(p.exit&&p.entry){ winOut.set(p.exit.join(','),p.entry); winIn.set(p.entry.join(','),p.exit); } });
+
   // GRAVITY REGIONS (Jed's drift fix, 2026-07-10): orthogonal flood-fill of
   // active cells. Diagonal slip may only pull a donor from the RECEIVER's own
   // region — an orthogonally isolated pocket (L7 corner Grasshoppers, the
@@ -6396,6 +6501,7 @@ function gravityWithMap(){
   const entry=board.map((row,r)=>row.map((cd,c)=>{
     if(!cd.active)return false;
     if(isSolid(r,c))return false;                         // a solid crate / generator is never an open-sky source
+    if(winIn.has(r+','+c))return false;                   // a Re-entry is fed by its Exit, never a spring
     if(fedByNeighbor(r,c))return false;                    // something feeds it → not a source
     const [dr,dc]=vecAt(r,c);
     // Only TRUE open sky — the upstream is OFF THE BOARD (top edge) — is a base
@@ -6434,6 +6540,8 @@ function gravityWithMap(){
       let grew=false;
       for(let r=0;r<R;r++)for(let c=0;c<C;c++){
         if(!board[r][c].active||feed[r][c])continue;
+        // a Re-entry is fed exactly when its Exit is — through the window, not by a neighbour
+        if(winIn.has(r+','+c)){ const [er,ec]=winIn.get(r+','+c); if(feed[er][ec]){feed[r][c]=true;grew=true;} continue; }
         // FED = SOME NEIGHBOUR RELEASES INTO ME (Jed's river model, the same
         // question the entry test asks via fedByNeighbor). This used to ask a
         // DIFFERENT question — "is the cell directly upstream ALONG MY OWN FLOW
@@ -6479,6 +6587,7 @@ function gravityWithMap(){
       let promoted=false;
       for(let r=0;r<R;r++)for(let c=0;c<C;c++){
         if(!board[r][c].active||feed[r][c])continue;
+        if(winIn.has(r+','+c))continue;                  // a starved Re-entry waits on its Exit — never promoted to a spring
         const [dr,dc]=vecAt(r,c);
         const ur=r-dr,uc=c-dc;
         const rid=region[r][c];
@@ -6503,9 +6612,11 @@ function gravityWithMap(){
   const spawnN=board.map(row=>row.map(()=>0)); // virtual-row stack per entry
 
   // Move the gem at (r,c) one step to (nr,nc), extending its recorded path
-  function step(r,c,nr,nc){
+  // (via = extra waypoints before the destination — a window's in-and-out, see 1b)
+  function step(r,c,nr,nc,via){
     let m=carrier[r][c];
     if(!m){m={gem:board[r][c].gem,pu:board[r][c].pu,item:board[r][c].item,fr:r,fc:c,tr:nr,tc:nc,isNew:false,path:[{r,c}]};moves.push(m);}
+    if(via)via.forEach(p=>m.path.push(p));
     m.path.push({r:nr,c:nc});m.tr=nr;m.tc=nc;
     board[nr][nc].gem=board[r][c].gem;board[nr][nc].pu=board[r][c].pu;board[nr][nc].item=board[r][c].item; // carry a falling key
     board[r][c].gem=null;board[r][c].pu=null;board[r][c].item=null;
@@ -6534,10 +6645,26 @@ function gravityWithMap(){
       const [dr,dc]=vecAt(r,c);
       if(emptyActive(r+dr,c+dc)){step(r,c,r+dr,c+dc);progress=true;}
     }
+    // 1b) WINDOWS — a piece resting in an Exit leaves through the blue mouth and comes
+    //     out of its orange Re-entry the moment that cell is free. Its path slides OUT
+    //     past the Exit's edge, JUMPS (a zero-length segment the animation skips), then
+    //     slides IN across the Re-entry's edge: both off-board legs are hidden by the
+    //     active-cell mask, so it reads as the gem going through the window. Same
+    //     movers as the straight fall: chained/leafed gems and static items stay put;
+    //     keys ride through (they are collected only at a dead end, never at a window).
+    winOut.forEach(([nr,nc],k)=>{
+      const [r,c]=k.split(',').map(Number);
+      if(!occ(r,c)||isChained(r,c)||(board[r][c].item&&!isFaller(r,c)))return;
+      if(!emptyActive(nr,nc))return;
+      const [dr,dc]=vecAt(r,c), [edr,edc]=vecAt(nr,nc);
+      step(r,c,nr,nc,[{r:r+dr,c:c+dc},{r:nr-edr,c:nc-edc,jump:true}]);
+      progress=true;
+    });
     // 2) DIAGONAL SLIP — into cells whose straight feed is blocked FOREVER,
     //    from resting donors only
     for(let r=R-1;r>=0;r--)for(let c=0;c<C;c++){
       if(!emptyActive(r,c)||entry[r][c])continue;
+      if(winIn.has(r+','+c))continue;                    // a Re-entry fills only through its window
       // FLOW-FEEDER (not the geometric upstream): the neighbor whose flow points
       // INTO this cell. In a uniform-flow region that IS exactly (r-dr,c-dc), so
       // every down-flow level behaves byte-identically. But at a flow TURN (L25's
@@ -6568,6 +6695,7 @@ function gravityWithMap(){
       for(;;){
         if(!inGrid(br,bc))break;                       // open sky: spawns feed it
         if(!board[br][bc].active){blockedForever=true;break;} // hole gap
+        if(winIn.has(br+','+bc)&&!occ(br,bc))break;    // an empty Re-entry upstream: its window will feed it
         if(isGen(br,bc))break;                         // a generator feeds this cell — wait for its drop, don't slip
         if(isCrate(br,bc)){blockedForever=true;break;} // solid box: gems route around it like a hole
         if(occ(br,bc)){blockedForever=isChained(br,bc)||(!!board[br][bc].item&&!isFaller(br,bc));break;} // a falling key isn't a forever-block — gems follow it down, not slip around
@@ -6580,6 +6708,7 @@ function gravityWithMap(){
         if(!inGrid(pr,pc)||!board[pr][pc].active||!occ(pr,pc))return false;
         if(isChained(pr,pc))return false; // chained gems can't slide anywhere
         if(board[pr][pc].item)return false; // items (keys/acorns) never slip-donate diagonally
+        if(winOut.has(pr+','+pc))return false; // a gem in an Exit waits for its window — it never slips sideways
         if(region[pr][pc]!==region[r][c])return false; // own region only — no pocket leakage
         const [ddr,ddc]=vecAt(pr,pc);
         return !emptyActive(pr+ddr,pc+ddc); // resting — cannot fall straight
@@ -6636,7 +6765,9 @@ function gravityWithMap(){
     const p=m.path,out=[p[0]];
     for(let i=1;i<p.length-1;i++){
       const a=out[out.length-1],b=p[i],d=p[i+1];
-      if((b.r-a.r)*(d.c-b.c)!==(b.c-a.c)*(d.r-b.r))out.push(b); // bend
+      // a window's out-edge / jump points are never "collinear filler": an Exit and its
+      // Re-entry in the SAME column would otherwise merge into one straight flight up the board
+      if(b.jump||d.jump||(b.r-a.r)*(d.c-b.c)!==(b.c-a.c)*(d.r-b.r))out.push(b); // bend (or window)
     }
     out.push(p[p.length-1]);m.path=out;
   });
@@ -6736,7 +6867,7 @@ function fallFlightPlan(fallMoves){
   if(!animated.length)return [];
   const pathOf=m=>(m.path&&m.path.length>1?m.path:[{r:m.fr,c:m.fc},{r:m.tr,c:m.tc}]);
   const spanOf=m=>{const w=pathOf(m);let t=0;
-    for(let i=1;i<w.length;i++)t+=Math.hypot(w[i].r-w[i-1].r,w[i].c-w[i-1].c);
+    for(let i=1;i<w.length;i++)if(!w[i].jump)t+=Math.hypot(w[i].r-w[i-1].r,w[i].c-w[i-1].c); // a window jump costs no time
     return Math.max(t,1);};
   // Union-find over every cell a gem passes THROUGH — not just its endpoints, since
   // the middle of a 6-cell run is exactly where it would overtake somebody.
@@ -6747,7 +6878,7 @@ function fallFlightPlan(fallMoves){
   animated.forEach((m,i)=>{
     const w=pathOf(m);
     for(let k=0;k<w.length;k++){
-      const a=w[k], b=w[Math.min(k+1,w.length-1)];
+      const a=w[k], b=(w[k+1]&&w[k+1].jump)?w[k]:w[Math.min(k+1,w.length-1)]; // never "pass through" the cells a window jumps over
       const steps=Math.max(Math.abs(b.r-a.r),Math.abs(b.c-a.c),1);
       for(let st=0;st<=steps;st++){
         const key=Math.round(a.r+(b.r-a.r)*st/steps)+','+Math.round(a.c+(b.c-a.c)*st/steps);
@@ -6765,11 +6896,22 @@ function fallFlightPlan(fallMoves){
   // the queue and must leave first. Sorting by span launched the one behind it
   // first, and it overtook. Steps-to-exit is the honest measure and it works on any
   // flow, serpentine included.
+  // WINDOWS ARE PART OF THE RIVER (Jed 2026-10-07, L41): a cell above an Exit is NOT
+  // one step from the end — its water goes on through the window and down the far side.
+  // Measuring only to the Exit made the gem LEAVING through the window (landing partway
+  // down the Re-entry column) look "further from the end" than the gem dropping INTO the
+  // Exit behind it, so the follower launched first and slid into a gem that hadn't moved.
+  const winTo=new Map(); windowPairs().forEach(p=>{ if(p.exit&&p.entry) winTo.set(p.exit.join(','),p.entry); });
   const distToExit=(r,c)=>{
     let n=0,rr=r,cc=c; const seen=new Set();
     while(rr>=0&&rr<R&&cc>=0&&cc<C&&board[rr][cc].active&&!seen.has(rr+','+cc)&&n<=R*C){
       seen.add(rr+','+cc);
-      const [dr,dc]=FLOW_VEC[(flow[rr]&&flow[rr][cc])||'down']; rr+=dr; cc+=dc; n++;
+      const [dr,dc]=FLOW_VEC[(flow[rr]&&flow[rr][cc])||'down'];
+      const nr=rr+dr, nc=cc+dc;
+      const out=!(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active);
+      if(out&&winTo.has(rr+','+cc)) [rr,cc]=winTo.get(rr+','+cc);  // through the window
+      else { rr=nr; cc=nc; }
+      n++;
     }
     return n;
   };
@@ -6888,12 +7030,12 @@ function animateFallNow(fallMoves,onDone){
       // Waypoint polyline in pixels: a straight fall is 2 points; hole-routing
       // paths carry the bend points recorded by gravityWithMap.
       const wps=(m.path&&m.path.length>1?m.path:[{r:m.fr,c:m.fc},{r:m.tr,c:m.tc}])
-        .map(p=>px(p.r,p.c));
+        .map(p=>Object.assign(px(p.r,p.c),{jump:!!p.jump}));   // jump = a window: no travel between the two mouths
       // Cumulative pixel length along the polyline; duration scales with the
       // TOTAL travelled cells (√d gravity feel), not just vertical drop.
       const segLen=[0];let totalLen=0;
       for(let i=1;i<wps.length;i++){
-        totalLen+=Math.hypot(wps[i].x-wps[i-1].x,wps[i].y-wps[i-1].y);
+        if(!wps[i].jump)totalLen+=Math.hypot(wps[i].x-wps[i-1].x,wps[i].y-wps[i-1].y); // the window jump is instant
         segLen.push(totalLen);
       }
       // dur + delay come from the shared plan (fallFlightPlan) — this loop only draws.
@@ -7813,7 +7955,7 @@ const FLOW_FROM={v:'down','^':'up','<':'left','>':'right'};   // Flow layer (L2)
 const PU_FROM={S:'helicopter',H:'rocket_h',V:'rocket_v',A:'bomb',W:'rainbow'}; // Contents PUs — inverse of PU_CH
 function loadCanonicalLayers(json){
   const L=json.layers||{}, props=json.props||{};
-  const cprops=props.contents||{}, oprops=props.overlay||{}; // HP maps, keyed 'R#C#'
+  const cprops=props.contents||{}, oprops=props.overlay||{}, sprops=props.source||{}; // keyed 'R#C#'
   const at=(g,r,c)=>(((g&&g[r])||'')[c])||'.';               // char at cell, '.' off-grid
   board=[]; flow=[];
   for(let r=0;r<R;r++){
@@ -7825,6 +7967,7 @@ function loadCanonicalLayers(json){
       if(active){
         const sc=at(L.source,r,c);                            // L3 Source
         if(sc==='I')cell.source='inlet'; else if(sc==='D')cell.source='drain';
+        else if(sc==='E'||sc==='R'){ cell.source=sc==='E'?'winExit':'winEntry'; cell.win=(sprops['R'+r+'C'+c]||{}).pair||1; } // Window mouths
         const sb=at(L.substrate,r,c);                         // L4 Substrate
         if(sb==='c')cell.sub='clover'; else if(sb==='o')cell.sub='oil';
         const ct=at(L.contents,r,c);                          // L5 Contents
@@ -8113,8 +8256,12 @@ function flowWaveOrder(){
   // 2. SEQUENCE THE REGIONS DOWNSTREAM. Region A precedes B when a cell of A
   // releases into a cell of B. Kahn's ordering from the regions nothing feeds.
   const nextOf=regions.map(()=>new Set()), indeg=regions.map(()=>0);
+  // A WINDOW is a release too: an Exit's region feeds its Re-entry's region, so the
+  // sweep runs out of the blue mouth and resumes at the orange one (Jed 2026-10-07).
+  const winTo=new Map(); windowPairs().forEach(p=>{ if(p.exit&&p.entry) winTo.set(p.exit.join(','),p.entry); });
   regions.forEach((reg,i)=>reg.cells.forEach(([r,c])=>{
-    const v=FLOW_VEC[reg.dir], nr=r+v[0], nc=c+v[1];
+    const v=FLOW_VEC[reg.dir]; let nr=r+v[0], nc=c+v[1];
+    if(!usable(nr,nc)&&winTo.has(r+','+c)) [nr,nc]=winTo.get(r+','+c);
     if(!usable(nr,nc))return;
     const j=rid[nr][nc];
     if(j!==i&&!nextOf[i].has(j)){ nextOf[i].add(j); indeg[j]++; }
