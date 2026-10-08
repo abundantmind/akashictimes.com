@@ -2855,6 +2855,8 @@ function trackRunStart(){
 // every Save is disabled — before this, ▽ Save after a test run wrote the half-played
 // board over the level. designSnap (non-null = a run exists) is the designed board.
 let designSnap=null;
+// KEY RESPAWN: how many keys this run started with — respawns never put more than this on the board.
+let runKeyCap=0;
 function updRunBtns(){
   const pb=document.getElementById('playbtn'), sb=document.getElementById('stopbtn'); if(!pb)return;
   pb.innerHTML=playing?'⏸ Pause':(designSnap?'▶ Resume':'▶ Play');
@@ -4315,6 +4317,7 @@ function togglePlay(sandbox=true){
     // find3 matched THROUGH (crates weren't excluded from the match scan). Skip
     // crates (isCrate); they refill normally once broken.
     if(sandbox) trackRunStart(); // approval proof: what board did this run start from? (before the gem fill)
+    if(moves===0){ runKeyCap=0; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].item==='key')runKeyCap++; } // KEY RESPAWN keeps this many keys in play
     for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c].active&&board[r][c].gem===null&&!board[r][c].pu&&!board[r][c].startEmpty&&!board[r][c].item&&!isSolid(r,c))board[r][c].gem=randGem();
     clean();window.moveHistory=[];updStats();
     if(!flyover&&!hasValidMove())shuffleBoard(); // opening board must have a move (skip authored flyover boards)
@@ -6610,6 +6613,13 @@ function gravityWithMap(){
   }
 
   const spawnN=board.map(row=>row.map(()=>0)); // virtual-row stack per entry
+  // Is the next spawn owed as a key? (see KEY RESPAWN in the spawn step) — live play only.
+  const keyGoal=playing&&(playerMode||editorSandboxPlay)?playerGoals.find(g=>g.kind==='key'):null;
+  const keyRespawnDue=()=>{
+    if(!keyGoal||!(runKeyCap>0))return false;
+    let onBoard=0; for(let rr=0;rr<R;rr++)for(let cc=0;cc<C;cc++) if(board[rr][cc].item==='key')onBoard++;
+    return onBoard<runKeyCap&&keyGoal.have+onBoard<keyGoal.need;
+  };
 
   // Move the gem at (r,c) one step to (nr,nc), extending its recorded path
   // (via = extra waypoints before the destination — a window's in-and-out, see 1b)
@@ -6731,8 +6741,14 @@ function gravityWithMap(){
       if(!entry[r][c]||occ(r,c)||isSolid(r,c)||board[r][c].startEmpty)continue; // never spawn into a solid crate or an authored-empty cell
       const [dr,dc]=vecAt(r,c);
       const n=++spawnN[r][c];
-      board[r][c].gem=randGem();board[r][c].pu=null;
-      const m={gem:board[r][c].gem,pu:null,fr:r-dr*n,fc:c-dc*n,tr:r,tc:c,isNew:true,
+      // KEY RESPAWN (Jed 2026-10-07, from Township L28/L41 footage): the next spawn is a
+      // KEY when the board holds fewer keys than the level started with AND the keys
+      // collected + on board still fall short of the key goal — "as soon as one key
+      // dropped, the next key appeared in the first available top cell". Levels whose
+      // goal equals the keys placed never respawn (collected + on board always = goal).
+      const isKey=keyRespawnDue();
+      board[r][c].gem=isKey?null:randGem(); board[r][c].pu=null; board[r][c].item=isKey?'key':null;
+      const m={gem:board[r][c].gem,pu:null,item:isKey?'key':null,fr:r-dr*n,fc:c-dc*n,tr:r,tc:c,isNew:true,
                path:[{r:r-dr*n,c:c-dc*n},{r,c}]}; // every source FALLS in; the active-cell mask hides the descent over holes
       moves.push(m);carrier[r][c]=m;progress=true;
     }

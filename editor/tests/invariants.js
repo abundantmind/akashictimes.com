@@ -226,6 +226,28 @@ window.runInvariants = async function(){
       ok('window · no gem launches into a cell before its occupant leaves (through windows too)', bad.length===0, bad.slice(0,3));
     }
 
+    // KEY RESPAWN (Jed 2026-10-07, Township L28/L41): while the board holds fewer keys
+    // than the run started with AND collected + on-board < the goal, the next spawn is a key.
+    await startPlayerLevel(1,false); await wait(45);
+    {
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ flow[r][c]='down'; const cd=board[r][c]; cd.obs=null; cd.item=null; cd.pu=null; cd.source=null; cd.startEmpty=false; }
+      const keysOn=()=>{ let n=0; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].item==='key')n++; return n; };
+      playing=true; runKeyCap=1;
+      playerGoals=[{kind:'key',need:3,have:1,name:'key'}];            // one key already collected, none on board
+      board[0][0].gem=null; gravityWithMap();
+      ok('key respawn · a key collected and goal unmet → the next spawn is a key', keysOn()===1, keysOn());
+      board[0][1].gem=null; gravityWithMap();
+      ok('key respawn · never more keys on board than the run started with', keysOn()===1, keysOn());
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].item==='key')board[r][c].item=null;
+      playerGoals[0].have=3; board[0][2].gem=null; gravityWithMap();
+      ok('key respawn · goal met → no more keys', keysOn()===0, keysOn());
+      playerGoals=[{kind:'key',need:2,have:1,name:'key'}]; runKeyCap=1;
+      board[0][3].gem=null; board[0][3].item='key';                     // last key still on its way
+      board[0][4].gem=null; gravityWithMap();
+      ok('key respawn · goal covered by the key on board → no extra key', keysOn()===1, keysOn());
+      playing=false; playerGoals=[];
+    }
+    await startPlayerLevel(1,false); await wait(45);
 
     // ═══ 3. CLOVER RULES (blank canvas, V-rocket = column) ═════════════════════
     const col=3, colClover=()=>[...Array(R).keys()].filter(r=>board[r][col].sub==='clover').length;
