@@ -332,6 +332,9 @@ body.font-lg{--base-font:20px;}
 .preset-btn.selected .preset-dim{color:#7a5aaa;}
 #custom-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:12px;border:0.5px solid #2d2040;border-radius:6px;background:#0d0a14;}
 #custom-row label{font-size:var(--fz-ui);color:#665580;flex:1;}
+/* the bundle Level # row borrows the custom-dimensions row's look */
+#lvl-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:12px;border:0.5px solid #2d2040;border-radius:6px;background:#0d0a14;}
+#lvl-row label{font-size:var(--fz-ui);color:#665580;flex:1;}
 .dim-field{display:flex;align-items:center;gap:6px;}
 .dim-field span{font-size:var(--fz-ui);color:#665580;}
 .dim-field input{width:52px;padding:5px 8px;font-size:var(--fz-base);background:#1a1530;border:0.5px solid #3d3560;border-radius:4px;color:#c8bfe0;font-family:var(--font-sans);text-align:center;}
@@ -867,6 +870,13 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
         <span>C</span>
       </div>
     </div>
+    <!-- LEVEL # (Jed 2026-10-07): adding to a bundle, YOU pick the slot — Township L41 is
+         Akashic Window level 16, and "next number" would have made it level 26. -->
+    <div id="lvl-row" class="lvl-row" style="display:none;">
+      <label id="setup-lvl-label">Level # in bundle</label>
+      <div class="dim-field"><input type="number" id="inp-lvl" min="1" max="99" value=""></div>
+    </div>
+    <div id="setup-lvl-hint" style="display:none;font-size:var(--fz-ui);color:#665580;margin:-12px 0 16px;line-height:1.5;"></div>
     <button id="setup-confirm">Open Editor</button>
   </div>
 </div>
@@ -2250,8 +2260,11 @@ document.getElementById('inp-c').addEventListener('input',()=>{
 function validateSetup(){
   const r=+document.getElementById('inp-r').value;
   const c=+document.getElementById('inp-c').value;
-  document.getElementById('setup-confirm').disabled=!(r>=1&&r<=20&&c>=1&&c<=20);
+  const lr=document.querySelector('.lvl-row'), n=+document.getElementById('inp-lvl').value;
+  const lvlOk=!lr||lr.style.display==='none'||(Number.isInteger(n)&&n>=1&&n<=99); // a bundle slot must be 1-99
+  document.getElementById('setup-confirm').disabled=!(r>=1&&r<=20&&c>=1&&c<=20&&lvlOk);
 }
+document.getElementById('inp-lvl').addEventListener('input',validateSetup);
 
 document.getElementById('setup-confirm').addEventListener('click',()=>{
   R=+document.getElementById('inp-r').value;
@@ -2267,6 +2280,8 @@ function openNewLevel(){
   document.getElementById('inp-c').value=11;
   document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('selected'));
   document.getElementById('pre-landscape').classList.add('selected');
+  document.querySelector('.lvl-row').style.display='none';            // no bundle → no slot to pick
+  document.getElementById('setup-lvl-hint').style.display='none';
   validateSetup();
   document.getElementById('setup-wrap').classList.add('open');
 }
@@ -2291,10 +2306,13 @@ function openEditor(){
   // on DancingPangolin: "it opens Level #1 instead of giving me a blank 9x11 Level 2".
   // Adding to a bundle now PREVIEWS the number the save will really assign (same
   // nextBundleLevelNum the save calls); the classic editor has no number yet → "—".
-  curLevelNum=null;
+  curLevelNum=null; bundleNewNum=null;
   const tgtBundle=USER_BUNDLES.find(x=>x.id===saveTargetBundle);
-  if(tgtBundle&&bundleEditNum==null)
-    nextBundleLevelNum(tgtBundle).then(n=>{curLevelNum=n;updEditorFrame();}); // async dir read → HUD catches up
+  if(tgtBundle&&bundleEditNum==null){
+    const picked=+document.getElementById('inp-lvl').value;
+    if(Number.isInteger(picked)&&picked>=1){ bundleNewNum=picked; curLevelNum=picked; } // the slot chosen in the dialog
+    else nextBundleLevelNum(tgtBundle).then(n=>{curLevelNum=n;updEditorFrame();});    // fallback: next number
+  }
   updUB();updEditorFrame(); // a fresh board has no level# yet → HUD shows "—"
   updateBundleSaveBtn();    // show "▽ Save to <bundle>" when this new level targets a user bundle
   document.getElementById('btn-to-bundle').style.display=saveTargetBundle?'':'none'; // ＋ from a bundle → "← Levels" returns there
@@ -2514,6 +2532,7 @@ let USER_BUNDLES=[];           // [{id:'Landscape/Akashic-Window',name,dir:FileS
 let currentUserBundle=null;    // the user bundle whose level grid is showing
 let saveTargetBundle=null;     // id of the bundle the editor saves INTO (null = classic editor/levels)
 let bundleEditNum=null;        // level # being edited (null = adding new → auto-number)
+let bundleNewNum=null;         // the slot a NEW bundle level will save into (picked in the New-level dialog)
 let bundleRoot=null;           // the bundles HOME: holds Landscape/ + Portrait/, one subfolder per bundle
 const escHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // A string as a JS argument inside an onclick="…" attribute. Folder names come off the
@@ -2744,11 +2763,23 @@ function reviewLoadJSON(json){
 
 // ＋ Add level → target this bundle, then the normal New-Level (grid size) dialog.
 // The default grid follows the bundle's folder: Portrait → 11×9, otherwise 9×11.
-function addLevelToBundle(id){ saveTargetBundle=id; bundleEditNum=null; closeProducts();
-  const portrait=(USER_BUNDLES.find(x=>x.id===id)||{}).orient==='Portrait';
+async function addLevelToBundle(id){ saveTargetBundle=id; bundleEditNum=null; closeProducts();
+  const b=USER_BUNDLES.find(x=>x.id===id)||{};
+  const portrait=b.orient==='Portrait';
   document.getElementById('inp-r').value=portrait?11:9; document.getElementById('inp-c').value=portrait?9:11;
-  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('selected'));
-  document.getElementById(portrait?'pre-portrait':'pre-landscape').classList.add('selected'); validateSetup();
+  document.querySelectorAll('.preset-btn').forEach(x=>x.classList.remove('selected'));
+  document.getElementById(portrait?'pre-portrait':'pre-landscape').classList.add('selected');
+  // Level #: default = the FIRST OPEN SLOT (a bundle fills out of order — Akashic Window
+  // had 1-5, 12, 13, 20, 25), with the open slots listed so the architect can pick.
+  const taken=b.dir?await bundleLevelNums(b):[], top=Math.max(BUNDLE_SIZE,...taken);
+  const open=[]; for(let n=1;n<=top;n++) if(!taken.includes(n)) open.push(n);
+  const first=open.length?open[0]:top+1;
+  document.querySelector('.lvl-row').style.display='';
+  document.getElementById('setup-lvl-label').textContent='Level # in '+(b.name||'bundle');
+  document.getElementById('inp-lvl').value=first;
+  const hint=document.getElementById('setup-lvl-hint'); hint.style.display='';
+  hint.textContent=open.length?('Open: '+numRanges(open)+(taken.length?'  ·  Taken: '+numRanges(taken):'')):('All '+top+' taken — next is '+(top+1));
+  validateSetup();
   document.getElementById('setup-wrap').classList.add('open'); }
 
 // Open an existing bundle level into the editor, read from its JSON file on disk.
@@ -2774,6 +2805,19 @@ async function editUserBundleLevel(id,fn){
   if(architectPlaying) togglePlay();
 }
 
+// The level numbers a bundle already has, read off its level-0NN.json files.
+async function bundleLevelNums(b){
+  const nums=[];
+  try{ for await(const [n] of b.dir.entries()){ const m=n.match(/^level-(\d+)\.json$/i); if(m)nums.push(+m[1]); } }catch(e){}
+  return nums.sort((x,y)=>x-y);
+}
+// "6–11, 14–19, 21–24" — compact ranges for the open-slot hint.
+function numRanges(ns){
+  const out=[]; let i=0;
+  while(i<ns.length){ let j=i; while(j+1<ns.length&&ns[j+1]===ns[j]+1)j++;
+    out.push(ns[i]===ns[j]?String(ns[i]):ns[i]+'–'+ns[j]); i=j+1; }
+  return out.join(', ');
+}
 // The next level number a bundle will assign. ONE definition, shared by the
 // New-Level preview and the actual save, so the number an architect SEES while
 // building can never disagree with the number the file ends up with.
@@ -2790,18 +2834,23 @@ async function saveBoardToBundle(){
   const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); if(!b){ alert('No target bundle set — open a bundle and ＋ Add level.'); return; }
   try{ if((await b.dir.queryPermission({mode:'readwrite'}))!=='granted' && (await b.dir.requestPermission({mode:'readwrite'}))!=='granted'){ alert('Folder access denied.'); return; } }catch(e){}
   let num=bundleEditNum;
-  if(num==null) num=await nextBundleLevelNum(b);
+  const isNew=num==null;
+  if(isNew) num=bundleNewNum!=null?bundleNewNum:await nextBundleLevelNum(b);
   const name='level-'+String(num).padStart(3,'0')+'.json';
+  // a NEW level landing on an existing file = replacing someone's work — ask first
+  if(isNew&&(await bundleLevelNums(b)).includes(num)&&!confirm(name+' already exists in '+b.name+'. Replace it with this board?')) return;
   try{ const fh=await b.dir.getFileHandle(name,{create:true}); const w=await fh.createWritable();
     const txt=levelText(); await w.write(txt); await w.close();
     // Saving a DIFFERENT design than the one just won voids that win — prove the new one.
     if(winProof&&winProof.bundle===b.id&&winProof.num===num&&(await sha256(txt))!==winProof.hash) winProof=null;
-    bundleEditNum=num; curLevelNum=num; updateBundleSaveBtn();
+    bundleEditNum=num; bundleNewNum=null; curLevelNum=num; updateBundleSaveBtn();
     const sb=document.getElementById('sb3'); if(sb)sb.textContent='Saved '+name+' → '+b.name;
   }catch(e){ alert('Save failed: '+e.message); }
 }
 function updateBundleSaveBtn(){ const btn=document.getElementById('btn-save-bundle'); if(!btn)return;
-  const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); btn.style.display=b?'':'none'; if(b)btn.textContent='▽ Save to '+b.name;
+  const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); btn.style.display=b?'':'none';
+  const n=bundleEditNum!=null?bundleEditNum:bundleNewNum;              // the slot this Save writes — never a surprise
+  if(b)btn.textContent='▽ Save '+(n!=null?'level '+n+' ':'')+'to '+b.name;
   updateApproveBtn(); }
 
 // ═══ LEVEL APPROVAL — "approved for submission" (Jed 2026-10-01) ═════════════
