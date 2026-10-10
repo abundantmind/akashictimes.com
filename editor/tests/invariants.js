@@ -301,6 +301,56 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);
 
+    // SPLASH + ENCLOSURES (Jed 2026-10-09, Akashic Window L6):
+    //  · a BLAST never splashes leaves — only an adjacent MATCH knocks a hit off a leaf, once;
+    //  · no splash crosses a barrier;
+    //  · an area boxed in by barriers is never refilled — no diagonal slide round its corners.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    {
+      // colours (r+2c)%4: no three alike in any row or column, and colour 4 is free for the test match
+      const reset=()=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.active=true; cd.obs=null; cd.item=null; cd.pu=null; cd.wallE=null; cd.wallS=null; cd.source=null; cd.gen=null; cd.startEmpty=false; cd.sub=null; cd.gem=(r+2*c)%4; } flow.forEach(row=>row.fill('down')); };
+      // 1. a V-Dragonfly down a column of plain gems leaves the 1-hit leaves beside it alone
+      reset(); for(let r=0;r<R;r++)for(const c of [2,4]){ board[r][c].obs='leaf1'; board[r][c].item='acorn'; board[r][c].gem=null; }
+      await fireDet('rocket_v',0,3);
+      const side=[]; for(let r=0;r<R;r++)for(const c of [2,4]) side.push(board[r][c].obs==='leaf1'&&board[r][c].item==='acorn');
+      ok('splash · a beam through gems does NOT clip the leaves beside its path', side.every(Boolean), side.filter(x=>!x).length+' clipped');
+      // ...and crates follow the same rule: a beam BESIDE a crate leaves it; a beam THROUGH it cracks it
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      board[2][2].obs='crate2'; board[2][2].gem=null; board[4][3].obs='crate2'; board[4][3].gem=null;
+      await fireDet('rocket_v',0,3);
+      ok('splash · a beam BESIDE a crate does not crack it', board[2][2].obs==='crate2', board[2][2].obs);
+      ok('splash · a beam THROUGH a crate still cracks it', board[4][3].obs==='crate1', board[4][3].obs);
+      // 2. a plain match takes exactly ONE hit off an adjacent leaf, and ONE off an adjacent crate
+      // (play stays OFF: with it on, the game's own sweep would ALSO resolve this match — two events)
+      reset(); playing=false;
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+      board[3][0].gem=board[3][1].gem=board[3][2].gem=4; board[2][1].obs='leaf3'; board[4][1].obs='crate3'; board[4][1].gem=null;
+      const ch=Motion.newChain('test'); resolve(findPatterns(3,1,3,1),3,1,JSON.parse(JSON.stringify(board)),3,1,ch);
+      ok('splash · a match knocks exactly one hit off an adjacent leaf', board[2][1].obs==='leaf2', board[2][1].obs);
+      ok('splash · ...and exactly one off an adjacent crate', board[4][1].obs==='crate2', board[4][1].obs);
+      await wait(1500);
+      // 3. ...but not through a barrier
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+      board[3][0].gem=board[3][1].gem=board[3][2].gem=4; board[2][1].obs='leaf3'; board[2][1].wallS='unbreakable';
+      resolve(findPatterns(3,1,3,1),3,1,JSON.parse(JSON.stringify(board)),3,1,Motion.newChain('test'));
+      ok('splash · a match does not splash a leaf on the far side of a barrier', board[2][1].obs==='leaf3', board[2][1].obs);
+      await wait(1500);
+      // 4. a 3×3 boxed in by barriers is NEVER refilled — straight, diagonal or by spawn
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      const T0=1,L0=2;                                               // the box: rows 1-3, cols 2-4
+      for(let c=L0;c<L0+3;c++){ board[T0-1][c].wallS='unbreakable'; board[T0+2][c].wallS='unbreakable'; }
+      for(let r=T0;r<T0+3;r++){ board[r][L0-1].wallE='unbreakable'; board[r][L0+2].wallE='unbreakable'; }
+      for(let r=T0;r<T0+3;r++)for(let c=L0;c<L0+3;c++) board[r][c].gem=null;   // the blast emptied the box
+      for(let k=0;k<30;k++) gravityWithMap();
+      let leaked=0; for(let r=T0;r<T0+3;r++)for(let c=L0;c<L0+3;c++) if(board[r][c].gem!==null)leaked++;
+      ok('barrier · an area boxed in by barriers is never refilled (no slide round its corners)', leaked===0, leaked+' cells refilled');
+      // ...while a single barrier segment is still slid round (unchanged)
+      reset(); board[2][3].wallS='breakable'; board[3][3].gem=null; gravityWithMap();
+      ok('barrier · a lone barrier segment is still slid round diagonally', board[3][3].gem!==null, board[3][3].gem);
+    }
+    await startPlayerLevel(1,false); await wait(45);
+
     // NO CLOVER UNDER AN ACORN (Jed 2026-10-07, Akashic Window L5): a clear touching clover
     // plants its whole set EXCEPT acorn cells; once the acorn is collected the cell plants normally.
     await startPlayerLevel(1,false); await wait(45); playing=false;
@@ -353,18 +403,16 @@ window.runInvariants = async function(){
     wipe(); board[R-1][col].sub='clover'; board[3][col].gem=null; board[3][col].pu='rocket_v'; board[3][col].puClover=false;
     await fireDet('rocket_v',3,col); ok('clover · uncharged beam ending ON a seed (terminus) plants nothing new', colClover()===1, colClover());
 
-    // ═══ 4. CRATE SPLASH FROM DETONATIONS ═════════════════════════════════════
+    // ═══ 4. NO CRATE SPLASH FROM DETONATIONS (Jed 2026-10-10) ═══════════════════
+    // Rule changed: only a MATCH cracks the crates beside it; a blast damages only what it
+    // hits. (Was: "adjacent Ball detonation breaks a bordering crate".) Match splash = one
+    // hit per obstacle per event is pinned in the SPLASH + ENCLOSURES block.
     await startPlayerLevel(14,false); await wait(60); wipe(GEM_POOL[1]);
-    // crate at (4,4); only its 4 neighbors are the Ball's target color (keeps the
-    // sweep to 4 cells so the fixed-pace laser stays fast). Ball clears them → crack.
+    // crate at (4,4); only its 4 neighbors are the Ball's target color — the Ball clears all 4
     board[4][4].obs='crate1'; board[4][4].gem=null;
     for(const [r,c] of [[3,4],[5,4],[4,3],[4,5]]) board[r][c].gem=GEM_POOL[0];
     await fireDet('rainbow',0,0,{color:GEM_POOL[0]});
-    ok('crate · adjacent Ball detonation breaks a bordering crate', board[4][4].obs===null, board[4][4].obs);
-    // HP2 crate + two neighbors cleared in ONE phase = ONE hit (dedup)
-    wipe(); board[4][4].obs='crate2'; board[4][4].gem=null; const ph=new Set();
-    splashObstacle(4,3,ph); splashObstacle(4,5,ph);
-    ok('crate · splash is one hit per obstacle per phase (crate2→crate1)', board[4][4].obs==='crate1', board[4][4].obs);
+    ok('crate · a Ball clearing every neighbour does NOT crack the crate (blasts never splash)', board[4][4].obs==='crate1', board[4][4].obs);
 
     // ═══ 5. SWAP RULES ════════════════════════════════════════════════════════
     // key is swappable (guard admits item==='key')

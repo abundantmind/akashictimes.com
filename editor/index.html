@@ -4746,16 +4746,6 @@ function damageChain(r,c){
 // obstacle per phase (phase.splashed). Matches do this inline in resolve(); this
 // is the same rule for PU DETONATIONS (Jed 2026-07-25: an Akasha Ball/beam/blast
 // clearing a gem next to a crate must crack that crate, like a match would).
-function splashObstacle(r,c,phase){
-  phase.splashed=phase.splashed||new Set();
-  for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
-    if(nr<0||nr>=R||nc<0||nc>=C)continue;
-    const k=nr+','+nc;
-    if(phase.splashed.has(k))continue;
-    if(board[nr][nc].active&&(isCrate(nr,nc)||isLeafy(nr,nc))){phase.splashed.add(k);damageChain(nr,nc);}
-  }
-}
-
 function clearCell(r,c,phaseSet){
   const k=r+','+c;
   if(phaseSet.has(k)) return; // already cleared this phase
@@ -5568,7 +5558,10 @@ function clearCellD(r,c,phase,queue){
     queue.push({pu,r,c});     // its cinematic plays at ITS position, in turn
   }
   clearCell(r,c,phase);
-  splashObstacle(r,c,phase);  // a detonation clearing this cell cracks bordering crates/leaves
+  // NO SPLASH HERE (Jed 2026-10-09/10): a cell cleared by a BLAST cracks nothing beside it —
+  // neither leaves nor crates; a blast damages only the cells it actually hits. Splash belongs
+  // to MATCHES alone (the match resolver's own pass). Matched cells clear through this same
+  // function, which is why the splash can't live here.
 }
 
 // ── OVERLAP SOURCING (Township parity) ───────────────────────────────────────
@@ -6658,11 +6651,15 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
   // gem to match, so adjacency is the ONLY way to break it. Once per obstacle
   // per match event — and a pass that resolves several matches is ONE event, so
   // a crate touched by two of them still takes exactly one hit.
-  const splashed=new Set();
+  // THE ONLY SPLASH IN THE GAME (Jed 2026-10-09/10): a MATCH knocks one hit off each leaf
+  // and crate orthogonally beside it — once per event, never across a barrier. Blasts don't
+  // splash at all; they damage only what they hit.
+  const splashed=phase.splashed||(phase.splashed=new Set());
   chosen.forEach(p=>p.cells.forEach(([r,c])=>{
     for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
       const k=nr+','+nc;
       if(nr<0||nr>=R||nc<0||nc>=C||splashed.has(k))continue;
+      if(wallBetween(r,c,nr,nc))continue;            // a match's splash never crosses a barrier
       if(board[nr][nc].active&&(isLeafy(nr,nc)||isCrate(nr,nc))){splashed.add(k);damageChain(nr,nc);}
     }
   }));
