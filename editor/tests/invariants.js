@@ -249,6 +249,58 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);
 
+    // BARRIERS (Jed 2026-10-07/08) — Layer 7 seams. Gems never FLOW or SWAP across one;
+    // matches count THROUGH it and don't damage it; a detonation that crosses a YELLOW one
+    // breaks it and keeps going; STRIPED ones are permanent and never stop a blast.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    {
+      const reset=()=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ flow[r][c]='down'; const cd=board[r][c]; cd.active=true; cd.obs=null; cd.item=null; cd.pu=null; cd.source=null; cd.win=null; cd.startEmpty=false; cd.gen=null; cd.wallE=null; cd.wallS=null; cd.sub=null; if(cd.gem===null)cd.gem=randGem(); } };
+      // 1. no straight fall through a barrier; the cell below fills diagonally round its END
+      reset(); board[2][3].wallS='breakable'; const g23=board[2][3].gem; board[3][3].gem=null;
+      const mv=gravityWithMap();
+      const into=mv.find(m=>m.tr===3&&m.tc===3);
+      ok('barrier · nothing falls straight through it', board[2][3].gem===g23&&!(into&&into.fr===2&&into.fc===3), into&&[into.fr,into.fc]);
+      ok('barrier · the cell below fills diagonally round the barrier\'s end', !!into&&into.fr===2&&Math.abs(into.fc-3)===1, into&&[into.fr,into.fc]);
+      // 2. a barrier LINE across the whole row seals the gap: no slip through the corners
+      reset(); for(let c=0;c<C;c++) board[2][c].wallS='unbreakable'; board[3][3].gem=null;
+      for(let k=0;k<10;k++) gravityWithMap();
+      ok('barrier · a full barrier line seals it — the cell below stays empty', board[3][3].gem===null, board[3][3].gem);
+      // 3. never a swap across a barrier (hints/valid-move agree with the swap guard)
+      reset(); for(let r=0;r<R;r++)for(let c=0;c<C;c++){ if(Math.random()<0.35)board[r][c].wallE='breakable'; if(Math.random()<0.35)board[r][c].wallS='unbreakable'; }
+      const hm=enumerateHintMoves();
+      ok('barrier · no hint ever swaps across a barrier', hm.every(m=>!(m.swap.length===2&&wallBetween(m.swap[0][0],m.swap[0][1],m.swap[1][0],m.swap[1][1]))), hm.length);
+      // 4. a match counts THROUGH a barrier
+      reset(); board[1][1].wallE='unbreakable'; board[1][0].gem=board[1][1].gem=board[1][2].gem=0; board[0][1].gem=1; board[2][1].gem=2; board[1][3].gem=3;
+      const f3=find3();
+      const hit=(rr,cc)=>f3.some(x=>Array.isArray(x)&&x.length===2&&typeof x[0]==='number'?(x[0]===rr&&x[1]===cc):(x.cells||[]).some(([r,c])=>r===rr&&c===cc));
+      ok('barrier · a 3-in-a-row through a barrier still matches', hit(1,1)&&hit(1,2), f3.length);
+      // 5. a horizontal beam breaks the YELLOW seams it crosses, leaves STRIPED ones and parallel ones
+      reset(); const BR=3;
+      board[BR][1].wallE='breakable'; board[BR][4].wallE='unbreakable'; board[BR-1][2].wallS='breakable'; // the last is PARALLEL to the beam
+      await fireDet('rocket_h',BR,3);
+      ok('barrier · a beam breaks the yellow barrier it crosses', board[BR][1].wallE==null, board[BR][1].wallE);
+      ok('barrier · a striped barrier survives the beam', board[BR][4].wallE==='unbreakable', board[BR][4].wallE);
+      ok('barrier · a barrier PARALLEL to the beam is untouched', board[BR-1][2].wallS==='breakable', board[BR-1][2].wallS);
+      // 6. a Scarab's 3×3 breaks its inner yellow seams; striped survive
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      board[2][2].wallE='breakable'; board[2][2].wallS='unbreakable'; board[1][2].wallS='breakable';
+      await fireDet('bomb',2,2);
+      ok('barrier · a Scarab breaks the yellow barriers inside its 3×3', board[2][2].wallE==null&&board[1][2].wallS==null, [board[2][2].wallE,board[1][2].wallS]);
+      ok('barrier · ...and the striped one survives', board[2][2].wallS==='unbreakable', board[2][2].wallS);
+      // 7. save round-trip: borders [{seam,type}]; no barriers → borders []
+      await startPlayerLevel(1,false); await wait(45); playing=false;
+      ok('barrier · a level with no barriers saves borders: []', Array.isArray(serializeLevel().borders)&&serializeLevel().borders.length===0);
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ board[r][c].wallE=null; board[r][c].wallS=null; }
+      board[1][1].wallE='breakable'; board[2][3].wallS='unbreakable';
+      const ser=serializeLevel();
+      ok('barrier · serializes each seam with its type',
+         ser.borders.length===2&&ser.borders.some(b=>b.seam==='v:R1C1'&&b.type==='breakable')&&ser.borders.some(b=>b.seam==='h:R2C3'&&b.type==='unbreakable'), ser.borders);
+      loadLevelData(JSON.parse(JSON.stringify(ser)),1);
+      ok('barrier · loads back onto the same seams', board[1][1].wallE==='breakable'&&board[2][3].wallS==='unbreakable');
+      ok('barrier · serialize→load→serialize is a fixed point', JSON.stringify(serializeLevel())===JSON.stringify(ser), 'diverged');
+    }
+    await startPlayerLevel(1,false); await wait(45);
+
     // NO CLOVER UNDER AN ACORN (Jed 2026-10-07, Akashic Window L5): a clear touching clover
     // plants its whole set EXCEPT acorn cells; once the acorn is collected the cell plants normally.
     await startPlayerLevel(1,false); await wait(45); playing=false;
@@ -448,7 +500,7 @@ window.runInvariants = async function(){
     // was visible on every layer, and most of them were inert). The map is the
     // contract — assert each layer's visible sections ARE its mapped ones, so a new
     // section can't quietly appear on a layer that ignores it.
-    const _visible=()=>['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','gen-pal','itm-pal']
+    const _visible=()=>['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','gen-pal','itm-pal','border-pal']
       .filter(id=>{const e=document.getElementById(id);return e&&getComputedStyle(e).display!=='none';});
     const _palOK={};
     Object.keys(LAYER_SECTIONS).forEach(L=>{

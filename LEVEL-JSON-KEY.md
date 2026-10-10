@@ -18,7 +18,7 @@ layers are*; this doc says *what the bytes mean*.
 | `seeding` | `"random"` — color-seed policy (only value for now; Township-adversarial is a future value) |
 | `layers` | the six cell grids (below) |
 | `props` | HP companion maps (below) |
-| `borders` | Layer 7 seam list — `[]` until border painting ships |
+| `borders` | Layer 7 seam list — barriers, e.g. `[{"seam":"v:R3C4","type":"breakable"}]` (see below) |
 | `objectives` | win conditions (below) |
 | `flyover` | present only on flyover levels: `{axis:"x"|"y", viewRows, viewCols, stops}` |
 
@@ -106,8 +106,13 @@ and exact-dup detection work.
    OPEN: whether to re-letter to a brand-derived alphabet so the bytes read true
    (same cleanup class as dropping `moveLimit`). Jed's call before the loader locks.
 
-2. **Borders (Layer 7)** emits `[]` — no paint tool yet. Planned per-seam shape:
-   `{seam, type:"breakable"|"unbreakable", hp}`.
+2. **Borders (Layer 7)** — barriers on SEAMS between two active cells. `seam` = `v:R#C#`
+   (the seam on that cell's RIGHT) or `h:R#C#` (the seam BELOW it); `type` = `breakable`
+   (YELLOW) or `unbreakable` (BLACK/YELLOW CANDY STRIPE). Rules (Jed 2026-10-07/08): gems
+   never flow or swap across a barrier; matches count through it and never damage it; a
+   detonation that clears the cells on both sides of a YELLOW barrier breaks it and keeps
+   going; striped barriers are permanent and never stop a blast. Gems slide diagonally
+   round the END of a barrier; a barrier line through a corner seals it.
 
 3. **`seeding`** is always `"random"` — the adversarial color policy (Painter Layer
    Model meta) is a future value, not yet emitted.

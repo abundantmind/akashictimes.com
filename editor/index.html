@@ -399,6 +399,17 @@ body.font-lg{--base-font:20px;}
 #board{display:grid;gap:3px;background:transparent;position:relative;}
 .cell{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;background:#d4b483;box-shadow:0 0 0 1.5px #b8935a;transition:box-shadow .15s;touch-action:none;/* input, not layout: without this, touch drags scroll the page and the browser cancels the pointer stream */}
 .cell:hover{box-shadow:0 0 0 1.5px #e8c99a;}
+/* Border layer (Jed 2026-10-08): you aim at SEAMS, not cells — no cell hover ring; the
+   seam under the pointer is previewed by #seam-hover instead (see seamAt / showSeamHover). */
+body.border-mode #board .cell:hover{box-shadow:none;}
+#seam-hover{position:absolute;pointer-events:none;z-index:7;border-radius:4px;display:none;opacity:.85;
+  box-shadow:0 0 0 2px #fff,0 0 10px rgba(242,194,48,.9);}
+/* the preview WEARS the loaded brush, so you see what a click will lay down */
+#seam-hover.set[data-brush="breakable"]{background:#f2c230;}
+#seam-hover.set[data-brush="unbreakable"]{background:repeating-linear-gradient(45deg,#111 0 5px,#f2c230 5px 10px);}
+/* a click here would REMOVE the barrier (same brush again, or Erase) */
+#seam-hover.remove{background:rgba(220,50,50,.25);box-shadow:0 0 0 2px #ff4d4d,0 0 10px rgba(255,77,77,.8);}
+#seam-hover.bad{background:rgba(120,120,120,.35);box-shadow:0 0 0 1px #888;}
 /* editor: faint ghost tile so the Base layer stays paintable/visible */
 .cell.inactive{background:#241b30;opacity:.5;box-shadow:0 0 0 1px #33264a;}
 /* play: inactive = a real hole — nothing but the scene shows through */
@@ -963,6 +974,15 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       <!-- Flow brush (Jed 2026-09-24): pick a direction, then ONE click per cell sets it.
            Replaces click-to-cycle (down→right→left→up), which took 3 clicks to reach Up.
            Fill board = the old whole-board presets, now explicitly separate from painting. -->
+      <!-- BARRIERS (Jed 2026-10-07): click the LINE between two cells. Clicking the same
+           kind again removes it; Erase removes either kind. -->
+      <div class="psec" id="border-pal">
+        <div class="ptitle">Barriers</div>
+        <button class="bbtn on" id="bb-breakable" onclick="setBorderBrush('breakable')"><span style="display:inline-block;width:18px;height:6px;border-radius:3px;background:#f2c230;border:1px solid #1a1206;margin-right:6px;vertical-align:middle;"></span>Breakable</button>
+        <button class="bbtn" id="bb-unbreakable" onclick="setBorderBrush('unbreakable')"><span style="display:inline-block;width:18px;height:6px;border-radius:3px;background:repeating-linear-gradient(45deg,#111 0 3px,#f2c230 3px 6px);border:1px solid #1a1206;margin-right:6px;vertical-align:middle;"></span>Unbreakable</button>
+        <button class="bbtn" id="bb-erase" onclick="setBorderBrush('erase')">✕ Erase</button>
+        <div style="font-size:11px;color:#665580;margin-top:6px;line-height:1.4;">Point near the EDGE you want (a cell's middle does nothing). Click to place — or drag along seams to lay a run. Same brush on a barrier removes it.</div>
+      </div>
       <div class="psec" id="flow-pal">
         <div class="ptitle">Flow</div>
         <button class="bbtn on" id="fb-down" onclick="setFlowBrush('down')"><span class="fbarrow">↓</span>Down</button>
@@ -3237,6 +3257,26 @@ function render(dropping){
   bd.style.gridTemplateColumns=`repeat(${C},${CELL_SIZE}px)`;
   bd.innerHTML='';
   for(let r=0;r<R;r++) for(let c=0;c<C;c++) bd.appendChild(buildCellEl(r,c,dropping));
+  drawBarriers(bd);
+}
+// BARRIERS drawn ON the seams: YELLOW = breakable, BLACK/YELLOW CANDY STRIPE = unbreakable
+// (Jed 2026-10-07), each with a dark rim so it reads against the sand cells. One SVG laid
+// over the grid inside #board, so it pans with the flyover camera like the cells do.
+function drawBarriers(bd){
+  const S=CELL_SIZE, G=CELL_GAP, step=S+G, T=Math.max(6,Math.round(S*0.17)), over=Math.round(S*0.06);
+  let bars='';
+  const bar=(x,y,w,h,t)=>{ bars+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${Math.min(w,h)/2}" fill="${t==='unbreakable'?'url(#candy)':'#f2c230'}" stroke="#1a1206" stroke-width="1.5"/>`; };
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; if(!cd.active)continue;
+    if(cd.wallE&&c+1<C&&board[r][c+1].active) bar(c*step+S+G/2-T/2, r*step-over, T, S+2*over, cd.wallE);
+    if(cd.wallS&&r+1<R&&board[r+1][c].active) bar(c*step-over, r*step+S+G/2-T/2, S+2*over, T, cd.wallS); }
+  if(!bars)return;
+  const W=C*step, H=R*step;
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','barrier-layer'); svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.style.cssText='position:absolute;left:0;top:0;pointer-events:none;z-index:6;overflow:visible;';
+  svg.innerHTML=`<defs><pattern id="candy" width="${T*1.6}" height="${T*1.6}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">`
+    +`<rect width="${T*1.6}" height="${T*1.6}" fill="#f2c230"/><rect width="${T*0.8}" height="${T*1.6}" fill="#111"/></pattern></defs>`+bars;
+  bd.appendChild(svg);
 }
 // Build ONE cell's DOM node. Extracted from render() so paintCell can refresh a
 // single cell IN PLACE (renderCell) instead of tearing down + rebuilding the
@@ -3589,7 +3629,13 @@ function serializeLevel(){
     layers,
     // props.source only when there are windows — older levels re-save byte-identically
     props:Object.assign({contents:cprops,overlay:oprops},Object.keys(sprops).length?{source:sprops}:{}),
-    borders:[],                                                // L7 — none for MVP-25
+    borders:(()=>{                                             // L7 — barriers on seams between two active cells
+      const out=[];
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; if(!cd.active)continue;
+        if(cd.wallE&&c+1<C&&board[r][c+1].active) out.push({seam:'v:R'+r+'C'+c,type:cd.wallE});
+        if(cd.wallS&&r+1<R&&board[r+1][c].active) out.push({seam:'h:R'+r+'C'+c,type:cd.wallS}); }
+      return out;
+    })(),
     objectives,
   };
   if(editorFlyover)out.flyover=editorFlyover; // emit from the persisted spec, NOT the runtime camera (torn down while editing)
@@ -3987,24 +4033,26 @@ function markLevelBrushes(){
 //              live in this menu ONLY (Jed 2026-09-30) — showing them under Tile too
 //              was confusing. The saved JSON is unchanged: still layers.contents.
 //   Flow     → the four direction brushes + Fill board (flow-pal)
-//   Border   → Layer 7, NOT IMPLEMENTED — paintCell has no 'border' branch at all,
-//              so the layer paints nothing whatever the palette shows.
+//   Border   → Layer 7 Barriers (border-pal): click a cell's edge → onCell routes to
+//              paintBorder, which sets that SEAM (wallE / wallS on the cell left/above).
 const LAYER_SECTIONS={
   base:    ['base-pal'],
   tile:    ['gem-pal','pu-pal','src-pal','itm-pal'],
   obstacle:['sub-pal','ovl-pal','blk-pal','gen-pal'],   // Blocks live in Obstacle ONLY (Jed 2026-09-30)
   flow:    ['flow-pal'],
-  border:  [],
+  border:  ['border-pal'],
 };
 function applyLayerPalette(){
   const shown=LAYER_SECTIONS[layer]||[];
-  ['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','gen-pal','itm-pal'].forEach(id=>{
+  ['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','gen-pal','itm-pal','border-pal'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.style.display=shown.includes(id)?'':'none';
   });
 }
 function setLayer(l){
   layer=l;
+  document.body.classList.toggle('border-mode',l==='border');   // seams are the target, not cells
+  hideSeamHover();
   document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('on'));
   document.getElementById('l-'+l).classList.add('on');
   document.getElementById('sb1').textContent='Layer: '+l[0].toUpperCase()+l.slice(1);
@@ -4060,7 +4108,99 @@ function fillFlow(){
   render();
 }
 
-function onCell(r,c,e){if(playing&&(choosingRainbow||choosingGrasshopper||Motion.quietAt(r,c))){playTap(r,c);}else if(!playing){paintCell(r,c);}}
+function onCell(r,c,e){if(playing&&(choosingRainbow||choosingGrasshopper||Motion.quietAt(r,c))){playTap(r,c);}else if(!playing){ if(layer==='border')paintBorder(r,c,e); else paintCell(r,c);}}
+// ── BARRIER painting: the click picks the NEAREST EDGE of the cell, and that seam
+// (shared with the neighbour) gets the brush. Same kind again = remove (a toggle). ──
+let borderBrush='breakable';
+function setBorderBrush(b){ borderBrush=b; ['breakable','unbreakable','erase'].forEach(k=>{ const el=document.getElementById('bb-'+k); if(el)el.classList.toggle('on',k===b); }); }
+// THE SEAM UNDER THE POINTER — one answer for the click, the drag AND the hover preview.
+// The NEAREST of the cell's four edges wins, but only inside an edge BAND (the outer 30%
+// of the cell): pointing at the middle of a cell means "no seam", so a click near the
+// centre never paints a seam you didn't aim at (Jed 2026-10-08, "tighten the editor").
+// The seam lives on the cell to its LEFT (wallE) or ABOVE (wallS); ok = both sides active.
+const SEAM_BAND=0.30;
+function seamAt(r,c,clientX,clientY){
+  const el=document.querySelector(`#board [data-r="${r}"][data-c="${c}"]`); if(!el)return null;
+  const b=el.getBoundingClientRect(), x=clientX-b.left, y=clientY-b.top;
+  const d={left:x,right:b.width-x,top:y,bottom:b.height-y};
+  const side=Object.keys(d).reduce((a,k)=>d[k]<d[a]?k:a,'left');
+  if(d[side]>b.width*SEAM_BAND)return null;            // the dead zone in the middle of the cell
+  const [cr,cc,key]=side==='right'?[r,c,'wallE']:side==='left'?[r,c-1,'wallE']:side==='bottom'?[r,c,'wallS']:[r-1,c,'wallS'];
+  const [nr,nc]=key==='wallE'?[cr,cc+1]:[cr+1,cc];
+  const ok=!(cr<0||cc<0||nr>=R||nc>=C||!board[cr][cc].active||!board[nr][nc].active);
+  return {cr,cc,key,nr,nc,ok,side,id:key+':'+cr+','+cc};
+}
+// What a click on this seam would DO with the loaded brush: 'set' it, 'remove' it (same
+// kind again / Erase on a barrier), nothing (Erase on bare seam), or 'bad' (faces a hole/edge).
+function seamAction(sm){
+  if(!sm||!sm.ok)return 'bad';
+  const cur=board[sm.cr][sm.cc][sm.key];
+  if(borderBrush==='erase')return cur?'remove':'none';
+  return cur===borderBrush?'remove':'set';
+}
+// Hover preview ON the seam, wearing the LOADED BRUSH: yellow for Breakable, candy stripe
+// for Unbreakable; a red outline when the click would REMOVE the barrier there; grey when
+// the seam can't take one. Lives inside #board so it pans with the board.
+function showSeamHover(sm){
+  const bd=document.getElementById('board'); if(!bd||!sm)return hideSeamHover();
+  let h=document.getElementById('seam-hover');
+  if(!h){ h=document.createElement('div'); h.id='seam-hover'; bd.appendChild(h); }
+  const S=CELL_SIZE, G=CELL_GAP, step=S+G, T=Math.max(8,Math.round(S*0.22));
+  // anchor on whichever cell exists so edge seams (toward a hole / the board edge) still preview
+  const ar=sm.key==='wallE'?(sm.cr>=0?sm.cr:sm.nr):(sm.cr>=0?sm.cr:-1), ac=sm.key==='wallE'?(sm.cc>=0?sm.cc:-1):(sm.cc>=0?sm.cc:sm.nc);
+  if(sm.key==='wallE'){ h.style.left=(ac*step+S+G/2-T/2)+'px'; h.style.top=(ar*step)+'px'; h.style.width=T+'px'; h.style.height=S+'px'; }
+  else               { h.style.left=(ac*step)+'px'; h.style.top=(ar*step+S+G/2-T/2)+'px'; h.style.width=S+'px'; h.style.height=T+'px'; }
+  const act=seamAction(sm);
+  h.className=act;                                    // set | remove | none | bad  (styled in CSS)
+  h.dataset.brush=borderBrush;                        // the 'set' look follows the loaded brush
+  h.style.display=act==='none'?'none':'block';
+}
+function hideSeamHover(){ const h=document.getElementById('seam-hover'); if(h)h.style.display='none'; }
+// Redraw ONLY the barrier overlay (no full render) — keeps a drag stroke smooth and
+// leaves the cell under the pointer alone.
+function redrawBarriers(){
+  const bd=document.getElementById('board'); if(!bd)return;
+  bd.querySelectorAll('.barrier-layer').forEach(x=>x.remove());
+  drawBarriers(bd);
+}
+// A DRAG STROKE paints a run of seams: its first seam decides the mode — 'set' (lay the
+// loaded brush) or 'remove' (the first seam already wore that brush, or Erase) — and every
+// seam the pointer crosses while the button is held gets the same treatment. One Undo
+// step per stroke. A plain click is a one-seam stroke, so click-to-toggle still works.
+let borderStroke=null;   // {mode:'set'|'remove', done:Set<seam id>}
+function applySeam(sm,mode){
+  if(!sm||!sm.ok)return false;
+  const cell=board[sm.cr][sm.cc], want=mode==='remove'?null:borderBrush;
+  if(mode==='remove'&&borderBrush!=='erase'&&cell[sm.key]!==borderBrush&&borderStroke&&borderStroke.done.size)return false; // a removing drag only lifts the brush it started on
+  if((cell[sm.key]||null)===want)return false;
+  cell[sm.key]=want; return true;
+}
+function paintBorder(r,c,e){
+  if(editorReadOnly||!e)return;
+  const sm=seamAt(r,c,e.clientX,e.clientY);
+  const sb=document.getElementById('sb3');
+  if(!sm){ if(sb)sb.textContent='Point near a cell EDGE to place a barrier — the middle of a cell is a dead zone'; return; }
+  if(!sm.ok){ if(sb)sb.textContent='A barrier goes between two ACTIVE cells — that edge faces a hole or the board edge'; return; }
+  const act=seamAction(sm); if(act==='none')return;
+  save();                                             // one Undo for the whole stroke
+  borderStroke={mode:act==='remove'?'remove':'set', done:new Set()};
+  applySeam(sm,borderStroke.mode); borderStroke.done.add(sm.id);
+  if(sb)sb.textContent=borderStroke.mode==='remove'?'Barrier removed — drag to remove more':((borderBrush==='breakable'?'Breakable':'Unbreakable')+' barrier placed — drag to lay more');
+  redrawBarriers(); showSeamHover(sm);
+}
+document.addEventListener('pointermove',e=>{
+  if(layer!=='border'||playing||editorReadOnly){ hideSeamHover(); return; }
+  const cell=e.target&&e.target.closest&&e.target.closest('#board .cell');
+  if(!cell){ hideSeamHover(); return; }
+  const sm=seamAt(+cell.dataset.r,+cell.dataset.c,e.clientX,e.clientY);
+  if(borderStroke&&(e.buttons&1)&&sm&&!borderStroke.done.has(sm.id)){      // dragging: paint each new seam crossed
+    borderStroke.done.add(sm.id);
+    if(applySeam(sm,borderStroke.mode)) redrawBarriers();
+  }
+  showSeamHover(sm);
+});
+document.addEventListener('pointerup',()=>{ if(borderStroke){ const n=borderStroke.done.size; borderStroke=null;
+  if(n>1){ const sb=document.getElementById('sb3'); if(sb)sb.textContent=n+' seams painted (one Undo step)'; } } });
 
 function paintCell(r,c){
   if(editorReadOnly){ const sb=document.getElementById('sb3'); if(sb)sb.textContent='🔒 Published level — read-only. ▶ Play to test it.'; return; }
@@ -4480,6 +4620,34 @@ function isCrate(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('cra
 // special drop. n/k are runtime only — not saved; undo (a board snapshot) rewinds them.
 function isGen(r,c){return !!board[r][c].gen;}
 function isSolid(r,c){return isCrate(r,c)||isGen(r,c);} // "a wall" for gravity, swaps, fills
+// ═══ BARRIERS (Layer 7 seams; Jed 2026-10-07/08) ══════════════════════════════
+// A barrier sits on the SEAM between two cells, stored on the cell to its left/above:
+// cd.wallE = the seam on a cell's RIGHT, cd.wallS = the seam BELOW it, each
+// 'breakable' (YELLOW) or 'unbreakable' (BLACK/YELLOW CANDY STRIPE). Living on the
+// cells means every board snapshot (editor Undo, ⏹ Stop restore, player Undo, the
+// approval fingerprint) carries the barriers with no extra plumbing.
+// Jed's rules: gems never FLOW or SWAP across a barrier; matches DO count through it
+// and never damage it; a DETONATION that crosses a yellow barrier breaks it and keeps
+// going; striped barriers are permanent and never stop a blast; an area blast (Scarab)
+// clears its whole 3×3 regardless.
+function wallBetween(r1,c1,r2,c2){
+  if(r1<0||r1>=R||c1<0||c1>=C||r2<0||r2>=R||c2<0||c2>=C)return null;
+  if(r1===r2){ if(c2===c1+1)return board[r1][c1].wallE||null; if(c2===c1-1)return board[r1][c2].wallE||null; }
+  if(c1===c2){ if(r2===r1+1)return board[r1][c1].wallS||null; if(r2===r1-1)return board[r2][c1].wallS||null; }
+  return null;
+}
+// A blast "crosses" a seam when it clears the cells on BOTH sides of it — a beam
+// crosses the seams along its line (never the parallel ones beside it), a 3×3 crosses
+// its inner seams. Every YELLOW barrier so crossed breaks. Plain matches never call this.
+function breakBarriers(cells){
+  const inSet=new Set(cells.map(([r,c])=>r+','+c)); let broke=0;
+  cells.forEach(([r,c])=>{
+    if(r<0||r>=R||c<0||c>=C)return; const cd=board[r][c];
+    if(cd.wallE==='breakable'&&inSet.has(r+','+(c+1))){ cd.wallE=null; broke++; if(window.spawnFragments)spawnFragments(r,c,4,'#f2c230'); }
+    if(cd.wallS==='breakable'&&inSet.has((r+1)+','+c)){ cd.wallS=null; broke++; if(window.spawnFragments)spawnFragments(r,c,4,'#f2c230'); }
+  });
+  return broke;
+}
 // ═══ WINDOWS (Jed 2026-10-07; were "portals") ═════════════════════════════════
 // Paired Layer-3 mouths, always 1:1: a gem that reaches a BLUE Exit leaves through it
 // and comes out of the ORANGE Re-entry with the same pair number. Jed's placement
@@ -4854,7 +5022,7 @@ function hasValidMove(){
   const trySwap=(r1,c1,r2,c2)=>{
     if(!board[r1][c1].active||!board[r2][c2].active)return false;
     if(!inPlayWindow(r1,c1)||!inPlayWindow(r2,c2))return false;
-    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2))return false;
+    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2)||wallBetween(r1,c1,r2,c2))return false;
     if(board[r1][c1].gem===null&&board[r2][c2].gem===null)return false; // nothing to move
     const g1=board[r1][c1].gem,g2=board[r2][c2].gem;
     board[r1][c1].gem=g2;board[r2][c2].gem=g1;
@@ -4903,7 +5071,7 @@ function enumerateHintMoves(){
   const trySwap=(r1,c1,r2,c2)=>{
     if(!board[r1][c1].active||!board[r2][c2].active) return null;
     if(!inPlayWindow(r1,c1)||!inPlayWindow(r2,c2)) return null;
-    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2)) return null;
+    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2)||wallBetween(r1,c1,r2,c2)) return null; // no swap across a barrier
     if(board[r1][c1].gem===null&&board[r2][c2].gem===null) return null;
     const g1=board[r1][c1].gem,g2=board[r2][c2].gem;
     board[r1][c1].gem=g2;board[r2][c2].gem=g1;
@@ -5619,6 +5787,7 @@ function detScarab(r,c,phase,queue,next,rad,charged){
   const cells=scarabCells(r,c,rad);
   scarabSmoke(r,c,rad); // eye-candy overlay — does not affect the clear below
   if(charged)plantClover(cells,true); // same rule as the Dragonfly: only a clover-CHARGED Scarab plants its blast; blasting through existing clover doesn't spread it
+  breakBarriers(cells);                // a blast breaks every yellow barrier inside its 3×3
   cells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
   render(null);
@@ -5642,6 +5811,7 @@ function detDragonfly(sr,sc,dir,phase,queue,next,wide,charged){
   // original L7 H-Dragonfly bug (Jed 2026-07-30).
   if(charged)plantClover(cells,true);
   else{const beyond=dragonflyDirectionalPlant(sr,sc,dir,cells);if(beyond.length)plantClover(beyond,true);}
+  breakBarriers(cells.concat([[sr,sc]]));   // the beam breaks the yellow barriers it crosses
   const rings=new Map();
   cells.forEach(([r,c])=>{
     const d=dir==='h'?Math.abs(c-sc):Math.abs(r-sr);
@@ -5676,6 +5846,7 @@ function detBall(sr,sc,color,phase,queue,next,charged){
   // A Ball plants clover ONLY if clover-CHARGED (dragged off clover). Sweeping
   // through existing clover does not spread it — same rule as Dragonfly/Scarab.
   if(charged)plantClover(cells.concat([[sr,sc]]),true);
+  breakBarriers(cells.concat([[sr,sc]]));   // the ball's blast breaks yellow barriers between the cells it clears
   cells.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
   let i=0;
   const HIT_MS=110; // pace between laser hits
@@ -5698,6 +5869,7 @@ function detBall(sr,sc,color,phase,queue,next,charged){
 function detHopper(r,c,phase,queue,next,charged){
   grasshopperCross(r,c); // eye-candy overlay — growing plus over the orth blast; does not affect the clear below
   if(charged)plantClover(grasshopperOrthCells(r,c).concat([[r,c]]),true); // only a clover-CHARGED Grasshopper plants its orth blast; blasting through clover doesn't spread it
+  breakBarriers(grasshopperOrthCells(r,c).concat([[r,c]]));
   grasshopperOrthCells(r,c).forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
   if(playerMode)updatePlayerHUD();
   render(null);
@@ -5906,6 +6078,7 @@ function hopperFeedAndSwell(r,c,phase,queue,onFed,charged){
   // clone each orthogonal's contents BEFORE clearing the data, so the visuals
   // can fly into the mouth while the board is already square underneath
   if(charged)plantClover(grasshopperOrthCells(r,c).concat([[r,c]]),true); // feed/orth blast plants ONLY if the hopper took off charged (project_clover_model)
+  breakBarriers(grasshopperOrthCells(r,c).concat([[r,c]]));
   const meals=[];
   grasshopperOrthCells(r,c).forEach(([or,oc])=>{
     const el=document.querySelector(`[data-r="${or}"][data-c="${oc}"]`);
@@ -5988,6 +6161,7 @@ function hopperSequence(cells,src,chain){
     // 1) orthogonal clear animation, IMMEDIATELY (the green cross), orths clear now
     grasshopperCross(r,c);
     if(hopCharged)plantClover(grasshopperOrthCells(r,c).concat([[r,c]]),true);
+    breakBarriers(grasshopperOrthCells(r,c).concat([[r,c]]));
     grasshopperOrthCells(r,c).forEach(([or,oc])=>clearCellD(or,oc,phase,chainQueue));
     if(playerMode)updatePlayerHUD();
     render(null);
@@ -6112,6 +6286,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
   const phase=new Set();
   const queue=initialQueue||[];
   if(cellsToClear.length)plantClover(cellsToClear); // direct clears = one event (e.g. Ball×Ball board wipe)
+  if(cellsToClear.length)breakBarriers(cellsToClear); // a combo's blast breaks the yellow barriers it crosses
   cellsToClear.forEach(([r,c])=>clearCellD(r,c,phase,queue));
   if(playerMode) updatePlayerHUD();
   render(null);
@@ -6170,6 +6345,7 @@ function playTap(r,c){
     const phase=new Set();
     const queue=[];
     grasshopperCross(hop.r,hop.c); // eye-candy: growing plus over the orth blast BEFORE lift-off (Jed 2026-08-07 — the feed-and-swell never animated; this is the visual that trains the orth-blast mechanic). Overlay only; does not affect the clear below. The 230ms pre-jump delay lets it read.
+    breakBarriers(hop.orthCells.concat([[hop.r,hop.c]]));
     if(hopCharged)plantClover(hop.orthCells.concat([[hop.r,hop.c]]),true); // orth blast plants ONLY if charged (project_clover_model — matches the chain-caught rule; uncharged blast doesn't spread through clover)
     hop.orthCells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue));
     if(playerMode)updatePlayerHUD();
@@ -6269,7 +6445,7 @@ function playTap(r,c){
   // Chained gems cannot MOVE — the swap bounces; match them in place instead. Solid
   // fixtures (crates, generators) can't be swapped at all — a drag into one bounces
   // rather than carrying a gem into a cell it can't occupy.
-  if(isChained(sr,sc)||isChained(r,c)||isSolid(sr,sc)||isSolid(r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;}
+  if(isChained(sr,sc)||isChained(r,c)||isSolid(sr,sc)||isSolid(r,c)||wallBetween(sr,sc,r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;} // ...and no swap across a barrier
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
   window._swapPU=0;window._comboSwap=false; // star sensor: new move, new count
@@ -6552,7 +6728,7 @@ function gravityWithMap(){
     for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
       if(!inGrid(nr,nc)||!board[nr][nc].active)continue;
       const [ndr,ndc]=vecAt(nr,nc);
-      if(nr+ndr===r&&nc+ndc===c)return true; // that neighbor releases its gem INTO (r,c)
+      if(nr+ndr===r&&nc+ndc===c&&!wallBetween(nr,nc,r,c))return true; // that neighbor releases its gem INTO (r,c) — not across a barrier
     }
     return false;
   };
@@ -6613,12 +6789,12 @@ function gravityWithMap(){
         for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
           if(!inGrid(nr,nc)||!board[nr][nc].active||!feed[nr][nc])continue;
           const [ndr,ndc]=vecAt(nr,nc);
-          if(nr+ndr===r&&nc+ndc===c){fedIn=true;break;}   // that neighbour releases INTO this cell
+          if(nr+ndr===r&&nc+ndc===c&&!wallBetween(nr,nc,r,c)){fedIn=true;break;}   // that neighbour releases INTO this cell (a barrier stops it)
         }
         if(fedIn){feed[r][c]=true;grew=true;continue;}
         const [dr,dc]=vecAt(r,c);
         const ur=r-dr,uc=c-dc;
-        if(inGrid(ur,uc)&&board[ur][uc].active){          // straight feed
+        if(inGrid(ur,uc)&&board[ur][uc].active&&!wallBetween(ur,uc,r,c)){ // straight feed (a barrier above acts like a hole: diagonal feed)
           if(feed[ur][uc]){feed[r][c]=true;grew=true;}
         }else if(inGrid(ur,uc)){                          // hole above: diagonal feed
           const perp=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
@@ -6657,7 +6833,7 @@ function gravityWithMap(){
         const pointedAt=[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc])=>{
           if(!bodyUp(nr,nc))return false;
           const [ndr,ndc]=vecAt(nr,nc);
-          return nr+ndr===r&&nc+ndc===c;
+          return nr+ndr===r&&nc+ndc===c&&!wallBetween(nr,nc,r,c);
         });
         if(!pointedAt&&!(bodyUp(ur,uc)||diag.some(([pr,pc])=>bodyUp(pr,pc)))){
           entry[r][c]=true;feed[r][c]=true;promoted=true;
@@ -6708,7 +6884,7 @@ function gravityWithMap(){
       if(!board[r][c].active||!occ(r,c)||isChained(r,c))continue;
       if(board[r][c].item&&!isFaller(r,c))continue; // static items (acorns) don't fall; keys do
       const [dr,dc]=vecAt(r,c);
-      if(emptyActive(r+dr,c+dc)){step(r,c,r+dr,c+dc);progress=true;}
+      if(emptyActive(r+dr,c+dc)&&!wallBetween(r,c,r+dr,c+dc)){step(r,c,r+dr,c+dc);progress=true;} // never through a barrier
     }
     // 1b) WINDOWS — a piece resting in an Exit leaves through the blue mouth and comes
     //     out of its orange Re-entry the moment that cell is free. Its path slides OUT
@@ -6745,7 +6921,7 @@ function gravityWithMap(){
       for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
         if(!inGrid(nr,nc)||!board[nr][nc].active)continue;
         const [ndr,ndc]=vecAt(nr,nc);
-        if(nr+ndr===r&&nc+ndc===c){fr=nr;fc=nc;break;}  // this neighbor releases INTO (r,c)
+        if(nr+ndr===r&&nc+ndc===c){fr=nr;fc=nc;break;}  // this neighbor releases INTO (r,c) (a barrier between is handled below)
       }
       if(fr<0){const [dr,dc]=vecAt(r,c);fr=r-dr;fc=c-dc;} // none flows in → geometric upstream (open-sky / hole-above, unchanged)
       const fdr=fr-r,fdc=fc-c;                            // unit step from (r,c) toward its feeder
@@ -6756,14 +6932,17 @@ function gravityWithMap(){
       // coming — no slip, which keeps the corner-drift fix intact. A full chain
       // WALL still seals: its diagonals are chained too, so no donors qualify
       // (L8 donut / L9 waist stay empty by design).
-      let br=fr,bc=fc,blockedForever=false;
-      for(;;){
+      // A BARRIER between this cell and its feeder blocks the straight feed for good (until
+      // a blast breaks it) — the cell is filled diagonally, around the barrier's end.
+      let br=fr,bc=fc,blockedForever=!!wallBetween(r,c,fr,fc);
+      for(;!blockedForever;){
         if(!inGrid(br,bc))break;                       // open sky: spawns feed it
         if(!board[br][bc].active){blockedForever=true;break;} // hole gap
         if(winIn.has(br+','+bc)&&!occ(br,bc))break;    // an empty Re-entry upstream: its window will feed it
         if(isGen(br,bc))break;                         // a generator feeds this cell — wait for its drop, don't slip
         if(isCrate(br,bc)){blockedForever=true;break;} // solid box: gems route around it like a hole
         if(occ(br,bc)){blockedForever=isChained(br,bc)||(!!board[br][bc].item&&!isFaller(br,bc));break;} // a falling key isn't a forever-block — gems follow it down, not slip around
+        if(wallBetween(br,bc,br+fdr,bc+fdc)){blockedForever=true;break;} // an empty run cut off by a barrier
         br+=fdr;bc+=fdc;                               // empty active: keep walking toward the source
       }
       if(!blockedForever)continue;
@@ -6774,6 +6953,16 @@ function gravityWithMap(){
         if(isChained(pr,pc))return false; // chained gems can't slide anywhere
         if(board[pr][pc].item)return false; // items (keys/acorns) never slip-donate diagonally
         if(winOut.has(pr+','+pc))return false; // a gem in an Exit waits for its window — it never slips sideways
+        // THE CORNER A SLIP CROSSES. Four cells meet there: D (donor), T (receiver), A (T's
+        // feeder, beside D) and B (beside T, after D). A diagonal slide is only allowed when
+        // there is an OPEN way round the corner — D→A→T or D→B→T with no barrier on either
+        // seam. So one barrier's END is slid round, but a barrier line through the corner OR
+        // an L-shaped corner boxing in T (Jed's L6 enclosure: barrier above AND beside the
+        // corner cell) seals it — "those barriers stop EVERYTHING reaching the inner area".
+        const ar=fr,ac=fc,bR=r+(pr-fr),bC=c+(pc-fc);
+        const viaA=!wallBetween(pr,pc,ar,ac)&&!wallBetween(ar,ac,r,c);
+        const viaB=!wallBetween(pr,pc,bR,bC)&&!wallBetween(bR,bC,r,c);
+        if(!viaA&&!viaB)return false;
         if(region[pr][pc]!==region[r][c])return false; // own region only — no pocket leakage
         const [ddr,ddc]=vecAt(pr,pc);
         return !emptyActive(pr+ddr,pc+ddc); // resting — cannot fall straight
@@ -7715,6 +7904,7 @@ function applyBooster(r,c){
   Motion.claim(chain+'/booster');
   const phase=new Set(),queue=[];
   plantClover(cells);                             // a hit is a clear event — plants through clover contact
+  breakBarriers(cells);                           // a booster blast breaks the yellow barriers it crosses
   cells.forEach(([cr,cc])=>clearCellD(cr,cc,phase,queue)); // chains/leaves/crates absorb; PUs enqueue
   if(playerMode)updatePlayerHUD();
   render(null);
@@ -8061,6 +8251,13 @@ function loadCanonicalLayers(json){
       board[r].push(cell);
     }
   }
+  // L7 BORDERS → cell walls. seam "v:R#C#" = the seam on that cell's RIGHT, "h:R#C#" = BELOW it.
+  (json.borders||[]).forEach(b=>{
+    const m=/^([hv]):R(\d+)C(\d+)$/.exec((b&&b.seam)||''); if(!m)return;
+    const r=+m[2], c=+m[3]; if(!board[r]||!board[r][c])return;
+    const t=b.type==='unbreakable'?'unbreakable':'breakable';
+    if(m[1]==='v') board[r][c].wallE=t; else board[r][c].wallS=t;
+  });
 }
 
 // Returns TRUE when the level was loaded, FALSE when this build refused it.
