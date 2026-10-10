@@ -2851,6 +2851,7 @@ async function nextBundleLevelNum(b){
 async function saveBoardToBundle(){
   if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
   { const wp=windowProblems(); if(wp.length){ alert('Fix the windows before saving:\n\n• '+wp.join('\n• ')); return; } }
+  if(!fixBareAcorns())return;
   const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); if(!b){ alert('No target bundle set — open a bundle and ＋ Add level.'); return; }
   try{ if((await b.dir.queryPermission({mode:'readwrite'}))!=='granted' && (await b.dir.requestPermission({mode:'readwrite'}))!=='granted'){ alert('Folder access denied.'); return; } }catch(e){}
   let num=bundleEditNum;
@@ -3473,6 +3474,13 @@ function renderPalette(){
     btn.onclick=()=>{
       if(on){ if(GEM_POOL.length<=1)return; GEM_POOL=GEM_POOL.filter(i=>i!==gi); }
       else{ GEM_POOL=[...GEM_POOL,gi].sort((a,b)=>a-b); }
+      // The board on screen must match the palette: a colour switched OFF is re-rolled from
+      // the remaining colours (then any accidental matches cleaned), so ▶ Play tests exactly
+      // the colours chosen — fewer colours = more power-ups (Jed 2026-10-09). Editing only.
+      if(on&&!playing){
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; if(cd.active&&cd.gem===gi&&!cd.pu)cd.gem=randGem(); }
+        clean(); render();
+      }
       renderPalette();
     };
     box.appendChild(btn);
@@ -3498,7 +3506,11 @@ function renderObjectives(){
   const box=document.getElementById('objlist'); if(!box)return;
   const bc=boardCounts();
   box.innerHTML='';
-  if(!editorObjectives.length){box.innerHTML='<div class="objempty">No objectives — Recommend or add one.</div>';return;}
+  // An empty goal list must NOT return early: the tail below also draws the Palette picker
+  // (and the play-frame HUD) — a brand-new level, which has no goals yet, showed an EMPTY
+  // Palette and no way to choose its gem colours (Jed 2026-10-09).
+  if(!editorObjectives.length){box.innerHTML='<div class="objempty">No objectives — Recommend or add one.</div>';
+    if(typeof updEditorFrame==='function')updEditorFrame(); renderPalette(); return;}
   editorObjectives.forEach((o,i)=>{
     const k=objKind(o);
     const row=document.createElement('div');row.className='objrow';
@@ -3673,6 +3685,7 @@ async function saveLevelToDisk(){
   if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
   if(editorReadOnly) return;   // published levels are final
   { const wp=windowProblems(); if(wp.length){ alert('Fix the windows before saving:\n\n• '+wp.join('\n• ')); return; } }
+  if(!fixBareAcorns())return;
   if(!window.showDirectoryPicker){
     alert('Local Save needs a Chromium browser (File System Access API). Use ⌘ Serialize → ⧉ Copy as a fallback.');return;
   }
@@ -4253,7 +4266,15 @@ function paintCell(r,c){
         if(ot.layer==='sub'){cd.sub=b.id;}                             // substrate: additive, doesn't touch gem/obs (clover can sit under an empty cell)
         else if(ot.layer==='obs'&&ot.solid){cd.obs=b.id;cd.gem=null;cd.pu=null;cd.startEmpty=false;cd.gen=null;} // solid block: replaces gem (and a generator)
         else if(ot.layer==='obs'){cd.obs=b.id;}                        // overlay: additive, sits over gem
-        else if(ot.layer==='item'){cd.gem=null;cd.pu=null;cd.obs=null;cd.item=b.id;cd.startEmpty=false;cd.gen=null;} // item: occupies gem slot
+        else if(ot.layer==='item'){                                        // item: occupies gem slot
+          // AN ACORN ALWAYS LIVES UNDER A LEAF (Jed 2026-10-09, Akashic Window L6): a bare
+          // acorn can never be collected — the leaf breaking IS the collection — and painting
+          // an acorn used to WIPE the leaf already on the cell. Keep an existing leaf (and its
+          // hit count); give a bare acorn a 1-hit leaf. Keys stay bare: they fall to the exit.
+          const keepLeaf=b.id==='acorn'&&isLeafy(r,c);
+          cd.gem=null;cd.pu=null;cd.item=b.id;cd.startEmpty=false;cd.gen=null;
+          cd.obs=b.id==='acorn'?(keepLeaf?cd.obs:'leaf1'):null;
+        }
       }
     }
   } else if(layer==='flow'){
@@ -4668,6 +4689,16 @@ function winMouthOpen(r,c,kind){
   const [nr,nc]=winMouthCell(r,c,kind);
   return !(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active);
 }
+// A BARE ACORN (no leaf over it) can never be collected, so the level can't be won.
+// Before a save: offer to give each one a 1-hit leaf (OK) or cancel the save to fix them
+// by hand. Returns false = don't save. (Jed's Akashic Window L6, 2026-10-09.)
+function fixBareAcorns(){
+  const bare=[]; for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; if(cd.active&&cd.item==='acorn'&&!isLeafy(r,c))bare.push([r,c]); }
+  if(!bare.length)return true;
+  if(!confirm(bare.length+' acorn'+(bare.length>1?'s have':' has')+' no leaf over '+(bare.length>1?'them':'it')+' — a bare acorn can never be collected, so the level could not be won.\n\nOK = give each a 1-hit leaf and save.   Cancel = don\'t save (fix by hand).'))return false;
+  bare.forEach(([r,c])=>{board[r][c].obs='leaf1';}); render();
+  return true;
+}
 // pair number → {exit:[r,c], entry:[r,c]} for every window on the board
 function windowPairs(){
   const pairs=new Map();
@@ -4744,6 +4775,16 @@ function clearCell(r,c,phaseSet){
   if(board[r][c].gem!==null) spawnFragments(r,c,board[r][c].gem);
   board[r][c].gem=null;
   board[r][c].pu=null;
+}
+
+// ── Effect collectors: return cells to clear, don't clear or cascade themselves ──
+function scarabCells(r,c,rad){
+  const cells=[],rr=rad||1; // rad 1 = solo 3×3; rad 2 = Scarab×Scarab combo 5×5
+  for(let dr=-rr;dr<=rr;dr++)for(let dc=-rr;dc<=rr;dc++){
+    const nr=r+dr, nc=c+dc;
+    if(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active) cells.push([nr,nc]);
+  }
+  return cells;
 }
 
 function rainbowCells(targetGem){
@@ -5558,10 +5599,7 @@ function refillPump(chain){
 // ahead of the picture: a gem the player can still see falling is already sitting at
 // its destination in the data. A blast resolving in that window clears the cells the
 // data says are occupied and leaves alone the ones the player was aiming at — Jed,
-  // NO SPLASH HERE (Jed 2026-10-09/10): a cell cleared by a BLAST cracks nothing beside it —
-  // neither leaves nor crates; a blast damages only the cells it actually hits. Splash belongs
-  // to MATCHES alone (the match resolver's own pass). Matched cells clear through this same
-  // function, which is why the splash can't live here.
+// 2026-08-30: "when I fire a dragonfly at a scarab when the row above him is in
 // motion, the cells within his range do not get cleared."
 // So the next blast waits for the airborne gems to land. The refill still happens
 // BETWEEN detonations, which is the whole gain (gems fall during a chain instead of
@@ -6656,7 +6694,6 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
 //      (flow[][] — 'down' everywhere unless painted / level flowDirection).
 //   2. DIAGONAL SLIP: an empty active cell whose upstream neighbor is an
 //      inactive INTERIOR hole pulls a RESTING gem from one of its two upstream
-      if(wallBetween(r,c,nr,nc))continue;            // a match's splash never crosses a barrier
 //      diagonals (random side when both offer) — gems route AROUND holes
 //      instead of teleporting through them.
 //   3. SPAWN: only ENTRY cells receive new gems — first active cell walking
