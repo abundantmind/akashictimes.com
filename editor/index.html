@@ -4746,16 +4746,6 @@ function clearCell(r,c,phaseSet){
   board[r][c].pu=null;
 }
 
-// ── Effect collectors: return cells to clear, don't clear or cascade themselves ──
-function scarabCells(r,c,rad){
-  const cells=[],rr=rad||1; // rad 1 = solo 3×3; rad 2 = Scarab×Scarab combo 5×5
-  for(let dr=-rr;dr<=rr;dr++)for(let dc=-rr;dc<=rr;dc++){
-    const nr=r+dr, nc=c+dc;
-    if(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active) cells.push([nr,nc]);
-  }
-  return cells;
-}
-
 function rainbowCells(targetGem){
   const cells=[];
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
@@ -5568,7 +5558,10 @@ function refillPump(chain){
 // ahead of the picture: a gem the player can still see falling is already sitting at
 // its destination in the data. A blast resolving in that window clears the cells the
 // data says are occupied and leaves alone the ones the player was aiming at — Jed,
-// 2026-08-30: "when I fire a dragonfly at a scarab when the row above him is in
+  // NO SPLASH HERE (Jed 2026-10-09/10): a cell cleared by a BLAST cracks nothing beside it —
+  // neither leaves nor crates; a blast damages only the cells it actually hits. Splash belongs
+  // to MATCHES alone (the match resolver's own pass). Matched cells clear through this same
+  // function, which is why the splash can't live here.
 // motion, the cells within his range do not get cleared."
 // So the next blast waits for the airborne gems to land. The refill still happens
 // BETWEEN detonations, which is the whole gain (gems fall during a chain instead of
@@ -6663,6 +6656,7 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
 //      (flow[][] — 'down' everywhere unless painted / level flowDirection).
 //   2. DIAGONAL SLIP: an empty active cell whose upstream neighbor is an
 //      inactive INTERIOR hole pulls a RESTING gem from one of its two upstream
+      if(wallBetween(r,c,nr,nc))continue;            // a match's splash never crosses a barrier
 //      diagonals (random side when both offer) — gems route AROUND holes
 //      instead of teleporting through them.
 //   3. SPAWN: only ENTRY cells receive new gems — first active cell walking
