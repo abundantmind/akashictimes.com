@@ -2088,6 +2088,53 @@ const SFX = {
       nz.connect(g).connect(ctx.destination); nz.start(at); nz.stop(at + 0.03);
     }
   },
+  // ── SHUFFLE MUSIC (Jed 2026-10-11: "shuffly music while that animation is showing") ──
+  // Driven BY the cinematic, one call per beat, so it stays locked to the letters at every
+  // speed-dial setting. C-major pentatonic, so any random order still sounds like music:
+  //   shuffleTick(i, beat)  — each letter scramble: two plucks in RANDOM order (the notes are
+  //                           shuffled like the letters) + a card-RIFFLE of tiny clicks + an
+  //                           oom-pah bass on alternate beats
+  //   shuffleSettle(beat)   — letters fall into order: the scale runs UP, in order
+  //   shuffled()            — "SHUFFLED!": a bright ta-da chord
+  _live() {
+    if (this.muted) return null;
+    const ctx = this._ensure(); if (!ctx) return null;
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+    return ctx;
+  },
+  _note(t0, freq, dur, gain, type) {             // one plucked note: fast attack, exponential decay
+    const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'triangle'; o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(gain, t0 + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  },
+  _PENTA: [523.25, 587.33, 659.25, 783.99, 880.00, 1046.5],   // C5 D5 E5 G5 A5 C6
+  shuffleTick(i, beat) {
+    const ctx = this._live(); if (!ctx) return;
+    const t = ctx.currentTime, P = this._PENTA, half = beat / 2;
+    const a = P[Math.floor(Math.random()*P.length)], b = P[Math.floor(Math.random()*P.length)];
+    this._note(t, a, half*1.6, 0.12); this._note(t + half, b, half*1.6, 0.10);          // the shuffled melody
+    if (i % 2 === 0) this._note(t, i % 4 === 0 ? 130.81 : 98.00, beat*1.4, 0.16, 'sine');  // oom (C3) … pah (G2)
+    for (let k = 0; k < 7; k++) {                                                        // the riffle: cards flicking
+      const at = t + (k / 7) * beat, nz = ctx.createBufferSource(); nz.buffer = this._noiseBuf(ctx, 0.008);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600 + Math.random()*1400; bp.Q.value = 1.2;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.09, at); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.012);
+      nz.connect(bp).connect(g).connect(ctx.destination); nz.start(at); nz.stop(at + 0.02);
+    }
+  },
+  shuffleSettle(beat) {
+    const ctx = this._live(); if (!ctx) return;
+    const t = ctx.currentTime, step = Math.min(0.06, beat / 4);
+    this._PENTA.forEach((f, k) => this._note(t + k*step, f, 0.18, 0.11));             // everything in order
+  },
+  shuffled() {
+    const ctx = this._live(); if (!ctx) return;
+    const t = ctx.currentTime;
+    this._note(t, 783.99, 0.12, 0.12);                                                  // "ta-"
+    [1046.5, 1318.5, 1568.0].forEach(f => this._note(t + 0.11, f, 0.7, 0.09));          // "-DA!" C major chord
+    this._note(t + 0.11, 130.81, 0.7, 0.16, 'sine');                                    // with a C3 floor under it
+  },
   toggleMute() {
     this.muted = !this.muted;
     localStorage.setItem('akashic-muted', this.muted ? '1' : '0');
@@ -5403,11 +5450,14 @@ function playShuffleCinematic(){
     if(t<TICKS){
       for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
       spans.forEach(s=>s.style.transform=`translateY(${(Math.random()*14-7)|0}px) rotate(${(Math.random()*30-15)|0}deg)`);
+      SFX.shuffleTick(t,TICK/1000);                      // the music shuffles with the letters
       place(order); t++; setTimeout(tick,TICK); return;
     }
     // 4. settle in reading order, then the past tense, then hand control back
     place(word.map((_,i)=>i)); spans.forEach(s=>s.style.transform='');
+    SFX.shuffleSettle(TICK/1000);                        // ...and falls into order with them
     setTimeout(()=>{
+      SFX.shuffled();
       sw.style.width=''; sw.textContent=TXT('shuffled_word'); ban.querySelector('.sub').textContent='';
       setTimeout(()=>{
         ban.style.opacity='0'; setTimeout(()=>ban.remove(),300);
