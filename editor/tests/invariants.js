@@ -408,6 +408,17 @@ window.runInvariants = async function(){
       const pick=document.querySelector('#board [data-r="3"][data-c="2"]');
       ok('tire · a tire is a legal Grasshopper landing', !!pick&&pick.classList.contains('hopper-pick'), pick&&pick.className);
       choosingGrasshopper=null; render();
+      // a KEY goal sends cascade Grasshoppers down the key's path — at its tires first (Akashic Window L6)
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      { const pm=playerMode, pg=playerGoals; playerMode=true; playerGoals=[{kind:'key',need:3,have:0,name:'key'}];
+        board[0][4].gem=null; board[0][4].item='key';
+        tire(3,4,3); tire(5,4,1); tire(4,1,1);                       // R4C1 is NOT on the key's path
+        const t1=autoGrasshopperTarget(2,1);
+        ok('hopper · key goal: targets the weakest tire IN the key\'s path, not the key', t1&&t1[0]===5&&t1[1]===4, t1);
+        board[3][4].item=null; board[3][4].gem=0; board[5][4].item=null; board[5][4].gem=1;
+        const t2=autoGrasshopperTarget(2,1);
+        ok('hopper · key goal, nothing in the way: clears a cell in the key\'s column (the key drops)', t2&&t2[1]===4&&t2[0]>0, t2);
+        playerMode=pm; playerGoals=pg; }
       // 4. a tire FLOWS like a gem: falls straight, slides round a hole, never leaves at the bottom like a key
       reset(); tire(2,3,2); board[3][3].gem=null; board[4][3].gem=null;
       gravityWithMap();

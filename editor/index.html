@@ -5054,8 +5054,55 @@ function autoGrasshopperTarget(r,c,excludeSet){
     }
     return best;
   };
+  // KEYS: a hopper landing ON a key does nothing (a blast never moves a key). What gets
+  // a key out is clearing what sits in its way — so aim down its path (below).
+  if(goal&&goal.kind==='key'){ const t=keyPathTarget(r,c,excludeSet); if(t)return t; }
   // advance the chosen goal; fall back to nearest gem of any color
   return nearest(advances)||nearest((nr,nc)=>board[nr][nc].gem!==null);
+}
+
+// KEY-PATH TARGETING (Jed 2026-10-12, Akashic Window L6: keys on top, rows of tires
+// underneath — "Grasshoppers need to understand that in order to achieve the goal of
+// collecting keys, they often need to target Tires"). Walk each key's downstream path to
+// its exit (along the flow, through paired windows) and pick, in order:
+//   1. a TIRE on a key's path — lowest HP first (one landing actually removes it), then the
+//      key with the shortest way out, then the tire nearest the Grasshopper;
+//   2. any other obstacle on a key's path (crate, chain, leaf) — same ordering;
+//   3. a cell on the path of the key with the shortest way out (clearing any of them drops the key).
+// Returns null when no key is on the board (the caller falls back to the nearest gem).
+function keyPathTarget(hr,hc,excludeSet){
+  const pairs=windowPairs();
+  const hit=excludeSet&&excludeSet.tireHits;               // tires this event already dented — a 2nd landing would be absorbed
+  const ok=(r,c)=>!(r===hr&&c===hc)&&!(excludeSet&&excludeSet.has(r+','+c))&&!(hit&&hit.has(r+','+c))&&board[r][c].active;
+  const paths=[];
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(!board[r][c].active||board[r][c].item!=='key'||!inPlayWindow(r,c))continue;
+    const path=[]; let cr=r,cc=c;
+    for(let guard=0;guard<R*C;guard++){
+      const cd=board[cr][cc];
+      if(cd.source==='winExit'&&pairs.get(cd.win)?.entry){ [cr,cc]=pairs.get(cd.win).entry; path.push([cr,cc]); continue; } // through the window
+      const [dr,dc]=FLOW_VEC[(flow[cr]&&flow[cr][cc])||'down'];
+      const nr=cr+dr,nc=cc+dc;
+      if(nr<0||nr>=R||nc<0||nc>=C||!board[nr][nc].active||wallBetween(cr,cc,nr,nc))break; // the exit (or a sealed end)
+      cr=nr;cc=nc; path.push([cr,cc]);
+    }
+    paths.push(path);
+  }
+  if(!paths.length)return null;
+  const pick=(isTarget,hpOf)=>{
+    let best=null,bestKey=null;
+    paths.forEach(path=>path.forEach(([r,c],i)=>{
+      if(!ok(r,c)||!isTarget(r,c))return;
+      const key=[hpOf(r,c),path.length,Math.abs(r-hr)+Math.abs(c-hc),i]; // lowest HP, shortest way out, nearest the hopper, nearest the key
+      let better=!bestKey; for(let k=0;!better&&k<key.length;k++){ if(key[k]<bestKey[k])better=true; else if(key[k]>bestKey[k])break; }
+      if(better){bestKey=key;best=[r,c];}
+    }));
+    return best;
+  };
+  const tireHp=(r,c)=>OBS_BYID[board[r][c].item].hp;
+  return pick((r,c)=>isTire(r,c),tireHp)
+      || pick((r,c)=>isCrate(r,c)||isChained(r,c)||isLeafy(r,c),()=>0)
+      || pick((r,c)=>board[r][c].gem!==null||!!board[r][c].pu,(r,c)=>0);
 }
 
 // Akasha Ball auto-target: most prevalent gem color on the board
