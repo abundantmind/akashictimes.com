@@ -49,7 +49,7 @@ Each grid is `rows` strings of `cols` characters, row-major.
 | 2 | `flow`      | `v` down · `^` up · `<` left · `>` right · `.` hole |
 | 3 | `source`    | `I` inlet · `D` drain · `E` window Exit · `R` window Re-entry · `.` none/hole |
 | 4 | `substrate` | `c` clover · `o` oil · `.` none/hole |
-| 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` acorn · `x` crate · `G` generator · `S H V A W` power-ups · `.` hole |
+| 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` acorn · `t` tire · `x` crate · `G` generator · `S H V A W` power-ups · `.` hole |
 | 6 | `overlay`   | `B` chain (bind) · `L` leaf · `.` none/hole |
 
 **`.` convention:** *hole* in `board`; *hole-or-none* in flow/source/substrate/overlay
@@ -64,7 +64,8 @@ and exact-dup detection work.
 
 ## `props` — HP companion maps (written only when hp > 1)
 
-- `props.contents` — crate HP, e.g. `{"R2C3":{hp:2}}`
+- `props.contents` — crate or tire HP, e.g. `{"R2C3":{hp:2}}` (absent = 1). A tire (1-3 HP) flows like a gem, can't be
+  swapped or matched, loses one HP per detonation hit, and stops a Dragonfly beam (the tire takes the hit).
 - `props.contents` — generator settings (always written for a `G` cell), e.g.
   `{"R2C4":{"gen":{"emit":"bomb","every":5}}}`. `emit` is the special (a PU id:
   `helicopter` Grasshopper · `bomb` Scarab · `rainbow` Akasha Ball · `rocket_h` /

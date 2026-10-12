@@ -1038,6 +1038,12 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
             <input id="gen-every" type="number" min="2" max="30" value="5" onchange="setGenCfg()" style="width:42px;background:#130a20;color:#c8bfe0;border:0.5px solid #3d3560;border-radius:4px;font:inherit;"></div>
         </div>
       </div>
+      <!-- TIRES (Jed 2026-10-10) — Contents by schema (they flow like gems), obstacles by intent:
+           Obstacle menu only, like Blocks and Generators. -->
+      <div class="psec" id="tire-pal">
+        <div class="ptitle">Tires</div>
+        <div id="tirepal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
+      </div>
       <div class="psec" id="itm-pal">
         <div class="ptitle">Items</div>
         <div id="itmpal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;"></div>
@@ -3614,6 +3620,7 @@ function serializeLevel(){
       if(cd.pu)return PU_CH[cd.pu]||'?';
       if(cd.item==='key')return 'k';
       if(cd.item==='acorn')return 'a';
+      if(isTireId(cd.item)){const hp=+cd.item.replace('tire','')||1;if(hp>1)cprops['R'+r+'C'+c]={hp};return 't';} // tire: HP rides in props like a crate's
       if(cd.startEmpty)return 'e';                              // Contents = Empty (field.empty)
       return 'g';                                              // Contents = Gem (color seeded, not stored)
     }),
@@ -3798,7 +3805,12 @@ const OBS_TYPES=[
   {id:'crate3',  label:'BX3', color:'#6a4a1a', desc:'Crate 3HP',         layer:'obs', solid:true, hp:3, stageResident:true},
   {id:'key',     label:'ANK', color:'#d4aa40', desc:'Ankh (falls)',        layer:'item', stageResident:true},
   {id:'acorn',   label:'ACN', color:'#7a5a2a', desc:'Acorn (collect)',    layer:'item', stageResident:true},
-  {id:'record',  label:'LP',  color:'#2a2a2a', desc:'Record (LP)',        layer:'item', hp:1},
+  // TIRES (Jed 2026-10-10) — Contents items like keys: they FLOW like gems, can't be swapped
+  // or matched, and only detonations hurt them (3→2→1→gone). HP rides in the id, the same
+  // way crates do, so every gravity step / swap / snapshot carries it for free.
+  {id:'tire1',   label:'TR1', color:'#1b1b1f', desc:'Tire 1HP',           layer:'item', hp:1, tire:true},
+  {id:'tire2',   label:'TR2', color:'#1b1b1f', desc:'Tire 2HP',           layer:'item', hp:2, tire:true},
+  {id:'tire3',   label:'TR3', color:'#f2f2f2', desc:'Tire 3HP',           layer:'item', hp:3, tire:true},
 ];
 // ── STAGE RESIDENTS — the gate for multi-stage (flyover) levels ──────────────
 // A "resident" is a board object REMOVED when its goal is met — a crate breaks, a
@@ -3879,8 +3891,29 @@ function overlaySVG(obsId,size){
   return'';
 }
 
+// TIRE ART (Jed 2026-10-10): HP reads as how much of the tire is WHITE — 1 HP all black,
+// 2 HP white bottom half, 3 HP all white; every tire has a BLUE hub. A heavy dark outline
+// keeps the white ones readable on the sand cells (animation-contrast rule).
+function tireSVG(hp,s){
+  const h=s/2, R=s*.43, blk='#1b1b1f', wht='#f2f2f2';
+  const top=hp>=3?wht:blk, bot=hp>=2?wht:blk;
+  let tread='';                                           // 12 tread notches round the rim
+  for(let i=0;i<12;i++){
+    const a=i*Math.PI/6, x1=h+Math.cos(a)*R*.80, y1=h+Math.sin(a)*R*.80, x2=h+Math.cos(a)*R*.97, y2=h+Math.sin(a)*R*.97;
+    tread+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${(y1+y2)/2<h?(top===blk?'#555':'#999'):(bot===blk?'#555':'#999')}" stroke-width="${s*.035}" stroke-linecap="round"/>`;
+  }
+  return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">`
+    +`<path d="M ${h-R} ${h} A ${R} ${R} 0 0 1 ${h+R} ${h} Z" fill="${top}"/>`          // top half
+    +`<path d="M ${h+R} ${h} A ${R} ${R} 0 0 1 ${h-R} ${h} Z" fill="${bot}"/>`          // bottom half
+    +tread
+    +`<circle cx="${h}" cy="${h}" r="${R}" fill="none" stroke="#0e0e10" stroke-width="${s*.05}"/>`
+    +`<circle cx="${h}" cy="${h}" r="${R*.60}" fill="none" stroke="#777" stroke-width="${s*.025}"/>` // sidewall line
+    +`<circle cx="${h}" cy="${h}" r="${R*.42}" fill="#2f7fe0" stroke="#0d3d80" stroke-width="${s*.035}"/>` // blue hub
+    +`<circle cx="${h}" cy="${h}" r="${R*.13}" fill="#9cc8ff"/></svg>`;
+}
 function obsSVG(obs,size){
   const s=size||34,h=s/2;
+  if(obs.tire)return tireSVG(obs.hp,s);
   // Ankh: black ankh symbol on transparent background
   if(obs.id==='key'){
     return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">`
@@ -3893,6 +3926,7 @@ function buildObsPal(){
   const containers={sub:'subpal',obs:'ovlpal',item:'itmpal'};
   Object.values(containers).forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
   const blkEl=document.getElementById('blkpal');if(blkEl)blkEl.innerHTML='';
+  const tireEl=document.getElementById('tirepal');if(tireEl)tireEl.innerHTML='';
   const genEl=document.getElementById('genpal');if(genEl)genEl.innerHTML='';
   const allPalDivs=[];
   // Helper: create a palette div with click behavior
@@ -3911,14 +3945,14 @@ function buildObsPal(){
     return d;
   };
   // Add clear icon to each section
-  const clearIds={subpal:'_clear_sub',ovlpal:'_clear_obs',blkpal:'_clear_obs',genpal:'_clear_gen',itmpal:'_clear_item'};
+  const clearIds={subpal:'_clear_sub',ovlpal:'_clear_obs',blkpal:'_clear_obs',genpal:'_clear_gen',tirepal:'_clear_item',itmpal:'_clear_item'};
   Object.entries(clearIds).forEach(([palId,clearId])=>{
     const p=document.getElementById(palId);if(!p)return;
     makeDiv(clearId,clearXSVG(34),'Clear this layer',p);
   });
   // Add actual items
   OBS_TYPES.forEach(obs=>{
-    const targetId=obs.solid?'blkpal':containers[obs.layer];
+    const targetId=obs.solid?'blkpal':obs.tire?'tirepal':containers[obs.layer];
     const p=document.getElementById(targetId);if(!p)return;
     let html;
     if(obs.layer==='sub'){html=`<span style="font-size:10px;color:#fff;font-weight:bold;opacity:0.7">${obs.label}</span>`;}
@@ -4006,7 +4040,7 @@ function pickBrush(type,id,el){
   // swatch the author just filtered away, one click after filtering them.
   if(layer!=='tile'&&layer!=='obstacle')setLayer('tile');
   document.querySelectorAll('#base-pal .bbtn').forEach(b=>b.classList.remove('on')); // Base is a different layer — drop its highlight
-  document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#genpal div,#itmpal div')
+  document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#tirepal div,#genpal div,#itmpal div')
     .forEach(x=>x.style.borderColor='transparent');
   if(el)el.style.borderColor='#c8a8ff';
 }
@@ -4051,13 +4085,13 @@ function markLevelBrushes(){
 const LAYER_SECTIONS={
   base:    ['base-pal'],
   tile:    ['gem-pal','pu-pal','src-pal','itm-pal'],
-  obstacle:['sub-pal','ovl-pal','blk-pal','gen-pal'],   // Blocks live in Obstacle ONLY (Jed 2026-09-30)
+  obstacle:['sub-pal','ovl-pal','blk-pal','tire-pal','gen-pal'],   // Blocks + Tires live in Obstacle ONLY (Jed 2026-09-30 / 10-10)
   flow:    ['flow-pal'],
   border:  ['border-pal'],
 };
 function applyLayerPalette(){
   const shown=LAYER_SECTIONS[layer]||[];
-  ['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','gen-pal','itm-pal','border-pal'].forEach(id=>{
+  ['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','tire-pal','gen-pal','itm-pal','border-pal'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.style.display=shown.includes(id)?'':'none';
   });
@@ -4085,7 +4119,7 @@ function setBase(v){
   document.getElementById(v==='active'?'b-active':'b-hole').classList.add('on');
   // Base is its own layer — drop the Tile-layer swatch highlights so only one
   // brush ever looks selected (the unified-selection contract, both directions).
-  document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#itmpal div')
+  document.querySelectorAll('#gpal div,#pupal div,#srcpal div,#subpal div,#ovlpal div,#blkpal div,#tirepal div,#itmpal div')
     .forEach(x=>x.style.borderColor='transparent');
   if(layer!=='base') setLayer('base');
   // Base is its own paint layer — a gem/PU/obstacle brush no longer applies to
@@ -4632,6 +4666,10 @@ const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2',
 function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
 function isLeafy(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('leaf'));}
 function isCrate(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('crate'));}
+// TIRES — an item that steps DOWN one id per detonation hit; null = gone (cell cleared).
+const TIRE_DOWN={tire3:'tire2',tire2:'tire1',tire1:null};
+function isTireId(id){return !!id&&TIRE_DOWN.hasOwnProperty(id);}
+function isTire(r,c){return isTireId(board[r][c].item);}
 // GENERATOR (Jed 2026-09-29, for Township 26-50) — a PERMANENT Contents-layer fixture
 // (PAINTER-LAYER-MODEL locked call #3). Solid like a crate — gems route around it, it
 // can't be swapped or filled — but NEVER damaged and never counted as a crate. Each time
@@ -4760,6 +4798,18 @@ function clearCell(r,c,phaseSet){
     damageChain(r,c);
     return;
   }
+  // TIRE ABSORB (Jed 2026-10-10): a detonation knocks ONE HP off — 3 (all white) → 2 (white
+  // bottom) → 1 (black) → gone. One hit per phase, like a chain/crate. Only the final hit
+  // clears the cell; then gravity lets gems and keys fall into it.
+  if(isTire(r,c)){
+    phaseSet.tireHits=phaseSet.tireHits||new Set();
+    if(phaseSet.tireHits.has(k))return;
+    phaseSet.tireHits.add(k);
+    const left=TIRE_DOWN[board[r][c].item];
+    board[r][c].item=left;
+    if(!left&&window.spawnFragments)spawnFragments(r,c,0,'#1b1b1f'); // rubber bits fly off
+    return;
+  }
   phaseSet.add(k);
   if(playerMode&&board[r][c].gem!==null) playerTally(board[r][c].gem);
   if(board[r][c].gem!==null) spawnFragments(r,c,board[r][c].gem);
@@ -4792,11 +4842,23 @@ function rainbowCells(targetGem){
   return cells;
 }
 
-// Dragonfly clears the entire row (H) or column (V) of active cells
+// Dragonfly clears the entire row (H) or column (V) of active cells — except that a
+// TIRE stops the beam (Jed 2026-09-15, reconfirmed 2026-10-11): each arm runs outward
+// from the Dragonfly and ends AT the first tire, which takes the hit; everything behind
+// it is shielded. A beam that starts on a tire ends there in both directions.
+function dragonflyReach(r,c,dir){
+  const n=dir==='h'?C:R, at=i=>dir==='h'?board[r][i]:board[i][c], o=dir==='h'?c:r;
+  const tireAt=i=>isTireId(at(i).item)&&at(i).active;
+  if(tireAt(o))return {lo:o,hi:o};
+  let lo=0,hi=n-1;
+  for(let i=o-1;i>=0;i--)if(tireAt(i)){lo=i;break;}
+  for(let i=o+1;i<n;i++)if(tireAt(i)){hi=i;break;}
+  return {lo,hi};
+}
 function dragonflyCells(r,c,dir){
-  const cells=[];
-  if(dir==='h'){for(let nc=0;nc<C;nc++){if(board[r][nc].active)cells.push([r,nc]);}}
-  else{for(let nr=0;nr<R;nr++){if(board[nr][c].active)cells.push([nr,c]);}}
+  const cells=[], {lo,hi}=dragonflyReach(r,c,dir);
+  if(dir==='h'){for(let nc=lo;nc<=hi;nc++){if(board[r][nc].active)cells.push([r,nc]);}}
+  else{for(let nr=lo;nr<=hi;nr++){if(board[nr][c].active)cells.push([nr,c]);}}
   return cells;
 }
 
@@ -5043,7 +5105,7 @@ function hasValidMove(){
   const trySwap=(r1,c1,r2,c2)=>{
     if(!board[r1][c1].active||!board[r2][c2].active)return false;
     if(!inPlayWindow(r1,c1)||!inPlayWindow(r2,c2))return false;
-    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2)||wallBetween(r1,c1,r2,c2))return false;
+    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2)||isTire(r1,c1)||isTire(r2,c2)||wallBetween(r1,c1,r2,c2))return false; // tires never swap
     if(board[r1][c1].gem===null&&board[r2][c2].gem===null)return false; // nothing to move
     const g1=board[r1][c1].gem,g2=board[r2][c2].gem;
     board[r1][c1].gem=g2;board[r2][c2].gem=g1;
@@ -5092,7 +5154,7 @@ function enumerateHintMoves(){
   const trySwap=(r1,c1,r2,c2)=>{
     if(!board[r1][c1].active||!board[r2][c2].active) return null;
     if(!inPlayWindow(r1,c1)||!inPlayWindow(r2,c2)) return null;
-    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2)||wallBetween(r1,c1,r2,c2)) return null; // no swap across a barrier
+    if(isChained(r1,c1)||isChained(r2,c2)||isSolid(r1,c1)||isSolid(r2,c2)||isTire(r1,c1)||isTire(r2,c2)||wallBetween(r1,c1,r2,c2)) return null; // no swap across a barrier, never a tire
     if(board[r1][c1].gem===null&&board[r2][c2].gem===null) return null;
     const g1=board[r1][c1].gem,g2=board[r2][c2].gem;
     board[r1][c1].gem=g2;board[r2][c2].gem=g1;
@@ -5358,6 +5420,7 @@ window.freezeReport=function(){
     if(cd.pu)return PU_CH[cd.pu]||'?';
     if(cd.item==='key')return 'k';
     if(cd.item==='acorn')return 'a';
+    if(isTireId(cd.item))return 't';
     return cd.gem===null?'.':String(cd.gem);};
   const FL={down:'v',up:'^',left:'<',right:'>'};
   const rows=[],fl=[];
@@ -5845,10 +5908,10 @@ function detDragonfly(sr,sc,dir,phase,queue,next,wide,charged){
   const dists=[...rings.keys()].sort((a,b)=>a-b);
   if(dir==='h'){
     const rows=wide?[sr-1,sr,sr+1].filter(x=>x>=0&&x<R):[sr];
-    rows.forEach(x=>{animateLaser(sr,sc,x,0,()=>{});animateLaser(sr,sc,x,C-1,()=>{});});
+    rows.forEach(x=>{const e=dragonflyReach(x,sc,'h');animateLaser(sr,sc,x,e.lo,()=>{});animateLaser(sr,sc,x,e.hi,()=>{});}); // a tire ends the laser too
   }else{
     const colsW=wide?[sc-1,sc,sc+1].filter(x=>x>=0&&x<C):[sc];
-    colsW.forEach(x=>{animateLaser(sr,sc,0,x,()=>{});animateLaser(sr,sc,R-1,x,()=>{});});
+    colsW.forEach(x=>{const e=dragonflyReach(sr,x,'v');animateLaser(sr,sc,e.lo,x,()=>{});animateLaser(sr,sc,e.hi,x,()=>{});});
   }
   let i=0;
   const RING_MS=55; // pace between rings — reads as a racing shockwave
@@ -6469,7 +6532,7 @@ function playTap(r,c){
   // Chained gems cannot MOVE — the swap bounces; match them in place instead. Solid
   // fixtures (crates, generators) can't be swapped at all — a drag into one bounces
   // rather than carrying a gem into a cell it can't occupy.
-  if(isChained(sr,sc)||isChained(r,c)||isSolid(sr,sc)||isSolid(r,c)||wallBetween(sr,sc,r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;} // ...and no swap across a barrier
+  if(isChained(sr,sc)||isChained(r,c)||isSolid(sr,sc)||isSolid(r,c)||isTire(sr,sc)||isTire(r,c)||wallBetween(sr,sc,r,c)){render();animateBounceBack(sr,sc,r,c,()=>{render();});return;} // ...and no swap across a barrier
   const html1=document.querySelector(`[data-r="${sr}"][data-c="${sc}"] .gem-inner`)?.innerHTML||'';
   const html2=document.querySelector(`[data-r="${r}"][data-c="${c}"] .gem-inner`)?.innerHTML||'';
   window._swapPU=0;window._comboSwap=false; // star sensor: new move, new count
@@ -6706,7 +6769,7 @@ function gravityWithMap(){
   // (acorns, under leaves — never move) and FALLERS (keys — fall with gravity
   // and exit at the bottom, Township "key drops to bottom to be collected").
   const occ=(r,c)=>board[r][c].gem!==null||!!board[r][c].pu||!!board[r][c].item;
-  const isFaller=(r,c)=>board[r][c].item==='key'; // keys fall & exit; acorns are static
+  const isFaller=(r,c)=>board[r][c].item==='key'||isTire(r,c); // keys fall & exit; tires flow like gems; acorns are static
   // A crate is a SOLID box (no gem) — gravity must treat it like a wall, never a
   // fill target. Without this a gem fell straight INTO the crate cell and vanished
   // behind the box (Jed's "gems disappearing into crates", 2026-07-24). Broken
@@ -6979,7 +7042,7 @@ function gravityWithMap(){
       const donors=perp.filter(([pr,pc])=>{
         if(!inGrid(pr,pc)||!board[pr][pc].active||!occ(pr,pc))return false;
         if(isChained(pr,pc))return false; // chained gems can't slide anywhere
-        if(board[pr][pc].item)return false; // items (keys/acorns) never slip-donate diagonally
+        if(board[pr][pc].item&&!isTire(pr,pc))return false; // keys/acorns never slip-donate diagonally — a tire flows like a gem, so it does
         if(winOut.has(pr+','+pc))return false; // a gem in an Exit waits for its window — it never slips sideways
         // THE CORNER A SLIP CROSSES. Four cells meet there: D (donor), T (receiver), A (T's
         // feeder, beside D) and B (beside T, after D). A diagonal slide is only allowed when
@@ -8268,6 +8331,7 @@ function loadCanonicalLayers(json){
         else if(PU_FROM[ct])cell.pu=PU_FROM[ct];
         else if(ct==='k')cell.item='key';
         else if(ct==='a')cell.item='acorn';
+        else if(ct==='t'){const hp=Math.min(3,Math.max(1,(cprops['R'+r+'C'+c]||{}).hp||1));cell.item='tire'+hp;} // tire 1-3 HP
         else if(ct==='e')cell.startEmpty=true;                // field.empty — stays gem-free
         // 'g' (and anything else) = a normal gem cell — color seeded at play/open, not stored
         const ov=at(L.overlay,r,c);                           // L6 Overlay (never on a crate cell)

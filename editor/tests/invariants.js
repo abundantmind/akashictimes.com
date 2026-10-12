@@ -351,6 +351,66 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);
 
+    // TIRES (Jed 2026-10-10/11): 1-3 HP items (tire1/2/3) that FLOW like gems, can't be swapped
+    // or matched, and only detonations hurt them — one HP per hit, gone at 0 (cell cleared).
+    // A Dragonfly beam STOPS at the first tire on each arm; that tire takes the hit.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    {
+      const reset=()=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.active=true; cd.obs=null; cd.item=null; cd.pu=null; cd.wallE=null; cd.wallS=null; cd.source=null; cd.win=null; cd.gen=null; cd.startEmpty=false; cd.sub=null; cd.gem=(r+2*c)%4; } flow.forEach(row=>row.fill('down')); };
+      const tire=(r,c,hp)=>{ board[r][c].gem=null; board[r][c].item='tire'+hp; };
+      const tires=()=>{ let n=0; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(isTire(r,c))n++; return n; };
+      // 1. the beam stops AT the first tire: it takes one hit, the gems behind it are shielded
+      reset(); tire(3,3,2); const behind=[]; for(let r=4;r<R;r++) behind.push(board[r][3].gem);
+      ok('tire · a V-beam\'s reach ends at the first tire', dragonflyCells(0,3,'v').every(([r])=>r<=3)&&dragonflyCells(0,3,'v').some(([r])=>r===3));
+      await fireDet('rocket_v',0,3);
+      ok('tire · the tire the beam hits loses ONE hit point (2 → 1)', board[3][3].item==='tire1', board[3][3].item);
+      ok('tire · the gems behind it are shielded', [...Array(R-4).keys()].every(i=>board[4+i][3].gem===behind[i]), behind);
+      ok('tire · the gems in front of it are cleared', board[1][3].gem===null&&board[2][3].gem===null, [board[1][3].gem,board[2][3].gem]);
+      // ...each arm independently: an H-beam from the middle stops at a tire on EACH side
+      reset(); tire(2,1,1); tire(2,5,1); const far=[board[2][0].gem,board[2][6]&&board[2][6].gem];
+      await fireDet('rocket_h',2,3);
+      ok('tire · each beam arm stops at its own first tire (both 1-HP tires gone)', !isTire(2,1)&&!isTire(2,5), [board[2][1].item,board[2][5].item]);
+      ok('tire · ...and the cells past them on both sides survive', board[2][0].gem===far[0]&&(C<7||board[2][6].gem===far[1]), [board[2][0].gem,C>6&&board[2][6].gem]);
+      // 2. a Scarab ringed by eight 1-HP tires removes all eight; a 3-HP tire steps down to 2
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++) if(dr||dc) tire(3+dr,3+dc,1);
+      await fireDet('bomb',3,3);
+      ok('tire · a Scarab surrounded by 8 tires removes all 8', tires()===0, tires());
+      reset(); tire(3,4,3); await fireDet('bomb',3,3);
+      ok('tire · a hit turns a 3-HP tire into a 2-HP tire', board[3][4].item==='tire2', board[3][4].item);
+      // 3. a match beside a tire never damages it, and a tire is never part of a match or a swap
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+      board[3][0].gem=board[3][1].gem=board[3][2].gem=4; tire(2,1,1); tire(4,1,1);
+      resolve(findPatterns(3,1,3,1),3,1,JSON.parse(JSON.stringify(board)),3,1,Motion.newChain('test'));
+      ok('tire · a match beside a 1-HP tire does NOT damage it', tires()===2, tires()+' tires left'); // counted, not located — the one above may fall into the cleared row
+      await wait(1500);
+      reset(); for(let r=0;r<R;r++)for(let c=0;c<C;c++) if((r+c)%3===0) tire(r,c,1+(r+c)%3);
+      const hm=enumerateHintMoves();
+      ok('tire · no hint (and so no valid move) ever swaps a tire', hm.every(m=>m.swap.every(([r,c])=>!isTire(r,c))), hm.length);
+      // 4. a tire FLOWS like a gem: falls straight, slides round a hole, never leaves at the bottom like a key
+      reset(); tire(2,3,2); board[3][3].gem=null; board[4][3].gem=null;
+      gravityWithMap();
+      ok('tire · it falls into the empty cells below it, HP intact', board[4][3].item==='tire2'&&!isTire(2,3), [board[2][3].item,board[3][3].item,board[4][3].item]);
+      // hole at R3C3, empty R4C3 below it: the donors are R3C2 (a resting tire) and R3C4 (a key — never donates)
+      reset(); board[3][3].active=false; board[3][3].gem=null; board[4][3].gem=null; tire(3,2,1); board[3][4].gem=null; board[3][4].item='key';
+      gravityWithMap();
+      ok('tire · a resting tire slides diagonally round a hole, like a gem', board[4][3].item==='tire1'&&!isTire(3,2), [board[3][2].item,board[4][3].item]);
+      reset(); tire(R-1,3,1);
+      collectExitedKeys();
+      ok('tire · a tire at the bottom edge stays (only keys are collected there)', isTire(R-1,3), board[R-1][3].item);
+      // 5. save round-trip: Contents 't', HP > 1 in props.contents
+      await startPlayerLevel(1,false); await wait(45); playing=false;
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(isTire(r,c)) board[r][c].item=null;
+      tire(1,1,1); tire(2,2,3);
+      const ser=serializeLevel();
+      ok('tire · saves as Contents "t", HP 3 in props.contents', ser.layers.contents[1][1]==='t'&&ser.layers.contents[2][2]==='t'&&((ser.props.contents||{}).R2C2||{}).hp===3&&!((ser.props.contents||{}).R1C1), ser.props.contents);
+      loadLevelData(JSON.parse(JSON.stringify(ser)),1);
+      ok('tire · loads back with its HP', board[1][1].item==='tire1'&&board[2][2].item==='tire3', [board[1][1].item,board[2][2].item]);
+      ok('tire · serialize→load→serialize is a fixed point', JSON.stringify(serializeLevel())===JSON.stringify(ser), 'diverged');
+    }
+    await startPlayerLevel(1,false); await wait(45);
+
     // NO CLOVER UNDER AN ACORN (Jed 2026-10-07, Akashic Window L5): a clear touching clover
     // plants its whole set EXCEPT acorn cells; once the acorn is collected the cell plants normally.
     await startPlayerLevel(1,false); await wait(45); playing=false;
@@ -548,7 +608,7 @@ window.runInvariants = async function(){
     // was visible on every layer, and most of them were inert). The map is the
     // contract — assert each layer's visible sections ARE its mapped ones, so a new
     // section can't quietly appear on a layer that ignores it.
-    const _visible=()=>['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','gen-pal','itm-pal','border-pal']
+    const _visible=()=>['base-pal','flow-pal','gem-pal','pu-pal','src-pal','sub-pal','ovl-pal','blk-pal','tire-pal','gen-pal','itm-pal','border-pal']
       .filter(id=>{const e=document.getElementById(id);return e&&getComputedStyle(e).display!=='none';});
     const _palOK={};
     Object.keys(LAYER_SECTIONS).forEach(L=>{
