@@ -351,8 +351,9 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);
 
-    // TIRES (Jed 2026-10-10/11): 1-3 HP items (tire1/2/3) that FLOW like gems, can't be swapped
-    // or matched, and only detonations hurt them — one HP per hit, gone at 0 (cell cleared).
+    // TIRES (Jed 2026-10-10/12): 1-3 HP items (tire1/2/3) that FLOW like gems, slide aside in a
+    // swap like keys, never match; detonations AND adjacent matches (like crates) take one HP per
+    // hit, gone at 0 (cell cleared).
     // A Dragonfly beam STOPS at the first tire on each arm; that tire takes the hit.
     await startPlayerLevel(1,false); await wait(45); playing=false;
     {
@@ -378,16 +379,35 @@ window.runInvariants = async function(){
       ok('tire · a Scarab surrounded by 8 tires removes all 8', tires()===0, tires());
       reset(); tire(3,4,3); await fireDet('bomb',3,3);
       ok('tire · a hit turns a 3-HP tire into a 2-HP tire', board[3][4].item==='tire2', board[3][4].item);
-      // 3. a match beside a tire never damages it, and a tire is never part of a match or a swap
+      // 3. a match beside a tire splashes it one HP, like a crate (never across a barrier)
       await startPlayerLevel(1,false); await wait(45); playing=false; reset();
       for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
-      board[3][0].gem=board[3][1].gem=board[3][2].gem=4; tire(2,1,1); tire(4,1,1);
+      board[3][0].gem=board[3][1].gem=board[3][2].gem=4; tire(2,1,1); tire(4,1,1);   // one above, one below the match
       resolve(findPatterns(3,1,3,1),3,1,JSON.parse(JSON.stringify(board)),3,1,Motion.newChain('test'));
-      ok('tire · a match beside a 1-HP tire does NOT damage it', tires()===2, tires()+' tires left'); // counted, not located — the one above may fall into the cleared row
+      ok('tire · a match beside 1-HP tires clears them, same as crates', tires()===0, tires()+' tires left');
       await wait(1500);
-      reset(); for(let r=0;r<R;r++)for(let c=0;c<C;c++) if((r+c)%3===0) tire(r,c,1+(r+c)%3);
+      await startPlayerLevel(1,false); await wait(45); playing=false;   // a fresh board: the last cascade may still be landing
+      reset(); for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+      board[3][0].gem=board[3][1].gem=board[3][2].gem=4; tire(4,1,3);
+      resolve(findPatterns(3,1,3,1),3,1,JSON.parse(JSON.stringify(board)),3,1,Motion.newChain('test'));
+      ok('tire · a match takes exactly ONE hit off an adjacent 3-HP tire', board[4][1].item==='tire2', board[4][1].item);
+      await wait(1500);
+      await startPlayerLevel(1,false); await wait(45); playing=false;
+      reset(); for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+      board[3][0].gem=board[3][1].gem=board[3][2].gem=4; tire(4,1,2); board[3][1].wallS='unbreakable';
+      resolve(findPatterns(3,1,3,1),3,1,JSON.parse(JSON.stringify(board)),3,1,Motion.newChain('test'));
+      ok('tire · ...but never through a barrier', board[4][1].item==='tire2', board[4][1].item);
+      await wait(1500);
+      // ...but a tire SLIDES ASIDE like a key (Jed 2026-10-12): swapping it with a gem can make the match
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset(); for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+      board[3][0].gem=board[3][1].gem=4; tire(3,2,2); board[2][2].gem=4;     // swap R2C2 ⇄ R3C2 → 4 4 4 on row 3
       const hm=enumerateHintMoves();
-      ok('tire · no hint (and so no valid move) ever swaps a tire', hm.every(m=>m.swap.every(([r,c])=>!isTire(r,c))), hm.length);
+      ok('tire · swapping a tire with a gem is a move when it makes a match', hm.some(m=>m.swap.length===2&&m.swap[0][0]===2&&m.swap[0][1]===2&&m.swap[1][0]===3&&m.swap[1][1]===2), hm.length);
+      // a Grasshopper may land on a tire
+      choosingGrasshopper={r:0,c:0,excluded:new Set(),orthCells:[]}; render();
+      const pick=document.querySelector('#board [data-r="3"][data-c="2"]');
+      ok('tire · a tire is a legal Grasshopper landing', !!pick&&pick.classList.contains('hopper-pick'), pick&&pick.className);
+      choosingGrasshopper=null; render();
       // 4. a tire FLOWS like a gem: falls straight, slides round a hole, never leaves at the bottom like a key
       reset(); tire(2,3,2); board[3][3].gem=null; board[4][3].gem=null;
       gravityWithMap();
