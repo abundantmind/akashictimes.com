@@ -533,6 +533,11 @@ body.player-playing #eframe{display:contents;background:none;}
 #ro-badge{display:none;padding:2px 8px;font-size:var(--fz-sm);border-radius:4px;background:#2a1d48;color:#e0c070;border:0.5px solid #6a4aaa;}
 body.level-readonly #ro-badge{display:inline-block;}
 body.level-readonly .edit-only{display:none!important;}
+/* ...except the paint palette, which only goes INVISIBLE: it still holds its width, so the
+   play-frame stays centred between the two satellites exactly where an editable level puts
+   it. Removed outright, the auto margins had nothing on the left to balance against and the
+   grid slid to the left edge (Jed 2026-10-12, Go with the Flow levels). */
+body.level-readonly:not(.player-playing) #lpanel.edit-only{display:flex!important;visibility:hidden;}
 body.level-readonly #objlist{pointer-events:none;}
 body.level-readonly #objlist button{display:none;}                       /* no ✕ remove on a final level */
 body.level-readonly #objlist :is(input,select){border-color:transparent;background:transparent;} /* counts read as text, not fields */
