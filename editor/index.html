@@ -434,6 +434,18 @@ body.player-playing #board-wrap{overflow:hidden;}
 .cell.bounce-back{animation:bounce-back 280ms ease-out;}
 @keyframes bounce-back{0%{transform:translateX(0);}30%{transform:translateX(var(--bx,0)) translateY(var(--by,0));}100%{transform:translateX(0) translateY(0);}}
 .gem-fly{position:absolute;pointer-events:none;z-index:10;transition:none;}
+/* SHUFFLE CINEMATIC (Jed 2026-10-11): old gems spin out, the shuffled ones spin in */
+@keyframes shuf-out{0%{transform:scale(1) rotate(0);opacity:1;}100%{transform:scale(.15) rotate(180deg);opacity:0;}}
+@keyframes shuf-in{0%{transform:scale(.15) rotate(-180deg);opacity:0;}75%{transform:scale(1.08) rotate(8deg);opacity:1;}100%{transform:scale(1) rotate(0);opacity:1;}}
+.gem-inner.shuf-out{animation:shuf-out var(--sd,.25s) ease-in both;}
+.gem-inner.shuf-in{animation:shuf-in var(--sd,.3s) ease-out both;}
+#shuffle-banner{position:fixed;z-index:9000;pointer-events:none;transform:translate(-50%,-50%);text-align:center;
+  background:#1a0f2e;border:2px solid #f2c230;border-radius:16px;padding:16px 26px 12px;box-shadow:0 8px 32px rgba(0,0,0,.7);
+  transition:opacity .25s;}
+#shuffle-banner .sw{position:relative;height:56px;font-family:Georgia,'Times New Roman',serif;font-size:48px;font-weight:900;line-height:56px;
+  color:#f2c230;white-space:nowrap;text-shadow:0 3px 0 #3a2400,0 0 14px rgba(242,194,48,.5);}
+#shuffle-banner .sw span{position:absolute;top:0;transition:left .12s ease-in-out,transform .12s;}
+#shuffle-banner .sub{margin-top:6px;font-size:14px;font-weight:600;line-height:1.3;color:#c8a8ff;white-space:nowrap;}
 @keyframes pop-out{0%{transform:scale(1);opacity:1;}60%{transform:scale(1.4);opacity:.7;}100%{transform:scale(0);opacity:0;}}
 @keyframes drop-in{0%{transform:translateY(-8px) scale(.8);opacity:0;}70%{transform:translateY(3px) scale(1.05);}100%{transform:translateY(0) scale(1);opacity:1;}}
 .cell.popping .gem-inner{animation:pop-out 200ms forwards;}
@@ -1393,7 +1405,7 @@ en:{
   alert_na:n=>'Level '+n+' is not available yet.',
   alert_engine:(n,need,have)=>'Level '+n+' was built for a newer version of the game (engine '+need+'; this app plays '+have+'). Update the app to play it.',
   toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
-  toast_shuffle:'No moves — reshuffling the board',
+  toast_shuffle:'No moves — reshuffling the board',shuffle_word:'SHUFFLE',shuffled_word:'SHUFFLED!',
   win_title:'Well done!',lose_title:'Out of moves',
   win_msg:(n,m)=>'Level '+n+' complete — '+m+' moves',try_again:'Try again?',cont:'Continue',retry:'Retry',got_it:'Got it',
   bar_to_beat:(m)=>'Bar to beat: '+m+' moves',reset_level_btn:'Reset Level Stars',rec_moves:(m)=>'⚑'+m,
@@ -1496,7 +1508,7 @@ ko:{
   alert_na:n=>'레벨 '+n+' — 아직 준비되지 않았습니다.',
   alert_engine:(n,need,have)=>'레벨 '+n+' — 더 새로운 버전의 게임에서 만들어졌습니다 (엔진 '+need+', 이 앱은 '+have+'). 앱을 업데이트하면 플레이할 수 있어요.',
   toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
-  toast_shuffle:'움직임 없음 — 보드를 섞었어요',
+  toast_shuffle:'움직임 없음 — 보드를 섞었어요',shuffle_word:'섞는중',shuffled_word:'섞었어요!',
   win_title:'잘했어요!',lose_title:'이동 횟수 소진',
   win_msg:(n,m)=>'레벨 '+n+' 완료 — 이동 '+m+'회',try_again:'다시 도전할까요?',cont:'계속',retry:'다시 시도',got_it:'알겠어요',
   bar_to_beat:(m)=>'목표 기준: '+m+'회',reset_level_btn:'레벨 별 초기화',rec_moves:(m)=>'⚑'+m,
@@ -1604,7 +1616,7 @@ es:{
   alert_na:n=>'El nivel '+n+' aún no está disponible.',
   alert_engine:(n,need,have)=>'El nivel '+n+' se creó para una versión más nueva del juego (motor '+need+'; esta app usa '+have+'). Actualiza la app para jugarlo.',
   toast_new_version:'Nueva versión — toca para recargar',bug_btn:'🐛 Reportar un error',
-  toast_shuffle:'Sin movimientos — reorganizando el tablero',
+  toast_shuffle:'Sin movimientos — reorganizando el tablero',shuffle_word:'MEZCLAR',shuffled_word:'¡MEZCLADO!',
   win_title:'¡Bien hecho!',lose_title:'Sin movimientos',
   win_msg:(n,m)=>'Nivel '+n+' completado — '+m+' movimientos',try_again:'¿Intentar de nuevo?',cont:'Continuar',retry:'Reintentar',got_it:'Entendido',
   bar_to_beat:(m)=>'Marca a superar: '+m+' movimientos',reset_level_btn:'Reiniciar estrellas del nivel',rec_moves:(m)=>'⚑'+m,
@@ -5337,12 +5349,76 @@ function maybeShuffle(silent){
   if(!playerMode||Motion.busy())return;
   if(playerGoals.length&&playerGoals.every(goalDone))return; // already won
   if(hasValidMove())return;
-  if(shuffleBoard()){
-    render();
-    if(!silent){
-      flashToast(TXT('toast_shuffle'));
+  if(silent){ if(shuffleBoard())render(); return; }
+  playShuffleCinematic();
+}
+
+// SHUFFLE CINEMATIC (Jed 2026-10-11): a no-moves reshuffle used to be a quiet toast —
+// easy to miss, and an architect testing a level needs to SEE it happen (it means the
+// design deadlocks; Esc out and loosen it). Instead of Township's every-gem-flies-to-
+// its-new-cell show: the letters of SHUFFLE scramble over the board while the old gems
+// spin out and the shuffled ones spin in, then the word settles, reads SHUFFLED!, and
+// control comes back. A board-wide Motion claim holds swaps/hints/sweeps meanwhile, and
+// its release re-runs the quiet check (which finds the new move and does nothing).
+let _shuffling=false;
+function playShuffleCinematic(){
+  if(_shuffling)return;
+  const k=v=>Math.round(v/spd());                       // honours the ¼×…2× speed dial
+  const before=board.map(row=>row.map(cd=>cd.gem));
+  const chain=Motion.newChain('shuffle');
+  if(!shuffleBoard()){Motion.touch(chain);return;}      // fewer than 3 loose gems — nothing to show
+  _shuffling=true;
+  Motion.claim(chain+'/shuffle',null);                  // board-wide hold until the show ends
+  const after=board.map(row=>row.map(cd=>cd.gem));
+  const moved=[];                                       // only cells whose gem actually changed animate
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(before[r][c]!==after[r][c]) moved.push([r,c]);
+  // 1. the OLD gems are still drawn — put them back in the model for one render, spin them out
+  moved.forEach(([r,c])=>board[r][c].gem=before[r][c]); render(null);
+  moved.forEach(([r,c])=>board[r][c].gem=after[r][c]);
+  const cellInner=(r,c)=>document.querySelector(`#board [data-r="${r}"][data-c="${c}"] .gem-inner`);
+  const OUT=k(260), STAG=k(320);
+  moved.forEach(([r,c])=>{ const el=cellInner(r,c); if(!el)return;
+    el.style.setProperty('--sd',OUT+'ms'); el.style.animationDelay=Math.round(Math.random()*STAG)+'ms'; el.classList.add('shuf-out'); });
+  // 2. the banner, centred on the visible part of the board
+  const b=document.getElementById('board'), w=document.getElementById('board-wrap');
+  const br=b.getBoundingClientRect(), wr=(w||b).getBoundingClientRect();
+  const x0=Math.max(br.left,wr.left), x1=Math.min(br.right,wr.right), y0=Math.max(br.top,wr.top), y1=Math.min(br.bottom,wr.bottom);
+  const ban=document.createElement('div'); ban.id='shuffle-banner';
+  ban.style.left=((x0+x1)/2)+'px'; ban.style.top=((y0+y1)/2)+'px'; ban.style.opacity='0';
+  const word=[...TXT('shuffle_word')], LW=40;            // letter slot width (px)
+  ban.innerHTML=`<div class="sw" style="width:${word.length*LW}px"></div><div class="sub">${TXT('toast_shuffle')}</div>`;
+  const sw=ban.querySelector('.sw');
+  const spans=word.map(ch=>{const s=document.createElement('span');s.textContent=ch;s.style.width=LW+'px';sw.appendChild(s);return s;});
+  const place=order=>order.forEach((slot,i)=>{spans[i].style.left=(slot*LW)+'px';});
+  let order=word.map((_,i)=>i); place(order);
+  document.body.appendChild(ban); requestAnimationFrame(()=>ban.style.opacity='1');
+  // 3. scramble the letters a few beats; halfway, swap in the shuffled gems
+  const TICK=k(140), TICKS=9;
+  let t=0;
+  const tick=()=>{
+    Motion.touch(chain);                                 // still working — keep the stall watchdog off us
+    if(t===3){ render(null);
+      moved.forEach(([r,c])=>{ const el=cellInner(r,c); if(!el)return;
+        el.style.setProperty('--sd',k(320)+'ms'); el.style.animationDelay=Math.round(Math.random()*STAG)+'ms'; el.classList.add('shuf-in'); }); }
+    if(t<TICKS){
+      for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+      spans.forEach(s=>s.style.transform=`translateY(${(Math.random()*14-7)|0}px) rotate(${(Math.random()*30-15)|0}deg)`);
+      place(order); t++; setTimeout(tick,TICK); return;
     }
-  }
+    // 4. settle in reading order, then the past tense, then hand control back
+    place(word.map((_,i)=>i)); spans.forEach(s=>s.style.transform='');
+    setTimeout(()=>{
+      sw.style.width=''; sw.textContent=TXT('shuffled_word'); ban.querySelector('.sub').textContent='';
+      setTimeout(()=>{
+        ban.style.opacity='0'; setTimeout(()=>ban.remove(),300);
+        document.querySelectorAll('#board .gem-inner.shuf-in').forEach(el=>el.classList.remove('shuf-in'));
+        _shuffling=false;
+        Motion.release(chain+'/shuffle');
+        if(playing)hintArm();                            // the MOVES OPEN count was 0 — recount on the new board
+      },k(650));
+    },k(260));
+  };
+  setTimeout(tick,TICK);
 }
 
 // Is there a hole on this board that should not be there? A plain cell must NEVER
