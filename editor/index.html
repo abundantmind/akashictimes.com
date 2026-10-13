@@ -4037,6 +4037,7 @@ function buildObsPal(){
     const d=makeDiv(obs.id,html,obs.desc,p);
     if(obs.layer==='sub'){d.style.background=obs.color;d.style.borderRadius='2px';}
     else if(obs.layer==='obs'){d.style.background='#d4b483';}
+    else if(obs.layer==='item'){d.style.background='#d4b483';}       // the black ankh / black tire vanished on the dark swatch — show them on sand, as on the board
   });
   // GENERATOR swatch — draws the current settings, so what you paint is what you see
   if(genEl){
