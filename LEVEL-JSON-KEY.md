@@ -86,6 +86,8 @@ and exact-dup detection work.
 - `{type:"collect", gem:"<color>", count:N}`
 - `{type:"collect", item:"key"|"acorn", count:N}`
 - `{type:"plant", obstacle:"clover", count:N}`
+- `{type:"clear", obstacle:"crate"|"tire", count:N}` — counted when one is fully destroyed (a dented tire/crate doesn't count)
+- `{type:"detonate"|"create", pu:"<power-up>", count:N}`
 
 `moveLimit` is **not** a field — no purpose in Akashic Swaps (Jed 2026-07-31).
 

@@ -419,6 +419,20 @@ window.runInvariants = async function(){
         const t2=autoGrasshopperTarget(2,1);
         ok('hopper · key goal, nothing in the way: clears a cell in the key\'s column (the key drops)', t2&&t2[1]===4&&t2[0]>0, t2);
         playerMode=pm; playerGoals=pg; }
+      // a CLEAR-TIRES goal (Jed 2026-10-12: "Tires must definitely be Goals"): only a tire that is GONE counts
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      { const pm=playerMode, pg=playerGoals; playerMode=true; playerGoals=[{kind:'tire',need:3,have:0,name:'tire'}];
+        tire(2,2,1); tire(2,4,1); tire(3,3,2);
+        await fireDet('bomb',2,3);                                    // 3×3 round R2C3: all three take a hit
+        ok('tire goal · a destroyed tire counts, a dented one does not (2 of 3)', playerGoals[0].have===2, playerGoals[0].have);
+        const t=autoGrasshopperTarget(0,0);
+        ok('tire goal · a cascade Grasshopper hunts the remaining tire', t&&t[0]===3&&t[1]===3, t);
+        playerMode=pm; playerGoals=pg; }
+      { const eo=editorObjectives; editorObjectives=[]; addObjective('tire');
+        ok('tire goal · + Tire seeds its count from the board', editorObjectives[0].type==='clear'&&editorObjectives[0].obstacle==='tire'&&editorObjectives[0].count===tires(), editorObjectives[0]);
+        const ser=serializeLevel();
+        ok('tire goal · saves as {type:"clear", obstacle:"tire"}', ser.objectives.some(o=>o.type==='clear'&&o.obstacle==='tire'), ser.objectives);
+        editorObjectives=eo; renderObjectives(); }
       // 4. a tire FLOWS like a gem: falls straight, slides round a hole, never leaves at the bottom like a key
       reset(); tire(2,3,2); board[3][3].gem=null; board[4][3].gem=null;
       gravityWithMap();
