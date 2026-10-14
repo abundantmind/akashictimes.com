@@ -1428,7 +1428,7 @@ en:{
   reset_btn:'Reset all stars',
   reset_confirm:'This wipes ALL stars and move records on this device.\nIt cannot be undone.\n\nReset everything?',
   boosters_cap:'Boosters',booster_locked:'Locked',
-  booster_jackhammer:'Akashic Target',booster_hdrill:'Akashic Horizon',booster_vweight:'Akashic Ascension',
+  booster_jackhammer:'Akashic Target',booster_shuffle:'Akashic Shuffle',booster_hdrill:'Akashic Horizon',booster_vweight:'Akashic Ascension',
   booster_rdrill:'Akashic Righty',booster_ldrill:'Akashic Lefty',
   booster_udrill:'Akashic Upsy',booster_ddrill:'Akashic Downsy',
   booster_trdrill:'Akashic Upper-Righty',booster_tldrill:'Akashic Upper-Lefty',
@@ -1533,7 +1533,7 @@ ko:{
   reset_btn:'별 기록 초기화',
   reset_confirm:'이 기기의 모든 별과 이동 기록이 삭제됩니다.\n되돌릴 수 없습니다.\n\n전부 초기화할까요?',
   boosters_cap:'부스터',booster_locked:'잠김',
-  booster_jackhammer:'아카식 타깃',booster_hdrill:'아카식 호라이즌',booster_vweight:'아카식 어센션',
+  booster_jackhammer:'아카식 타깃',booster_shuffle:'아카식 셔플',booster_hdrill:'아카식 호라이즌',booster_vweight:'아카식 어센션',
   booster_rdrill:'아카식 라이티',booster_ldrill:'아카식 레프티',
   booster_udrill:'아카식 업시',booster_ddrill:'아카식 다운시',
   booster_trdrill:'아카식 어퍼라이티',booster_tldrill:'아카식 어퍼레프티',
@@ -1643,7 +1643,7 @@ es:{
   reset_btn:'Reiniciar todas las estrellas',
   reset_confirm:'Esto borra TODAS las estrellas y récords de movimientos en este dispositivo.\nNo se puede deshacer.\n\n¿Reiniciar todo?',
   boosters_cap:'Refuerzos',booster_locked:'Bloqueado',
-  booster_jackhammer:'Akashic Objetivo',booster_hdrill:'Akashic Horizonte',booster_vweight:'Akashic Ascensión',
+  booster_jackhammer:'Akashic Objetivo',booster_shuffle:'Akashic Mezcla',booster_hdrill:'Akashic Horizonte',booster_vweight:'Akashic Ascensión',
   booster_rdrill:'Akashic Diestro',booster_ldrill:'Akashic Zurdo',
   booster_udrill:'Akashic Arribita',booster_ddrill:'Akashic Abajito',
   booster_trdrill:'Akashic Diestro-Alto',booster_tldrill:'Akashic Zurdo-Alto',
@@ -5492,12 +5492,12 @@ function maybeShuffle(silent){
 // control comes back. A board-wide Motion claim holds swaps/hints/sweeps meanwhile, and
 // its release re-runs the quiet check (which finds the new move and does nothing).
 let _shuffling=false;
-function playShuffleCinematic(){
-  if(_shuffling)return;
+function playShuffleCinematic(sub){
+  if(_shuffling)return false;
   const k=v=>Math.round(v/spd());                       // honours the ¼×…2× speed dial
   const before=board.map(row=>row.map(cd=>cd.gem));
   const chain=Motion.newChain('shuffle');
-  if(!shuffleBoard()){Motion.touch(chain);return;}      // fewer than 3 loose gems — nothing to show
+  if(!shuffleBoard()){Motion.touch(chain);return false;} // fewer than 3 loose gems — nothing to show
   _shuffling=true;
   Motion.claim(chain+'/shuffle',null);                  // board-wide hold until the show ends
   const after=board.map(row=>row.map(cd=>cd.gem));
@@ -5517,7 +5517,7 @@ function playShuffleCinematic(){
   const ban=document.createElement('div'); ban.id='shuffle-banner';
   ban.style.left=((x0+x1)/2)+'px'; ban.style.top=((y0+y1)/2)+'px'; ban.style.opacity='0';
   const word=[...TXT('shuffle_word')], LW=40;            // letter slot width (px)
-  ban.innerHTML=`<div class="sw" style="width:${word.length*LW}px"></div><div class="sub">${TXT('toast_shuffle')}</div>`;
+  ban.innerHTML=`<div class="sw" style="width:${word.length*LW}px"></div><div class="sub">${sub==null?TXT('toast_shuffle'):sub}</div>`;   // the booster passes '' — it isn't a no-moves event
   const sw=ban.querySelector('.sw');
   const spans=word.map(ch=>{const s=document.createElement('span');s.textContent=ch;s.style.width=LW+'px';sw.appendChild(s);return s;});
   const place=order=>order.forEach((slot,i)=>{spans[i].style.left=(slot*LW)+'px';});
@@ -5553,6 +5553,7 @@ function playShuffleCinematic(){
     },k(260));
   };
   setTimeout(tick,TICK);
+  return true;
 }
 
 // Is there a hole on this board that should not be there? A plain cell must NEVER
@@ -8056,6 +8057,7 @@ function hideCelebration(){
 // drillCells was built 8-way instead of 4.
 const BOOSTERS=[
   {id:'jackhammer'},                 // "Akashic Target" — one hit, one cell (no dirs)
+  {id:'shuffle', instant:true},      // "Akashic Shuffle" (Jed 2026-10-13) — no target: tap = reshuffle the board now
   {id:'hdrill',  dirs:['l','r']},    // "Akashic Horizon"   — bidirectional H
   {id:'vweight', dirs:['u','d']},    // "Akashic Ascension" — bidirectional V
   {id:'rdrill',  dirs:['r']},        // "Akashic Righty"
@@ -8095,6 +8097,11 @@ function drillGlyph(s,deg,bi){
 }
 
 function boosterSVG(id,s){
+  if(id==='shuffle')                                                            // "Akashic Shuffle" — two crossing arrows, gold like the SHUFFLE banner
+    return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">'
+    +'<path d="M5 12 H12 C20 12 20 28 28 28 H33" fill="none" stroke="#f2c230" stroke-width="3" stroke-linecap="round"/>'   // arrow 1: top-left → bottom-right
+    +'<path d="M5 28 H12 C20 28 20 12 28 12 H33" fill="none" stroke="#f2c230" stroke-width="3" stroke-linecap="round"/>'   // arrow 2: bottom-left → top-right
+    +'<path d="M30 7 L36 12 L30 17 Z M30 23 L36 28 L30 33 Z" fill="#f2c230"/></svg>';                                      // the two heads
   if(id==='jackhammer')                                                         // "Akashic Target" — the red targeting reticle (same as an armed Grasshopper): tap a cell to clear it, no flight animation
     return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">'
     +'<circle cx="20" cy="20" r="13" fill="none" stroke="#ff3b30" stroke-width="2.4"/>'  // outer ring
@@ -8172,6 +8179,16 @@ function updEditorFrame(){
 
 function armBooster(id){
   if(Motion.busy())return;
+  // AKASHIC SHUFFLE needs no target: it fires on the tap. Same reshuffle + cinematic +
+  // music as the automatic no-moves shuffle (Jed 2026-10-13: "I'll just select it from
+  // the Booster list" to film it). Costs no move, like every booster.
+  if(BOOSTERS.find(b=>b.id===id)?.instant){
+    if(!playing||choosingRainbow||choosingGrasshopper||_shuffling)return;
+    armedBooster=null; renderBoosterPanel();
+    if(typeof hintDisarm==='function')hintDisarm();
+    if(playShuffleCinematic(''))window.runBoosterCount++;       // spent only when the board really shuffled
+    return;
+  }
   armedBooster=armedBooster===id?null:id; // tap again to disarm
   renderBoosterPanel();
   if(playerMode)render(null); // paint/clear the crosshair-target reticle on the board

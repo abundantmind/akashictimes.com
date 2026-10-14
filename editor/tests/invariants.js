@@ -596,6 +596,18 @@ window.runInvariants = async function(){
     // The four diagonals are each represented exactly once — the roster Jed set.
     ok('drill · all four diagonals are in the catalog', ['ne','nw','se','sw'].every(d=>BOOSTERS.some(b=>b.dirs&&b.dirs[0]===d)), BOOSTERS.map(b=>b.dirs&&b.dirs.join('')));
 
+    // AKASHIC SHUFFLE (Jed 2026-10-13): 2nd in the list, right under Target; one tap reshuffles —
+    // no target, no move spent, counted as a booster use.
+    ok('shuffle booster · sits right below Target', BOOSTERS[0].id==='jackhammer'&&BOOSTERS[1].id==='shuffle', BOOSTERS.slice(0,3).map(b=>b.id));
+    for(let i=0;i<60&&_shuffling;i++) await wait(100);          // an earlier test's shuffle may still be on screen (a tap then is ignored, by design)
+    await startPlayerLevel(1,false); await wait(45); Motion.releaseAll();
+    { const before=JSON.stringify(board.map(row=>row.map(cd=>cd.gem))), mv=moves, bc=window.runBoosterCount;
+      armBooster('shuffle');
+      ok('shuffle booster · one tap reshuffles the board (nothing to aim)', JSON.stringify(board.map(row=>row.map(cd=>cd.gem)))!==before&&armedBooster===null);
+      ok('shuffle booster · costs no move and counts as a booster use', moves===mv&&window.runBoosterCount===bc+1, {moves:moves-mv,used:window.runBoosterCount-bc});
+      ok('shuffle booster · leaves a board with a move and no ready-made match', hasValidMove()&&find3().length===0);
+      await wait(2800); }
+
     // ═══ 6c. EDITOR — NO SILENT DEAD ENDS, NO UNRECOVERABLE WIPES ══════════════
     // Jed 2026-08-25, painting a 9x11 serpentine: picking the Flow layer left
     // flowMode on a preset, so every click silently did nothing. That was the
