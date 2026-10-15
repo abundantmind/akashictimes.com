@@ -608,6 +608,20 @@ window.runInvariants = async function(){
       ok('shuffle booster · leaves a board with a move and no ready-made match', hasValidMove()&&find3().length===0);
       await wait(2800); }
 
+    // GEM GOAL COLOUR (Jed 2026-10-15: "it always selects the yellow diamond"): the chooser is a
+    // full-width row of all six gems, and clicking one sets the goal's colour; a 2nd + Gem goal
+    // starts on a colour that isn't a goal yet.
+    { const eo=editorObjectives; editorObjectives=[]; addObjective('gem'); addObjective('gem');
+      const cols=editorObjectives.map(o=>o.gem);
+      ok('gem goal · a second + Gem starts on a different colour', cols.length===2&&cols[0]!==cols[1], cols);
+      const sw=document.querySelectorAll('#objlist .objrow')[0]?.querySelectorAll('.gpick span');
+      ok('gem goal · every gem goal shows all six colours to pick from', !!sw&&sw.length===6, sw&&sw.length);
+      const red=[...sw].find((s,i)=>i===0); red&&red.click();
+      ok('gem goal · clicking a gem sets that goal\'s colour', editorObjectives[0].gem==='red', editorObjectives[0].gem);
+      const gp=document.querySelector('#objlist .gpick'), fb=gp&&getComputedStyle(gp).flexBasis;
+      ok('gem goal · the picker gets its own full-width line (never squeezed to a sliver)', fb==='100%', fb);
+      editorObjectives=eo; renderObjectives(); }
+
     // ═══ 6c. EDITOR — NO SILENT DEAD ENDS, NO UNRECOVERABLE WIPES ══════════════
     // Jed 2026-08-25, painting a 9x11 serpentine: picking the Flow layer left
     // flowMode on a preset, so every click silently did nothing. That was the

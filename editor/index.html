@@ -499,12 +499,22 @@ body.player-playing #eframe{display:contents;background:none;}
 .rval{font-weight:500;color:#c8bfe0;}
 .sinput{width:44px;font-size:var(--fz-ui);padding:2px 4px;background:#1a1530;border:0.5px solid #3d3560;border-radius:4px;color:#c8bfe0;font-family:var(--font-sans);}
 /* Objectives list rows (editor Goals panel) */
-.objrow{display:flex;align-items:center;gap:5px;margin:4px 0;font-size:var(--fz-ui);color:#a090c0;}
+.objrow{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:4px 0;font-size:var(--fz-ui);color:#a090c0;}
 .objrow .oicon{width:22px;height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .objrow .oicon svg{width:22px;height:22px;}
 .objrow .olabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.objrow select.osel{flex:1;min-width:0;font-size:var(--fz-ui);padding:2px 3px;background:#1a1530;border:0.5px solid #3d3560;border-radius:4px;color:#c8bfe0;font-family:var(--font-sans);}
+.objrow select.osel{flex:1 1 100%;order:9;min-width:0;font-size:var(--fz-ui);padding:2px 3px;background:#1a1530;border:0.5px solid #3d3560;border-radius:4px;color:#c8bfe0;font-family:var(--font-sans);}
 .objrow .ocount{width:42px;}
+/* GEM GOAL COLOUR PICKER (Jed 2026-10-15: "I always get the yellow diamond"). The old <select>
+   shared one line with the icon, count and ✕ in a ~116px column and was squeezed to a sliver
+   nobody could click. Now every goal's chooser wraps onto its OWN line (order:9, full width):
+   the power-up goal keeps its select, the gem goal gets all six gems — one click picks one. */
+.objrow .gpick{flex:1 1 100%;order:9;display:flex;justify-content:space-between;gap:2px;}
+.objrow .gpick span{width:17px;height:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:4px;border:1px solid transparent;opacity:.6;}
+.objrow .gpick span svg{width:15px;height:15px;}
+.objrow .gpick span.on{opacity:1;border-color:#c8a8ff;background:#2a2040;}
+.objrow .gpick span.off{opacity:.18;}            /* not in this level's palette — a goal for it could never be met */
+.objrow .gpick span:hover{opacity:1;}
 .objrow .oauto{font-size:var(--fz-xs);color:#5a7a5a;flex-shrink:0;cursor:pointer;} /* click to accept the board-derived count */
 .objrow .odel{background:transparent;border:0;color:#7a5a6a;cursor:pointer;font-size:var(--fz-md);padding:0 2px;flex-shrink:0;}
 .objrow .odel:hover{color:#d4537e;}
@@ -3599,10 +3609,17 @@ function renderObjectives(){
     row.appendChild(ic);
     // label, or a selector for goals with a variant (gem color / which power-up)
     if(k==='gem'){
-      const sel=document.createElement('select');sel.className='osel';
-      GEM_JSON.forEach((name,gi)=>{const opt=document.createElement('option');opt.value=name;opt.textContent=GDEFS[gi].name;if((GEMMAP[o.gem]??3)===gi)opt.selected=true;sel.appendChild(opt);});
-      sel.onchange=()=>{o.gem=sel.value;renderObjectives();};
-      row.appendChild(sel);
+      // all six gems on their own line — click one to make it this goal's colour
+      const pick=document.createElement('div');pick.className='gpick';
+      GEM_JSON.forEach((name,gi)=>{
+        const sw=document.createElement('span');
+        sw.className=(GEMMAP[o.gem]??3)===gi?'on':(GEM_POOL.includes(gi)?'':'off');
+        sw.title=GDEFS[gi].name+(GEM_POOL.includes(gi)?'':' — not in this level\'s palette');
+        sw.innerHTML=gemSVG(gi,15);
+        sw.onclick=()=>{o.gem=name;renderObjectives();};
+        pick.appendChild(sw);
+      });
+      row.appendChild(pick);
     }else if(k==='pu'){
       const sel=document.createElement('select');sel.className='osel';
       PU_GOAL_OPTS.forEach(p=>{const opt=document.createElement('option');opt.value=p.id;opt.textContent='Use '+p.name;if((o.pu||'helicopter')===p.id)opt.selected=true;sel.appendChild(opt);});
@@ -3637,7 +3654,11 @@ function renderObjectives(){
 // their count from the board so a fresh add already reflects what's painted).
 function addObjective(kind){
   const bc=boardCounts();
-  if(kind==='gem')        editorObjectives.push({type:'collect',gem:'yellow',count:15});
+  if(kind==='gem'){
+    const used=new Set(editorObjectives.filter(o=>o.type==='collect'&&o.gem!=null).map(o=>GEMMAP[o.gem]));
+    const gi=[3,...GEM_POOL].find(i=>GEM_POOL.includes(i)&&!used.has(i));   // yellow first (the old default), then the palette
+    editorObjectives.push({type:'collect',gem:GEM_JSON[gi??3],count:15});
+  }
   else if(kind==='clover')editorObjectives.push({type:'plant',obstacle:'clover',count:bc.clover||1});
   else if(kind==='key')   editorObjectives.push({type:'collect',item:'key',count:bc.key||1});
   else if(kind==='acorn') editorObjectives.push({type:'collect',item:'acorn',count:bc.acorn||1});
