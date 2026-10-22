@@ -4733,8 +4733,11 @@ function togglePlay(sandbox=true){
   // its timer there; this one exists for the editor's ▶ Play (no flyover camera,
   // which runs its own opening pan).
   if(playing&&sandbox&&!flyover) flowPreviewT=setTimeout(runFlowSweep,1400);
-  updEditorFrame(); // refresh the frame HUD on every mode toggle (moves persist)
   render();
+  // AFTER render: updEditorFrame measures the drawn grid to size the rails (--grid-h). Run
+  // first, it measured the board still drawn at the OTHER mode's cell size — after ⏹ Stop of a
+  // tall level the rails kept the play-sized height and the edit view sat low (Jed 2026-10-21).
+  updEditorFrame(); // refresh the frame HUD on every mode toggle (moves persist)
   // Opening pan AFTER the window is clipped and the board painted. Gated on the
   // editor-preview flag so a real player entry (beginPlaySession runs its own
   // flyCutscene) never double-fires it.
@@ -8169,8 +8172,12 @@ function updEditorFrame(){
   // Lock the outer rails (paint + config) to the grid's exact height so all three
   // columns match (Jed 2026-08-06). Measure the live grid, skip in play mode.
   if(!document.body.classList.contains('player-playing')){
-    const bd=document.getElementById('board');
-    if(bd&&bd.offsetHeight)document.documentElement.style.setProperty('--grid-h',bd.offsetHeight+'px');
+    // While a flyover's CAMERA WINDOW is up (editor ▶ Play of a tall/wide level), what the
+    // player sees is the window, not the whole board: lock the rails to the WINDOW. Measuring
+    // the full board grew the rails to an 18-row board's height after the first move and the
+    // window slid to the bottom of the screen (Jed 2026-10-21, portrait L23).
+    const cam=flyover&&playerMode, el=document.getElementById(cam?'board-wrap':'board');
+    if(el&&el.offsetHeight)document.documentElement.style.setProperty('--grid-h',el.offsetHeight+'px');
   }
   const lvl=document.getElementById('ehud-level');
   if(lvl)lvl.textContent=(typeof curLevelNum==='number'&&curLevelNum)?TXT('lvl_prefix')+curLevelNum:'—';
