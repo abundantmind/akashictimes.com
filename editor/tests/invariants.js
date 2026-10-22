@@ -622,6 +622,18 @@ window.runInvariants = async function(){
       ok('gem goal · the picker gets its own full-width line (never squeezed to a sliver)', fb==='100%', fb);
       editorObjectives=eo; renderObjectives(); }
 
+    // STACKED TALL LEVELS (Jed 2026-10-21, portrait L23): the tall camera follows a key DOWN only
+    // if that key is joined to the current view — a lower zone's own keys, behind a row of holes,
+    // must not pull the camera there on load. Windows count as joins.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    { for(let c=0;c<C;c++) board[3][c].active=false;                  // a full row of holes splits the board
+      const reach=viewReach(0,2);
+      ok('stacked · cells beyond a full row of holes are NOT joined to the view', !reach.has('4,0')&&!reach.has((R-1)+','+(C-1))&&reach.has('2,0'), [...reach].length);
+      board[2][0].source='winExit'; board[2][0].win=7; board[4][0].source='winEntry'; board[4][0].win=7;
+      ok('stacked · ...but a window through the holes joins them', viewReach(0,2).has((R-1)+',0'));
+      board[2][0].source=null; board[4][0].source=null; }
+    await startPlayerLevel(1,false); await wait(45);
+
     // ═══ 6c. EDITOR — NO SILENT DEAD ENDS, NO UNRECOVERABLE WIPES ══════════════
     // Jed 2026-08-25, painting a 9x11 serpentine: picking the Flow layer left
     // flowMode on a preset, so every click silently did nothing. That was the
