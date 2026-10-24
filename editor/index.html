@@ -3920,9 +3920,28 @@ const OBS_TYPES=[
 const OBS_BYID={}; OBS_TYPES.forEach(o=>OBS_BYID[o.id]=o);
 function isResidentId(id){ return !!(id && OBS_BYID[id] && OBS_BYID[id].stageResident); }
 // Every current resident is removed when satisfied, so PRESENCE == still holding.
+// ...and only a resident the level is actually ASKING FOR holds a stage: keys on a key goal,
+// crates on a crate goal, acorns on an acorn goal, tires on a tire goal. Portrait L23 (Jed
+// 2026-10-21) is a 6-KEY level with dozens of crates as scenery: its 3 keys dropped out of
+// stage 1 and the camera sat still, waiting on crates nobody was asked to break. That is the
+// original L23 rule too — "collect the live zone's 3 keys, then pan". A level with no goals
+// (a bare sandbox) keeps the old behaviour: every resident holds.
+function residentKind(id){
+  if(!id)return null;
+  if(id==='key'||id==='acorn')return id;
+  if(id.startsWith('crate'))return 'crate';
+  if(isTireId(id))return 'tire';
+  return null;
+}
 function holdsStage(r,c){
   const cd=board[r]&&board[r][c]; if(!cd||!cd.active) return false;
-  return isResidentId(cd.item) || isResidentId(cd.obs);
+  const wanted=id=>{
+    if(!isResidentId(id))return false;
+    if(!playerGoals||!playerGoals.length)return true;               // no goals: everything holds
+    const k=residentKind(id);
+    return playerGoals.some(g=>g.kind===k&&!goalDone(g));          // a goal still open for this kind
+  };
+  return wanted(cd.item) || wanted(cd.obs);
 }
 
 // Red X icon for per-layer clear buttons in palette

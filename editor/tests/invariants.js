@@ -632,6 +632,16 @@ window.runInvariants = async function(){
       board[2][0].source='winExit'; board[2][0].win=7; board[4][0].source='winEntry'; board[4][0].win=7;
       ok('stacked · ...but a window through the holes joins them', viewReach(0,2).has((R-1)+',0'));
       board[2][0].source=null; board[4][0].source=null; }
+    // ...and only residents a goal is asking for hold a stage (portrait L23: a key level whose
+    // crates are scenery must pan once its keys are out)
+    { const pg=playerGoals; board[2][2].active=true; board[2][2].obs='crate1'; board[2][2].item=null;
+      playerGoals=[{kind:'key',need:6,have:3}];
+      ok('stage · a crate does NOT hold a stage on a key-only level', !holdsStage(2,2));
+      playerGoals=[{kind:'crate',need:2,have:0}];
+      ok('stage · ...but does when crates are a goal', holdsStage(2,2));
+      playerGoals=[];
+      ok('stage · ...and with no goals at all, every resident holds (old behaviour)', holdsStage(2,2));
+      board[2][2].obs=null; playerGoals=pg; }
     await startPlayerLevel(1,false); await wait(45);
 
     // ═══ 6c. EDITOR — NO SILENT DEAD ENDS, NO UNRECOVERABLE WIPES ══════════════
