@@ -343,6 +343,48 @@ body.font-lg{--base-font:20px;}
 #setup-confirm:hover{background:#4a3580;}
 #setup-confirm:disabled{opacity:.35;cursor:default;}
 
+/* ── ADMIN PANEL (Jed 2026-10-24): review queue + bug reports. The panel is a view;
+   the database (migration 005) is what refuses a non-admin. ── */
+#admin-wrap{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:flex-start;justify-content:center;z-index:240;overflow-y:auto;padding:40px 16px;box-sizing:border-box;}
+#admin-wrap.open{display:flex;}
+#admin-box{background:#13111a;border:0.5px solid #3d2060;border-radius:12px;padding:20px 22px;width:900px;max-width:100%;box-sizing:border-box;}
+#admin-box h3{font-size:var(--fz-lg);font-weight:600;color:#e0d0f0;margin:0;flex:1;}
+.adm-tabs{display:flex;gap:6px;align-items:center;margin:12px 0 10px;flex-wrap:wrap;}
+.adm-tab{padding:7px 14px;border-radius:6px;border:0.5px solid #2d2540;background:transparent;color:#8a79aa;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
+.adm-tab.on{background:#2a1f45;border-color:#6a4aaa;color:#e0d0ff;}
+.adm-row{border:0.5px solid #2d2540;border-radius:8px;padding:10px 12px;margin:8px 0;background:#0f0c18;}
+.adm-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.adm-title{color:#e0d0f0;font-weight:600;flex:1;min-width:180px;}
+.adm-meta{color:#8a79aa;font-size:var(--fz-ui);}
+.adm-btn{padding:6px 12px;border-radius:6px;border:0.5px solid #3d2060;background:transparent;color:#c8a8ff;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-sm);}
+.adm-btn:hover{border-color:#c792ea;}
+.adm-btn.go{background:#1f3a2a;border-color:#3a7a55;color:#7fe0a0;}
+.adm-btn.warn{border-color:#7a3a3a;color:#f0a0a0;}
+.adm-note{color:#f0c070;font-size:var(--fz-ui);margin-top:6px;}
+.adm-desc{color:#c8bfe0;margin-top:6px;white-space:pre-wrap;font-size:var(--fz-sm);line-height:1.45;}
+.adm-pill{font-size:var(--fz-xs);padding:2px 8px;border-radius:10px;border:0.5px solid #3d3560;color:#8a79aa;}
+.adm-pill.open{color:#f0c070;border-color:#7a6030;}
+.adm-pill.fixed{color:#7fe0a0;border-color:#3a7a55;}
+.adm-board{background:#0d0a14;color:#cfe6ff;font:11px/1.35 var(--font-mono,monospace);padding:10px;border-radius:6px;overflow:auto;max-height:340px;margin-top:8px;white-space:pre;display:none;}
+.adm-board.open{display:block;}
+.adm-empty{color:#8a79aa;padding:18px 4px;}
+.adm-err{color:#f78c6c;font-size:var(--fz-ui);margin:8px 0;}
+.adm-noteinp{flex:1;min-width:160px;background:#0d0a14;border:0.5px solid #3d3560;border-radius:6px;color:#c8bfe0;padding:6px 8px;font-family:var(--font-sans);font-size:var(--fz-sm);}
+.pc-tag.returned{border-color:#7a3a3a;color:#f0a0a0;cursor:help;}
+/* ── IN-GAME BUG FORM (replaces the Google Form; files into bug_reports) ── */
+#bugr-wrap{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:10001;}
+#bugr-wrap.open{display:flex;}
+#bugr-box{background:#13111a;border:0.5px solid #3d2060;border-radius:12px;padding:22px;width:440px;max-width:calc(100% - 32px);box-sizing:border-box;}
+#bugr-box h3{font-size:var(--fz-lg);font-weight:600;color:#e0d0f0;margin:0 0 6px;}
+#bugr-box p{font-size:var(--fz-ui);color:#8a79aa;margin:0 0 12px;line-height:1.5;}
+#bugr-desc{width:100%;height:120px;resize:vertical;background:#0d0a14;border:0.5px solid #3d3560;border-radius:6px;color:#c8bfe0;font-family:var(--font-sans);font-size:var(--fz-sm);padding:10px;box-sizing:border-box;}
+#bugr-desc:focus{outline:none;border-color:#6a4aaa;}
+#bugr-msg{font-size:var(--fz-ui);min-height:1.2em;margin:8px 0 0;color:#f78c6c;}
+#bugr-msg a{color:#c8a8ff;}
+.bugr-btns{display:flex;gap:10px;margin-top:12px;}
+.bugr-btns button{flex:1;padding:10px;border-radius:6px;cursor:pointer;font-family:var(--font-sans);font-size:var(--fz-base);}
+#bugr-cancel{background:transparent;color:#8a79aa;border:0.5px solid #2d2040;}
+#bugr-send{background:#3d2d6e;color:#e0d0ff;border:0.5px solid #6a4aaa;}
 /* ── REVIEW-JSON MODAL (Jed's submission review tool) ── */
 #review-wrap{position:fixed;inset:0;background:rgba(0,0,0,0.72);display:none;align-items:center;justify-content:center;z-index:230;}
 #review-wrap.open{display:flex;}
@@ -838,6 +880,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="profile-item" onclick="openSettings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg><span data-i18n="settings">Settings</span></button>
           <!-- Review a submitted level JSON in the editor (Jed's Wizard-of-Oz moderation). -->
           <button class="profile-item" onclick="openReview()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>Review a JSON</span></button>
+          <button class="profile-item admin-entry" style="display:none" onclick="openAdmin()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg><span>Admin</span></button>
           <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
           <div class="profile-langlabel" data-i18n="language">Language</div>
           <div class="profile-langrow">
@@ -933,9 +976,34 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <div id="review-pick"></div>
     <div id="review-err" class="review-err"></div>
     <div class="review-btns">
-      <button id="review-cancel" onclick="closeReview()">Cancel</button>
+      <button id="review-cancel" onclick="closeTopOverlay()">Back</button>
       <button id="review-load" onclick="reviewParse()">Load into editor</button>
     </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL (Jed 2026-10-24) — opened from the Profile menu, which shows the entry
+     only to admins. The page is a VIEW: migration 005 makes the database refuse anyone else. -->
+<div id="admin-wrap" onclick="if(event.target===this)closeAdmin()">
+  <div id="admin-box">
+    <div style="display:flex;align-items:center;gap:10px;"><h3>🛠 Admin</h3><button class="adm-btn" onclick="closeAdmin()">✕ Close</button></div>
+    <div class="adm-tabs">
+      <button class="adm-tab on" id="adm-tab-q" onclick="adminTab('q')">Review queue</button>
+      <button class="adm-tab" id="adm-tab-b" onclick="adminTab('b')">Bugs</button>
+      <button class="adm-btn" style="margin-left:auto;" onclick="adminRefresh()">↻ Refresh</button>
+    </div>
+    <div id="adm-body"></div>
+  </div>
+</div>
+
+<!-- IN-GAME BUG FORM — the 🐛 button opens it; the report (with the board) lands in bug_reports -->
+<div id="bugr-wrap" onclick="if(event.target===this)closeBugReport()">
+  <div id="bugr-box">
+    <h3 id="bugr-title"></h3>
+    <p id="bugr-lead"></p>
+    <textarea id="bugr-desc"></textarea>
+    <div id="bugr-msg"></div>
+    <div class="bugr-btns"><button id="bugr-cancel" onclick="closeBugReport()"></button><button id="bugr-send" onclick="sendBugReport()"></button></div>
   </div>
 </div>
 
@@ -1194,6 +1262,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="profile-item" onclick="openSettings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg><span data-i18n="settings">Settings</span></button>
           <!-- Review a submitted level JSON in the editor (Jed's Wizard-of-Oz moderation). -->
           <button class="profile-item" onclick="openReview()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>Review a JSON</span></button>
+          <button class="profile-item admin-entry" style="display:none" onclick="openAdmin()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg><span>Admin</span></button>
           <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
           <div class="profile-langlabel" data-i18n="language">Language</div>
           <div class="profile-langrow">
@@ -1421,6 +1490,10 @@ en:{
   alert_na:n=>'Level '+n+' is not available yet.',
   alert_engine:(n,need,have)=>'Level '+n+' was built for a newer version of the game (engine '+need+'; this app plays '+have+'). Update the app to play it.',
   toast_new_version:'New version — tap to reload',bug_btn:'🐛 Report a Bug',
+  bug_title:'Report a bug',bug_lead:'What happened? We attach this level and a snapshot of the board, so describe what you saw.',
+  bug_ph:'e.g. I swapped two gems and nothing fell…',bug_send:'Send report',bug_cancel:'Cancel',bug_sending:'Sending…',
+  bug_empty:'Tell us what happened first.',bug_thanks:'Thanks — your report is in. 🐛',
+  bug_fail:'Could not send it right now.',bug_form:'Use the web form instead',
   toast_shuffle:'No moves — reshuffling the board',shuffle_word:'SHUFFLE',shuffled_word:'SHUFFLED!',
   win_title:'Well done!',lose_title:'Out of moves',
   win_msg:(n,m)=>'Level '+n+' complete — '+m+' moves',try_again:'Try again?',cont:'Continue',retry:'Retry',got_it:'Got it',
@@ -1526,6 +1599,10 @@ ko:{
   alert_na:n=>'레벨 '+n+' — 아직 준비되지 않았습니다.',
   alert_engine:(n,need,have)=>'레벨 '+n+' — 더 새로운 버전의 게임에서 만들어졌습니다 (엔진 '+need+', 이 앱은 '+have+'). 앱을 업데이트하면 플레이할 수 있어요.',
   toast_new_version:'새 버전 — 눌러서 새로고침',bug_btn:'🐛 버그 신고',
+  bug_title:'버그 신고',bug_lead:'무슨 일이 있었나요? 이 레벨과 보드 스냅샷이 함께 첨부되니, 본 것을 적어 주세요.',
+  bug_ph:'예: 보석 두 개를 바꿨는데 아무것도 떨어지지 않았어요…',bug_send:'신고 보내기',bug_cancel:'취소',bug_sending:'보내는 중…',
+  bug_empty:'먼저 무슨 일이 있었는지 적어 주세요.',bug_thanks:'고마워요 — 신고가 접수되었어요. 🐛',
+  bug_fail:'지금은 보낼 수 없어요.',bug_form:'웹 양식으로 보내기',
   toast_shuffle:'움직임 없음 — 보드를 섞었어요',shuffle_word:'섞는중',shuffled_word:'섞었어요!',
   win_title:'잘했어요!',lose_title:'이동 횟수 소진',
   win_msg:(n,m)=>'레벨 '+n+' 완료 — 이동 '+m+'회',try_again:'다시 도전할까요?',cont:'계속',retry:'다시 시도',got_it:'알겠어요',
@@ -1636,6 +1713,10 @@ es:{
   alert_na:n=>'El nivel '+n+' aún no está disponible.',
   alert_engine:(n,need,have)=>'El nivel '+n+' se creó para una versión más nueva del juego (motor '+need+'; esta app usa '+have+'). Actualiza la app para jugarlo.',
   toast_new_version:'Nueva versión — toca para recargar',bug_btn:'🐛 Reportar un error',
+  bug_title:'Reportar un error',bug_lead:'¿Qué pasó? Adjuntamos este nivel y una foto del tablero; describe lo que viste.',
+  bug_ph:'p. ej. Cambié dos gemas y no cayó nada…',bug_send:'Enviar reporte',bug_cancel:'Cancelar',bug_sending:'Enviando…',
+  bug_empty:'Primero cuéntanos qué pasó.',bug_thanks:'Gracias — tu reporte llegó. 🐛',
+  bug_fail:'No se pudo enviar ahora.',bug_form:'Usar el formulario web',
   toast_shuffle:'Sin movimientos — reorganizando el tablero',shuffle_word:'MEZCLAR',shuffled_word:'¡MEZCLADO!',
   win_title:'¡Bien hecho!',lose_title:'Sin movimientos',
   win_msg:(n,m)=>'Nivel '+n+' completado — '+m+' movimientos',try_again:'¿Intentar de nuevo?',cont:'Continuar',retry:'Reintentar',got_it:'Entendido',
@@ -2485,6 +2566,7 @@ function goHome(){
   clearChoosing(); // Esc out of the editor drops the reticle with the board it belonged to
   GEM_POOL=[0,1,2,3,4,5]; // templates load a level palette — restore the editor's full set
   editorBundle=null; // left the editor — no origin bundle to go back to
+  reviewOrigin=null; // ← Home ends any Admin review trail
   saveTargetBundle=null; bundleEditNum=null; updateBundleSaveBtn(); // clear any bundle save-target
   setReadOnly(false); designSnap=null; updRunBtns(); // no level → nothing locked, no run in progress
   updateHome(); // repaint the personalized greeting + Create/Explore labels
@@ -2550,7 +2632,7 @@ function renderProductsList(){
   // bundles (folders of real JSON files on the architect's machine, grouped by the
   // orientation folder they live in) + its own "+ New … bundle" button at the foot.
   const card=b=>'<div class="prod-card" onclick="openUserBundle('+jsArg(b.id)+')">'+
-      '<div><div class="pc-name">'+escHtml(b.name)+statusTag(b.status)+'</div>'+
+      '<div><div class="pc-name">'+escHtml(b.name)+statusTag(b.status,b.reviewNote)+'</div>'+
         '<div class="pc-meta">Your bundle · on disk</div></div>'+
       '<div class="pc-arrow">→</div></div>';
   html+='<div class="bcols">';
@@ -2612,6 +2694,7 @@ function setReadOnly(on){ editorReadOnly=!!on; document.body.classList.toggle('l
 // own folder bundles (saveTargetBundle) — Jed 2026-10-01: Esc must go back ONE step,
 // to the level grid, not all the way home.
 function editorToBundle(){
+  if(reviewOrigin){ reviewBackToPicker(); return; }   // reviewing an Admin submission → its level picker, not Home
   const b=editorBundle, ub=saveTargetBundle;   // read before goHome clears both
   goHome();
   if(!b&&!ub)return;
@@ -2695,8 +2778,17 @@ async function resolveBundleStatuses(list){
   if(!ids.length||!window.AkashicAuth||!AkashicAuth.bundleStatuses) return;
   const pub=await AkashicAuth.bundleStatuses(ids);
   list.forEach(b=>{ if((b.subs||[]).some(x=>pub[x.id])) b.status='published'; });
+  // SENT BACK (migration 005): the reviewer returned the LATEST submission with a note
+  if(!AkashicAuth.bundleReviews) return;
+  const rv=await AkashicAuth.bundleReviews(ids);
+  list.forEach(b=>{
+    if(b.status==='published') return;
+    const last=(b.subs||[]).slice(-1)[0], r=last&&rv[last.id];
+    if(r&&r.returned){ b.status='returned'; b.reviewNote=r.note; }
+  });
 }
-const statusTag=st=>st==='published'?'<span class="pc-tag published">🔒 Published</span>'
+const statusTag=(st,note)=>st==='published'?'<span class="pc-tag published">🔒 Published</span>'
+  :st==='returned'?'<span class="pc-tag returned" title="'+escHtml('Sent back: '+(note||''))+'">↩ Sent back</span>'
   :st==='review'?'<span class="pc-tag review">In review</span>':'<span class="pc-tag">Draft</span>';
 
 // Make sure we have a writable bundles HOME. Picked once (then remembered). Must run
@@ -2749,7 +2841,9 @@ async function openUserBundle(id){
   catch(e){ alert('Could not read the bundle folder: '+e.message); return; }
   currentUserBundle=id;
   const pub=b.status==='published';
-  let html='<h2>'+escHtml(b.name)+statusTag(b.status)+'</h2><div class="pmsg">'+(pub
+  let html='<h2>'+escHtml(b.name)+statusTag(b.status,b.reviewNote)+'</h2>'
+    +(b.status==='returned'?'<div class="pmsg" style="color:#f0a0a0">↩ Sent back by the reviewer: '+escHtml(b.reviewNote||'')+' — fix it, re-approve, and Submit again.</div>':'')
+    +'<div class="pmsg">'+(pub
     ?'Published — final. Open a level to view or ▶ Play it; it can\'t be changed.'
     :'Real JSON files on your disk. Click a number to edit, or ＋ to add a level. <span style="color:#4caf7a">✓</span> = approved for submission.')+'</div><div class="prodlvls">';
   lv.forEach(l=>{ html+='<button class="prodlvl'+(l.approved?' approved':'')+'" onclick="editUserBundleLevel('+jsArg(id)+','+jsArg(l.fn)+')">'+l.num+'</button>'; });
@@ -2802,6 +2896,7 @@ async function submitUserBundle(id){
 // enterEditorWithLevel); no bundle folder, no save target — this is not our copy.
 function openReview(){
   const w=document.getElementById('review-wrap'); if(!w)return;
+  reviewOrigin=null;                                   // a fresh review (adminOpenBundle re-sets it after)
   document.getElementById('review-json').value='';
   document.getElementById('review-file').value='';
   document.getElementById('review-pick').innerHTML='';
@@ -2813,6 +2908,165 @@ function openReview(){
   setTimeout(()=>{ const t=document.getElementById('review-json'); if(t)t.focus(); },30);
 }
 function closeReview(){ const w=document.getElementById('review-wrap'); if(w)w.classList.remove('open'); }
+
+// ═══ ADMIN PANEL (Jed 2026-10-24) ════════════════════════════════════════════
+// Review queue (publish / send back) + bug reports, from the Profile menu. Only an
+// admin sees the entry — but the entry is courtesy, not security: migration 005's
+// is_admin() + RLS + SECURITY DEFINER functions refuse anyone else in the database.
+let adminState={tab:'q',queue:[],bugs:[],qErr:'',bErr:'',bugFilter:'open'};
+async function refreshAdminEntry(){
+  const yes=!!(window.AkashicAuth&&AkashicAuth.user&&AkashicAuth.isAdmin&&await AkashicAuth.isAdmin());
+  document.querySelectorAll('.admin-entry').forEach(b=>b.style.display=yes?'':'none');
+}
+window.addEventListener('akashic-auth',refreshAdminEntry);
+function openAdmin(){
+  document.querySelectorAll('.profilemenu .profile-drop.open,.profilemenu.open').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.profile-btn[aria-expanded="true"]').forEach(b=>b.setAttribute('aria-expanded','false'));
+  document.getElementById('admin-wrap').classList.add('open');
+  adminRefresh();
+}
+function closeAdmin(){ document.getElementById('admin-wrap').classList.remove('open'); }
+function adminTab(t){ adminState.tab=t; renderAdmin(); }
+async function adminRefresh(){
+  document.getElementById('adm-body').innerHTML='<div class="adm-empty">Loading…</div>';
+  if(!window.AkashicAuth||!AkashicAuth.user){ document.getElementById('adm-body').innerHTML='<div class="adm-err">Sign in first.</div>'; return; }
+  const [q,b]=await Promise.all([AkashicAuth.listReviewQueue(),AkashicAuth.listBugs()]);
+  adminState.queue=q.rows; adminState.qErr=q.ok?'':q.error;
+  adminState.bugs=b.rows;  adminState.bErr=b.ok?'':b.error;
+  renderAdmin();
+}
+function renderAdmin(){
+  const st=adminState, open=st.bugs.filter(x=>x.status==='open').length;
+  document.getElementById('adm-tab-q').classList.toggle('on',st.tab==='q');
+  document.getElementById('adm-tab-b').classList.toggle('on',st.tab==='b');
+  document.getElementById('adm-tab-q').textContent='Review queue ('+st.queue.filter(r=>!r.returned_at).length+')';
+  document.getElementById('adm-tab-b').textContent='Bugs ('+open+' open)';
+  const when=t=>t?new Date(t).toLocaleString():'—';
+  let h='';
+  if(st.tab==='q'){
+    if(st.qErr) h+='<div class="adm-err">'+escHtml(st.qErr)+' — has migration 005 been run?</div>';
+    if(!st.queue.length&&!st.qErr) h+='<div class="adm-empty">Nothing waiting for review.</div>';
+    st.queue.forEach(r=>{
+      const who=(r.profiles&&(r.profiles.username||r.profiles.handle))||'unknown architect';
+      const n=Array.isArray(r.data)?r.data.length:0;
+      h+='<div class="adm-row"><div class="adm-head"><span class="adm-title">'+escHtml(r.title)+'</span>'
+        +'<span class="adm-meta">by '+escHtml(who)+' · '+n+' levels · submitted '+escHtml(when(r.created_at))+'</span></div>'
+        +(r.returned_at?'<div class="adm-note">↩ Sent back '+escHtml(when(r.returned_at))+': '+escHtml(r.review_note||'')+'</div>':'')
+        +'<div class="adm-head" style="margin-top:8px">'
+        +'<button class="adm-btn" onclick="adminOpenBundle('+r.id+')">Open &amp; play</button>'
+        +'<button class="adm-btn go" onclick="adminPublish('+r.id+')">Publish</button>'
+        +'<button class="adm-btn warn" onclick="adminReturn('+r.id+')">Send back…</button></div></div>';
+    });
+  }else{
+    if(st.bErr) h+='<div class="adm-err">'+escHtml(st.bErr)+' — has migration 005 been run?</div>';
+    h+='<div class="adm-head" style="margin-bottom:4px"><span class="adm-meta">Show</span>'
+      +['open','all'].map(f=>'<button class="adm-tab'+(st.bugFilter===f?' on':'')+'" onclick="adminState.bugFilter=\''+f+'\';renderAdmin()">'+f+'</button>').join('')+'</div>';
+    const list=st.bugs.filter(x=>st.bugFilter==='all'||x.status==='open');
+    if(!list.length&&!st.bErr) h+='<div class="adm-empty">'+(st.bugFilter==='open'?'No open bugs.':'No bug reports yet.')+'</div>';
+    list.forEach(x=>{
+      const brd=x.board?('board\n'+(x.board.board||[]).join('\n')+'\n\nflow\n'+(x.board.flow||[]).join('\n')+'\n\n'+JSON.stringify(x.board,null,1)):'(no board attached)';
+      h+='<div class="adm-row"><div class="adm-head"><span class="adm-pill '+escHtml(x.status)+'">'+escHtml(x.status)+'</span>'
+        +'<span class="adm-title">'+escHtml((x.bundle||'')+(x.level?' · Level '+x.level:''))+'</span>'
+        +'<span class="adm-meta">#'+x.id+' · '+escHtml(when(x.created_at))+' · '+escHtml(x.reporter_tag||'')+'</span></div>'
+        +'<div class="adm-desc">'+escHtml(x.description)+'</div>'
+        +'<div class="adm-meta" style="margin-top:4px">'+escHtml(x.device||'')+'</div>'
+        +(x.admin_note?'<div class="adm-note">Note: '+escHtml(x.admin_note)+'</div>':'')
+        +'<div class="adm-head" style="margin-top:8px">'
+        +'<button class="adm-btn" onclick="document.getElementById(\'adm-brd-'+x.id+'\').classList.toggle(\'open\')">Board</button>'
+        +'<input class="adm-noteinp" id="adm-note-'+x.id+'" placeholder="note (optional)" value="'+escHtml(x.admin_note||'')+'">'
+        +(x.status!=='fixed'?'<button class="adm-btn go" onclick="adminBug('+x.id+',\'fixed\')">Fixed</button>':'')
+        +(x.status!=='wontfix'?'<button class="adm-btn" onclick="adminBug('+x.id+',\'wontfix\')">Won\'t fix</button>':'')
+        +(x.status!=='open'?'<button class="adm-btn warn" onclick="adminBug('+x.id+',\'open\')">Reopen</button>':'')
+        +'</div><pre class="adm-board" id="adm-brd-'+x.id+'">'+escHtml(brd)+'</pre></div>';
+    });
+  }
+  document.getElementById('adm-body').innerHTML=h;
+}
+// Open a submission's levels in the editor through the Review loader (pick a level, Play it).
+// THE REVIEW TRAIL (Jed 2026-10-24: "only take one step back"): reviewOrigin remembers that
+// this review came from Admin, so ← Levels / Esc walk back ONE step at a time —
+// level in the editor → the level picker → the Admin queue → closed — instead of Home.
+let reviewOrigin=null;   // {from:'admin', id, json} while reviewing a queued submission
+function adminOpenBundle(id){
+  const r=adminState.queue.find(x=>x.id===id); if(!r)return;
+  reviewOrigin={from:'admin',id,json:JSON.stringify(r.data)};
+  closeAdmin(); showReviewPicker();
+}
+// (Re)open the level picker for the submission being reviewed.
+function showReviewPicker(){
+  if(!reviewOrigin)return;
+  const keep=reviewOrigin; openReview(); reviewOrigin=keep;     // openReview() starts a fresh, non-admin review
+  document.getElementById('review-json').value=keep.json;
+  reviewParse();
+}
+// One step back from a reviewed level: stop any run, return to its level picker.
+function reviewBackToPicker(){
+  if(playing&&typeof stopRun==='function')stopRun();
+  showReviewPicker();
+}
+async function adminPublish(id){
+  const r=adminState.queue.find(x=>x.id===id); if(!r)return;
+  if(!confirm('Publish “'+r.title+'”?\n\nIt appears in Explore for every player — and until checkout exists, they can play it free. A published bundle is final.'))return;
+  const res=await AkashicAuth.publishBundle(id);
+  if(!res.ok){ alert('Publish failed: '+res.error); return; }
+  adminRefresh();
+}
+async function adminReturn(id){
+  const r=adminState.queue.find(x=>x.id===id); if(!r)return;
+  const note=prompt('Send “'+r.title+'” back to its author.\n\nWhy? (the author sees this note)');
+  if(note==null)return;
+  if(!note.trim()){ alert('Add a note — the author needs to know what to fix.'); return; }
+  const res=await AkashicAuth.returnBundle(id,note.trim());
+  if(!res.ok){ alert('Send back failed: '+res.error); return; }
+  adminRefresh();
+}
+async function adminBug(id,status){
+  const inp=document.getElementById('adm-note-'+id);
+  const res=await AkashicAuth.setBugStatus(id,status,inp?inp.value.trim():undefined);
+  if(!res.ok){ alert('Update failed: '+res.error); return; }
+  adminRefresh();
+}
+
+// ═══ IN-GAME BUG FORM (Jed 2026-10-24: "move bugs into the database") ═══════════
+// The 🐛 button opens this instead of the Google Form. The player types what they
+// saw; we attach the level, bundle, a freezeReport() snapshot of the board and the
+// device, and file it into bug_reports — where the Admin panel's Bugs tab lists it.
+// If the database can't take it (offline, migration not yet run) the old Google Form
+// is offered as the fallback, so a report is never lost.
+function openBugReport(){
+  document.getElementById('bugr-title').textContent=TXT('bug_title');
+  document.getElementById('bugr-lead').textContent=TXT('bug_lead');
+  const d=document.getElementById('bugr-desc'); d.placeholder=TXT('bug_ph'); d.value='';
+  document.getElementById('bugr-cancel').textContent=TXT('bug_cancel');
+  const s=document.getElementById('bugr-send'); s.textContent=TXT('bug_send'); s.disabled=false;
+  document.getElementById('bugr-msg').textContent='';
+  document.getElementById('bugr-wrap').classList.add('open');
+  setTimeout(()=>d.focus(),30);
+}
+function closeBugReport(){ document.getElementById('bugr-wrap').classList.remove('open'); }
+async function sendBugReport(){
+  const msg=document.getElementById('bugr-msg'), send=document.getElementById('bugr-send');
+  const desc=(document.getElementById('bugr-desc').value||'').trim();
+  if(!desc){ msg.textContent=TXT('bug_empty'); return; }
+  send.disabled=true; send.textContent=TXT('bug_sending'); msg.textContent='';
+  let board=null; try{ board=JSON.parse(freezeReport()); }catch(e){}
+  const bundle=(typeof editorBundle!=='undefined'&&editorBundle)||(curBundle&&curBundle.title)||'Go with the Flow';
+  let tag=''; try{ tag=(window.AkashicID&&AkashicID.name&&AkashicID.name())||''; }catch(e){}
+  const report={
+    reporter_tag:String(tag||_generateReporterId()).slice(0,64),
+    description:desc.slice(0,4000),
+    bundle:String(bundle).slice(0,120),
+    level:(typeof curLevelNum==='number'&&curLevelNum)?String(curLevelNum):null,
+    board,
+    device:(navigator.userAgent+' · '+innerWidth+'×'+innerHeight).slice(0,400),
+    page_url:location.href.slice(0,400),
+  };
+  const res=(window.AkashicAuth&&AkashicAuth.fileBug)?await AkashicAuth.fileBug(report):{ok:false,error:'offline'};
+  if(res.ok){ closeBugReport(); flashToast(TXT('bug_thanks')); return; }
+  console.warn('[bug] filing failed',res.error);
+  send.disabled=false; send.textContent=TXT('bug_send');
+  msg.innerHTML=escHtml(TXT('bug_fail'))+' <a href="#" onclick="_openBugForm();closeBugReport();return false;">'+escHtml(TXT('bug_form'))+'</a>';
+}
 
 // File chosen → drop its text into the textarea; the same parse path runs on Load.
 function reviewFilePicked(e){
@@ -2866,6 +3120,7 @@ function reviewLoadJSON(json){
   closeReview();
   enterEditorWithLevel(false);                     // land in EDIT: inspect the Multi-Stage stops, then hit ▶ Play to reproduce
   const sb=document.getElementById('sb3'); if(sb)sb.textContent='Reviewing a loaded JSON — not saved to any bundle';
+  const back=document.getElementById('btn-to-bundle'); if(back&&reviewOrigin)back.style.display='';   // ← Levels = back to the picker
 }
 
 // ＋ Add level → target this bundle, then the normal New-Level (grid size) dialog.
@@ -8457,6 +8712,11 @@ function goPlayerHome(){
 // no route forward.
 const ESC_CLOSABLE=['submit-gate','ghelp','leaderboard','settings','products','setup-wrap','pstar-splash','authbox'];
 function closeTopOverlay(){
+  // Admin trail overlays first — each Esc is ONE step (Jed 2026-10-24)
+  const isOpen=id=>{ const el=document.getElementById(id); return !!(el&&el.classList.contains('open')); };
+  if(isOpen('bugr-wrap')){ closeBugReport(); return true; }
+  if(isOpen('review-wrap')){ closeReview(); if(reviewOrigin&&reviewOrigin.from==='admin'){ document.getElementById('admin-wrap').classList.add('open'); renderAdmin(); } return true; }
+  if(isOpen('admin-wrap')){ closeAdmin(); if(reviewOrigin){ reviewOrigin=null; if(typeof goHome==='function')goHome(); } return true; }
   for(const id of ESC_CLOSABLE){
     const el=document.getElementById(id);
     if(!el||!el.classList.contains('open'))continue;
@@ -9730,7 +9990,8 @@ function _showFreezePanel(txt,saved){
   document.getElementById('freeze-pre').textContent = txt;
 }
 
-function _openBugReport() {
+// The old Google Form, kept ONLY as the fallback when the database is unreachable.
+function _openBugForm() {
   const base   = "https://docs.google.com/forms/d/e/1FAIpQLScgCSDp9VM766fnAswlI9hEUJ4YanJ_jBKLkcLrHCyUydqf5Q/viewform";
   const id     = _generateReporterId();
   const params = new URLSearchParams({
@@ -9745,7 +10006,9 @@ function _openBugReport() {
   btn.id          = "bug-report-btn";
   btn.innerText   = TXT('bug_btn');
   btn.dataset.i18n= "bug_btn"; // language switch relabels it via applyLang
-  btn.onclick     = _IS_DEV ? (()=>_captureFreeze(false)) : _openBugReport;
+  // Dev machine: still saves the freeze locally (bug-reports/) — and opens the same
+  // in-game form a player gets, so the database path is testable here too.
+  btn.onclick     = _IS_DEV ? (()=>{ _captureFreeze(false); openBugReport(); }) : openBugReport;
   // Dev machine: the badge saves state instead of opening a form — and it must SAY
   // so. Drop the i18n hook or the language pass relabels it back on the next render.
   if(_IS_DEV){ btn.innerText = '🐛 Capture Freeze'; delete btn.dataset.i18n; }
