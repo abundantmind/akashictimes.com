@@ -333,6 +333,63 @@ const AkashicAuth = {
     return data;
   },
 
+  // ── ADMIN (migration 005, Jed 2026-10-24) ────────────────────────────────────
+  // The Admin panel's data layer. NONE of this is the security: is_admin(), the
+  // admins-only RLS policies and the publish/return functions refuse a non-admin in
+  // the DATABASE, so a visitor who opens the panel gets empty lists and refusals.
+  async isAdmin(){
+    if(!this.user) return false;
+    const { data, error } = await supabase.rpc('is_admin');
+    if(error){ console.warn('[auth] is_admin failed', error.message); return false; }
+    return !!data;
+  },
+  // Every submission still waiting (published=false), oldest first, with its author.
+  async listReviewQueue(){
+    const { data, error } = await supabase.from('bundles')
+      .select('id,title,data,created_at,returned_at,review_note,author,profiles(username,handle)')
+      .eq('published', false).order('created_at', { ascending:true });
+    if(error){ console.warn('[auth] listReviewQueue failed', error.message); return { ok:false, error:error.message, rows:[] }; }
+    return { ok:true, rows: data || [] };
+  },
+  async publishBundle(id){
+    const { error } = await supabase.rpc('publish_bundle', { p_id: id });
+    return error ? { ok:false, error:error.message } : { ok:true };
+  },
+  async returnBundle(id, note){
+    const { error } = await supabase.rpc('return_bundle', { p_id: id, p_note: note });
+    return error ? { ok:false, error:error.message } : { ok:true };
+  },
+  // Review outcome of an author's OWN submissions: { id: {published, returned, note} }.
+  async bundleReviews(ids){
+    if(!ids || !ids.length) return {};
+    const { data, error } = await supabase.from('bundles').select('id,published,returned_at,review_note').in('id', ids);
+    if(error){ console.warn('[auth] bundleReviews failed', error.message); return {}; }
+    const out = {};
+    (data || []).forEach(r => { out[r.id] = { published: !!r.published, returned: !!r.returned_at && !r.published, note: r.review_note || '' }; });
+    return out;
+  },
+
+  // ── BUG REPORTS (migration 005) — anyone files, only admins read ──────────────
+  // Insert WITHOUT .select(): a non-admin can't read the row back (RLS), and asking
+  // for it would turn a successful filing into an error.
+  async fileBug(report){
+    const row = Object.assign({}, report, { reporter: this.user ? this.user.id : null });
+    const { error } = await supabase.from('bug_reports').insert(row);
+    return error ? { ok:false, error:error.message } : { ok:true };
+  },
+  async listBugs(){
+    const { data, error } = await supabase.from('bug_reports')
+      .select('*').order('created_at', { ascending:false }).limit(200);
+    if(error){ console.warn('[auth] listBugs failed', error.message); return { ok:false, error:error.message, rows:[] }; }
+    return { ok:true, rows: data || [] };
+  },
+  async setBugStatus(id, status, note){
+    const patch = { status, updated_at: new Date().toISOString() };
+    if(note !== undefined) patch.admin_note = note || null;
+    const { error } = await supabase.from('bug_reports').update(patch).eq('id', id);
+    return error ? { ok:false, error:error.message } : { ok:true };
+  },
+
   // Called from renderGrid() to paint the sign-in strip in the right state.
   stripHTML(){
     if(this.user){
@@ -376,6 +433,8 @@ function buildModal(){
 // when renderGrid() painted last — since lastPView is classic-script-scoped and
 // invisible to this module.
 function refreshUI(){
+  // Tell the page the session changed (the Admin menu entry shows only for admins).
+  try{ window.dispatchEvent(new Event('akashic-auth')); }catch(e){}
   if(document.getElementById('pgrid-title') && typeof renderGrid === 'function'){
     renderGrid();
   }
