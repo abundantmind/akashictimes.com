@@ -825,6 +825,25 @@ window.runInvariants = async function(){
     ok('editor · fresh-level HUD shows no number', (updEditorFrame(),(document.getElementById('ehud-level')||{}).textContent==='—'), (document.getElementById('ehud-level')||{}).textContent);
     ok('editor · a fresh blank level honours the chosen grid size', R===9&&C===11&&board.length===9&&board[0].length===11, R+'x'+C);
     ok('editor · the number a bundle will assign has ONE definition', typeof nextBundleLevelNum==='function', typeof nextBundleLevelNum);
+
+    // ＋ AFTER A ▶ PLAY RUN IS A BLANK SLATE (Jed 2026-10-28, Akashic Window: "＋ always
+    // opens L8"). A bundle level opens in the sticky ▶ Play; "← Levels" (goHome) only set
+    // playing=false, leaving the run half-alive, and openEditor never redrew — so the old
+    // level stayed ON SCREEN over the new blank board. Data AND pixels must both be blank.
+    {
+      await startPlayerLevel(8,false); await wait(45);       // L8: 9x9 with holes + obstacles
+      playing=false; playerMode=false; togglePlay(); await wait(45);   // a live EDITOR ▶ Play run (sandbox)
+      const _keepArch=architectPlaying;
+      goHome();                                                // "← Levels"
+      ok('editor · leaving the editor ends its ▶ Play run', !playing&&!playerMode&&!editorSandboxPlay&&!designSnap, {playing,playerMode,editorSandboxPlay});
+      ok('editor · leaving keeps the sticky ▶ Play choice', architectPlaying===_keepArch, architectPlaying);
+      R=9;C=11; openEditor(); await wait(45);
+      const _bd=document.getElementById('board');
+      const _cells=_bd.querySelectorAll('.cell'), _filled=[..._bd.querySelectorAll('.gem-inner')].filter(e=>e.innerHTML).length;
+      ok('editor · ＋ after a run DRAWS the blank board (not the last level)', _cells.length===99&&_bd.querySelectorAll('.cell.inactive').length===0&&_filled===0, {cells:_cells.length,filled:_filled});
+      ok('editor · ＋ after a run opens in Edit, with no undo back into the old level', !playing&&!playerMode&&undoQ.length===0&&editorObjectives.length===0, {playing,playerMode,undo:undoQ.length});
+      architectPlaying=_keepArch;
+    }
     saveTargetBundle=_tgt; bundleEditNum=_edit;
 
     // THE PLAY-FRAME IS THE GRID'S HEIGHT, NEVER THE BOOSTER LIST'S (Jed 2026-08-27).

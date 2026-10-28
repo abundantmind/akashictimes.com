@@ -2493,6 +2493,16 @@ function openNewLevel(){
 
 function openEditor(){
   clearChoosing();
+  // A NEW LEVEL IS A BLANK SLATE — Jed 2026-10-28, Akashic Window: "＋ always opens L8".
+  // Opening a bundle level resumes the sticky ▶ Play (architectPlaying), so L8 was still
+  // a live run when ＋ was hit. The blank board below replaced it in memory, but Play
+  // mode was never left and nothing redrew (setBase only renders when it SWITCHES layer,
+  // and L8 had already left the editor on Base) — so L8 stayed on screen over an empty
+  // board. End any run properly first (⏹ Stop's own teardown), keeping the Architect's
+  // sticky Play choice for the next level they OPEN; a new level always starts in Edit.
+  // (The run itself is ended in goHome — "← Levels" — while its board still exists.
+  // Here we only guarantee nothing of it survives into the new board.)
+  undoQ=[]; redoQ=[]; selCell=null;   // ⌘Z must never bring the previous level back
   setReadOnly(false); designSnap=null; // a fresh board: editable, no run in progress   // a fresh editor board never inherits the last run's reticle
   document.getElementById('setup-wrap').classList.remove('open');
   document.getElementById('home').style.display='none';
@@ -2518,6 +2528,7 @@ function openEditor(){
     if(Number.isInteger(picked)&&picked>=1){ bundleNewNum=picked; curLevelNum=picked; } // the slot chosen in the dialog
     else nextBundleLevelNum(tgtBundle).then(n=>{curLevelNum=n;updEditorFrame();});    // fallback: next number
   }
+  render();                 // ALWAYS draw the blank board — never rely on setBase to do it (see top)
   updUB();updEditorFrame(); // a fresh board has no level# yet → HUD shows "—"
   updateBundleSaveBtn();    // show "▽ Save to <bundle>" when this new level targets a user bundle
   document.getElementById('btn-to-bundle').style.display=saveTargetBundle?'':'none'; // ＋ from a bundle → "← Levels" returns there
@@ -2578,6 +2589,12 @@ function enterEditorWithLevel(startPlaying){
 function goHome(){
   document.getElementById('editor').style.display='none';
   document.getElementById('home').style.display='flex';
+  // LEAVING THE EDITOR ENDS ITS ▶ PLAY RUN (Jed 2026-10-28, "＋ always opens L8"). This used
+  // to just set playing=false, so a sandbox run walked out half-alive: playerMode and
+  // editorSandboxPlay stayed on, and the next ＋ New level opened in that stale Play state
+  // with L8 still drawn. ⏹ Stop's own teardown runs HERE, while the board still exists.
+  // The Architect's sticky Play choice (architectPlaying) survives for the next level opened.
+  if(editorSandboxPlay||designSnap){ const keep=architectPlaying; stopRun(); architectPlaying=keep; }
   playing=false;board=[];flow=[];undoQ=[];redoQ=[];moves=0;cleared=0;Motion.releaseAll();inFlight.clear();
   hintDisarm(); // leaving the editor kills any hint cycle
   clearChoosing(); // Esc out of the editor drops the reticle with the board it belonged to
