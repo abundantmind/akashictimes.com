@@ -254,7 +254,9 @@ const AkashicAuth = {
       // akashictimes.com, provided both are in Supabase's allowed redirect list.
       options: { emailRedirectTo: window.location.origin + window.location.pathname }
     });
-    status.textContent = error ? TXT('auth_err') : TXT('auth_sent')(email);
+    // Show Supabase's reason with the failure (e.g. "email rate limit exceeded") so a
+    // stuck sign-in explains itself on screen — no console needed.
+    status.textContent = error ? TXT('auth_err') + ' (' + error.message + ')' : TXT('auth_sent')(email);
   },
 
   async signOut(){
