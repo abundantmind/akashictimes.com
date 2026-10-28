@@ -613,6 +613,8 @@ body.level-readonly #objlist :is(input,select){border-color:transparent;backgrou
 .bundle-card .bsub{font-size:var(--fz-base);color:#887a9a;margin-bottom:18px;}
 .bundle-card .bcount{font-size:var(--fz-sm);color:#665580;text-transform:uppercase;letter-spacing:.08em;}
 .bundle-card .bplay{display:inline-block;margin-top:20px;padding:9px 30px;background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;border-radius:6px;font-size:var(--fz-base);font-weight:500;}
+/* a paid bundle the player hasn't bought: the button is the price, in the site's gold */
+.bundle-card .bplay.bbuy{background:#4a3a14;color:#f0c45c;border-color:#a8842e;}
 
 /* level grid */
 .pgrid{display:grid;grid-template-columns:repeat(5,64px);gap:11px;}
@@ -1486,6 +1488,11 @@ en:{
   bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
   bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
   community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
+  buy_price:c=>'$'+(c/100).toFixed(2),buy_btn:c=>'Buy · $'+(c/100).toFixed(2),buy_owned:'Owned',buy_soon:'The store opens soon — bundles go on sale shortly. Thanks for your patience!',buy_levels:n=>n+' level'+(n===1?'':'s'),
+  buy_signin:'Sign in with your email to buy — your bundle then follows you to any device.',
+  buy_going:'Opening secure checkout…',buy_fail:e=>'Checkout could not start: '+e,
+  buy_confirming:'Confirming your purchase…',buy_done:t=>'Thank you! "'+t+'" is yours.',buy_cancel:'Checkout cancelled — nothing was charged.',
+  buy_pending:'Payment received — your bundle unlocks in a moment. Refresh if it does not.',
   lvl_qualifying:'Qualifying',lvl_prefix:'Level ',
   alert_na:n=>'Level '+n+' is not available yet.',
   alert_engine:(n,need,have)=>'Level '+n+' was built for a newer version of the game (engine '+need+'; this app plays '+have+'). Update the app to play it.',
@@ -1595,6 +1602,11 @@ ko:{
   bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
   bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
   community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
+  buy_price:c=>'$'+(c/100).toFixed(2),buy_btn:c=>'구매 · $'+(c/100).toFixed(2),buy_owned:'보유 중',buy_soon:'스토어가 곧 열립니다 — 번들 판매가 곧 시작돼요. 조금만 기다려 주세요!',buy_levels:n=>'레벨 '+n+'개',
+  buy_signin:'구매하려면 이메일로 로그인하세요 — 구매한 번들은 어느 기기에서든 함께합니다.',
+  buy_going:'보안 결제 화면을 여는 중…',buy_fail:e=>'결제를 시작할 수 없습니다: '+e,
+  buy_confirming:'구매를 확인하는 중…',buy_done:t=>'감사합니다! "'+t+'" 번들이 이제 당신의 것입니다.',buy_cancel:'결제가 취소되었습니다 — 청구된 금액은 없습니다.',
+  buy_pending:'결제가 완료되었습니다 — 곧 번들이 열립니다. 열리지 않으면 새로고침하세요.',
   lvl_qualifying:'자격 레벨',lvl_prefix:'레벨 ',
   alert_na:n=>'레벨 '+n+' — 아직 준비되지 않았습니다.',
   alert_engine:(n,need,have)=>'레벨 '+n+' — 더 새로운 버전의 게임에서 만들어졌습니다 (엔진 '+need+', 이 앱은 '+have+'). 앱을 업데이트하면 플레이할 수 있어요.',
@@ -1709,6 +1721,11 @@ es:{
   bundle_title:'Déjate llevar',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
   bundle_play:'Jugar',grid_sub:'Paquete 1 · 25 niveles',soon:'Pronto',
   community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
+  buy_price:c=>'$'+(c/100).toFixed(2),buy_btn:c=>'Comprar · $'+(c/100).toFixed(2),buy_owned:'Tuyo',buy_soon:'La tienda abre pronto — los paquetes saldrán a la venta en breve. ¡Gracias por tu paciencia!',buy_levels:n=>n+' nivel'+(n===1?'':'es'),
+  buy_signin:'Inicia sesión con tu correo para comprar — así tu paquete te acompaña en cualquier dispositivo.',
+  buy_going:'Abriendo el pago seguro…',buy_fail:e=>'No se pudo iniciar el pago: '+e,
+  buy_confirming:'Confirmando tu compra…',buy_done:t=>'¡Gracias! "'+t+'" ya es tuyo.',buy_cancel:'Pago cancelado — no se cobró nada.',
+  buy_pending:'Pago recibido — tu paquete se desbloquea en un momento. Si no, recarga la página.',
   lvl_qualifying:'Clasificación',lvl_prefix:'Nivel ',
   alert_na:n=>'El nivel '+n+' aún no está disponible.',
   alert_engine:(n,need,have)=>'El nivel '+n+' se creó para una versión más nueva del juego (motor '+need+'; esta app usa '+have+'). Actualiza la app para jugarlo.',
@@ -8577,31 +8594,78 @@ function renderBundles(){
 async function renderCommunityBundleList(){
   if(!window.AkashicAuth||!AkashicAuth.listPublishedBundles) return;
   const rows=await AkashicAuth.listPublishedBundles();
+  communityRows=rows;
   const host=document.getElementById('community-bundles');
   if(!host) return; // navigated away before the fetch resolved
   if(!rows.length){ host.innerHTML=''; return; }
   host.innerHTML='<div class="home-bundles-label">'+TXT('community_bundles_label')+'</div>'+
     rows.map(b=>{
-      const author=(b.profiles&&(b.profiles.username||b.profiles.handle))||'?';
+      const author=b.author_name||'?';
+      // PAID + not owned → the button is the price; owned (or free) → Play.
+      const buy=b.price_cents>0&&!b.owned;
       return '<div class="bundle-card" onclick="openCommunityBundle('+b.id+')">'+
         '<h2>'+escHtml(b.title)+'</h2>'+
         '<div class="bsub">'+TXT('community_by')(escHtml(author))+'</div>'+
-        '<div class="bplay">'+TXT('bundle_play')+'</div>'+
+        '<div class="bcount">'+TXT('buy_levels')(b.levels||0)+(b.price_cents>0?' · '+(b.owned?TXT('buy_owned'):TXT('buy_price')(b.price_cents)):'')+'</div>'+
+        '<div class="bplay'+(buy?' bbuy':'')+'">'+(buy?TXT('buy_btn')(b.price_cents):TXT('bundle_play'))+'</div>'+
       '</div>';
     }).join('');
 }
+let communityRows=[]; // the last storefront() result: price + owned per bundle
 
 // Open a community bundle: pull its full level data, point PlayerProgress at
 // its own bundle_id bucket (db/003 — stars can never collide with native
 // Bundle 1's level numbers), then show its own level grid.
+// A PAID bundle the player doesn't own goes to checkout instead (db/007 refuses its levels).
 async function openCommunityBundle(id){
   if(!window.AkashicAuth||!AkashicAuth.getBundle) return;
-  const row=await AkashicAuth.getBundle(id);
+  const meta=communityRows.find(r=>r.id===id);
+  if(meta&&meta.price_cents>0&&!meta.owned){ startBundlePurchase(id); return; }
+  const row=await AkashicAuth.getBundle(id,meta&&meta.title);
   if(!row||!Array.isArray(row.data)||!row.data.length){ alert(TXT('alert_na')(id)); return; }
   curBundle={ id:row.id, title:row.title, levels:row.data };
   PlayerProgress.bundle=id;
   renderCommunityGrid();
 }
+
+// ── CHECKOUT ($2 bundles, Stripe — db/007 + supabase/functions/stripe) ──────────
+// Buy = sign in with email (if not already) → Stripe's hosted checkout page → back here
+// with ?checkout=success&session_id=… → confirm → the bundle opens. The page never sees a
+// card number; Stripe does. The DATABASE decides who owns what, not this code.
+async function startBundlePurchase(id){
+  if(!AkashicAuth.isEmailUser()){ alert(TXT('buy_signin')); AkashicAuth.open(); return; }
+  flashToast(TXT('buy_going'));
+  const r=await AkashicAuth.buyBundle(id);
+  if(r.url){ location.href=r.url; return; }
+  if(r.owned){ await renderCommunityBundleList(); openCommunityBundle(id); return; }
+  if(r.error==='store_soon'){ alert(TXT('buy_soon')); return; }   // test-mode store, not a tester (db/009)
+  alert(TXT('buy_fail')(r.error||'?'));
+}
+
+// Back from Stripe. Runs once the auth session has resolved (confirm needs the buyer's
+// session). Strips the checkout params from the URL first so a refresh can't replay them.
+let checkoutReturnHandled=false;
+async function handleCheckoutReturn(){
+  if(checkoutReturnHandled) return;
+  const q=new URLSearchParams(location.search), st=q.get('checkout');
+  if(!st) return;
+  if(!window.AkashicAuth||!AkashicAuth.ready) return;            // wait for the session
+  checkoutReturnHandled=true;
+  const bundleId=Number(q.get('bundle')), sid=q.get('session_id');
+  ['checkout','bundle','session_id'].forEach(k=>q.delete(k));
+  history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
+  renderBundles();                                               // the buyer left from the bundle list
+  if(st==='cancel'){ flashToast(TXT('buy_cancel')); return; }
+  if(st!=='success'||!sid) return;
+  flashToast(TXT('buy_confirming'));
+  const r=await AkashicAuth.confirmPurchase(sid);
+  if(!r.ok){ alert(TXT('buy_pending')); return; }
+  await renderCommunityBundleList();
+  const meta=communityRows.find(x=>x.id===bundleId);
+  flashToast(TXT('buy_done')(meta?meta.title:''));
+  if(meta&&meta.owned) openCommunityBundle(bundleId);
+}
+window.addEventListener('akashic-auth',handleCheckoutReturn);
 
 // Level grid for the currently-open community bundle — same shell as native
 // renderGrid() but sized to curBundle.levels.length, and gating is a plain

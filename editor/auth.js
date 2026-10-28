@@ -219,6 +219,13 @@ async function pushLevel(n){
   if(error) console.warn('[auth] progress push failed', error.message); // localStorage already has it; non-fatal
 }
 
+// An Edge Function's error body ({error:"…"}) hides inside error.context — dig it out
+// so the player sees "sign in with your email first", not "non-2xx status code".
+async function fnError(error){
+  try { const b = await error.context.json(); if(b && b.error) return b.error; } catch(e){}
+  return error.message || String(error);
+}
+
 // ── the public surface the game calls ────────────────────────────────────────
 const AkashicAuth = {
   user: null,   // Supabase user object when signed in, else null
@@ -317,20 +324,41 @@ const AkashicAuth = {
   // (published=true — Jed's hand-flip is the only path to true) so a real
   // player can find and play one. `author` FK → profiles makes the embedded
   // select work; profiles are already public-readable (schema.sql).
+  // PAYWALL (db/007, 2026-10-27): paid bundles are no longer readable from the table.
+  // storefront() returns every published bundle with its price and whether THIS caller
+  // owns it (free / theirs / bought / admin) — never the level data.
   async listPublishedBundles(){
-    const { data, error } = await supabase.from('bundles')
-      .select('id,title,downloads,profiles(username,handle)')
-      .eq('published', true).order('created_at', { ascending:false });
-    if(error){ console.warn('[auth] listPublishedBundles failed', error.message); return []; }
+    const { data, error } = await supabase.rpc('storefront');
+    if(error){ console.warn('[auth] storefront failed', error.message); return []; }
     return data || [];
   },
   // Full level data for one bundle (its `data` jsonb = the canonical level-JSON
   // array, already in level order — submitUserBundle sorts filenames first).
-  async getBundle(id){
-    const { data, error } = await supabase.from('bundles')
-      .select('id,title,data').eq('id', id).maybeSingle();
+  // bundle_levels() refuses a paid bundle the caller hasn't bought (→ null here).
+  async getBundle(id, title){
+    const { data, error } = await supabase.rpc('bundle_levels', { p_id: id });
     if(error){ console.warn('[auth] getBundle failed', error.message); return null; }
-    return data;
+    return { id, title: title || '', data };
+  },
+
+  // ── CHECKOUT (the `stripe` Edge Function, supabase/functions/stripe) ─────────
+  // Buyers sign in with an EMAIL first (Jed 2026-10-27) so a purchase follows them to
+  // any device — an anonymous session's purchase would die with the browser.
+  isEmailUser(){ return !!(this.user && !this.user.is_anonymous && this.user.email); },
+  // Start a purchase: the function creates a Stripe Checkout Session and we go there.
+  // Returns { url } | { owned:true } | { error }.
+  async buyBundle(id){
+    const { data, error } = await supabase.functions.invoke('stripe', {
+      body: { action: 'checkout', bundle_id: id, return_url: location.origin + location.pathname }
+    });
+    if(error) return { error: await fnError(error) };
+    return data || { error: 'no response' };
+  },
+  // Back from Stripe with ?session_id=…: record the purchase (the webhook may already have).
+  async confirmPurchase(sessionId){
+    const { data, error } = await supabase.functions.invoke('stripe', { body: { action: 'confirm', session_id: sessionId } });
+    if(error) return { ok:false, error: await fnError(error) };
+    return data || { ok:false, error: 'no response' };
   },
 
   // ── ADMIN (migration 005, Jed 2026-10-24) ────────────────────────────────────
