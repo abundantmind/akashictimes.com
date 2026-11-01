@@ -615,6 +615,10 @@ body.level-readonly #objlist :is(input,select){border-color:transparent;backgrou
 .bundle-card .bplay{display:inline-block;margin-top:20px;padding:9px 30px;background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;border-radius:6px;font-size:var(--fz-base);font-weight:500;}
 /* a paid bundle the player hasn't bought: the button is the price, in the site's gold */
 .bundle-card .bplay.bbuy{background:#4a3a14;color:#f0c45c;border-color:#a8842e;}
+/* Multi-Stage stop list — red circle + trash can deletes a mistaken flyover stop */
+.stop-del{margin-left:auto;width:18px;height:18px;padding:0;border-radius:50%;border:1px solid #ff8a8a;
+  background:#c62828;color:#fff;font-size:10px;line-height:16px;text-align:center;cursor:pointer;flex:0 0 auto;}
+.stop-del:hover{background:#e53935;}
 
 /* level grid */
 .pgrid{display:grid;grid-template-columns:repeat(5,64px);gap:11px;}
@@ -4863,16 +4867,27 @@ function savePoint(){
   renderStopList();
 }
 // The ordered list under the pad: number = play order, #1 = where the level opens.
-// Click a row to jump the window there; DRAG a row to reorder the sequence.
+// Click a row to jump the window there; DRAG a row to reorder the sequence;
+// the red 🗑 deletes a stop saved by mistake (Jed 2026-11-01, an Akashic Window level).
 function renderStopList(){
   const host=document.getElementById('mstage-list'); if(!host) return;
   host.innerHTML='';
   flyStops.forEach((s,i)=>{
     const row=document.createElement('div'); row.draggable=true;
     row.innerHTML='<b>'+(i+1)+'</b> &nbsp;('+s.r+','+s.c+')'+(i===0?' <span style="opacity:.6">start</span>':'');
-    row.style.cssText='padding:3px 7px;margin:2px 0;border-radius:5px;background:#1b1030;border:1px solid #3a3050;cursor:grab;font-size:11px;color:#c8a8ff;user-select:none;';
+    row.style.cssText='display:flex;align-items:center;gap:4px;padding:3px 7px;margin:2px 0;border-radius:5px;background:#1b1030;border:1px solid #3a3050;cursor:grab;font-size:11px;color:#c8a8ff;user-select:none;';
     row.title='Click to jump here · drag to reorder';
     row.onclick=()=>{ if(_flying)return; flyViewR=s.r; flyViewC=s.c; applyFlyView(); };
+    // DELETE — a red circle with a trash can, pushed to the row's right edge. Hidden on a
+    // published (read-only) level, and on the last stop left (Multi-Stage always has one).
+    if(!editorReadOnly && flyStops.length>1){
+      const del=document.createElement('button');
+      del.className='stop-del'; del.textContent='🗑'; del.title='Delete stop '+(i+1);
+      del.onclick=e=>{ e.stopPropagation(); if(_flying)return;     // don't also "jump here"
+        flyStops.splice(i,1); renderStopList(); };                 // renumbers + re-syncs the saved spec
+      del.ondragstart=e=>e.preventDefault();                        // the trash can is not a drag handle
+      row.appendChild(del);
+    }
     row.ondragstart=e=>{ e.dataTransfer.setData('text/plain',String(i)); row.style.opacity='.4'; };
     row.ondragend=()=>{ row.style.opacity='1'; };
     row.ondragover=e=>{ e.preventDefault(); };
