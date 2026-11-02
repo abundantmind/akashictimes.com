@@ -845,6 +845,20 @@ window.runInvariants = async function(){
       architectPlaying=_keepArch;
     }
 
+    // ＋ AFTER A MULTI-STAGE LEVEL IS A BLANK SLATE TOO (Jed 2026-11-02, Akashic Window L15).
+    // Multi-Stage survived into the next level: ＋ New 9x9 opened inside the last level's
+    // 9x11 window (clipped at its OLD cell size → ~5 columns showing) with its stops listed.
+    {
+      R=9;C=11; openEditor(); await wait(30);
+      toggleMultiRegion(); shiftView('down'); shiftView('down'); savePoint(); await wait(30);   // a 2-stop Multi-Stage level
+      ok('editor · (setup) Multi-Stage is on with 2 stops', multiRegion&&flyStops.length===2, {multiRegion,stops:flyStops.length});
+      R=9;C=9; openEditor(); await wait(45);
+      const _bw=document.getElementById('board-wrap');
+      ok('editor · ＋ opens with Multi-Stage OFF and NO flyover stops', !multiRegion&&flyStops.length===0&&editorFlyover===null&&!document.querySelectorAll('#mstage-list > div').length, {multiRegion,stops:flyStops.length});
+      ok('editor · ＋ is not shown through the last level\'s 9x11 window', !_bw.style.width&&_bw.style.overflow!=='hidden'&&!document.getElementById('board').style.transform, {w:_bw.style.width,ov:_bw.style.overflow});
+      ok('editor · ＋ 9x9 draws all 81 cells', document.querySelectorAll('#board .cell').length===81, document.querySelectorAll('#board .cell').length);
+    }
+
     // ACORNS ARE EASTER EGGS (Jed 2026-11-01). Board eggs wear one of four dyed looks
     // fixed by position; the goal icon is always the golden egg; a file that still says
     // "acorn" (saved before the rename) loads as eggs; and nothing we ship says acorn.

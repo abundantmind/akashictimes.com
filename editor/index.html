@@ -2516,6 +2516,7 @@ function openEditor(){
   initBlankBoard();
   fitEditorBoard(); // scale the grid to fill the viewport (device-independent)
   playing=false; // never inherit a stale play state — clicks must paint, not playTap
+  resetMultiStage(true); // no leftover Multi-Stage window or flyover stops from the last level
   buildGPal();buildPUPal();buildObsPal(); applyLayerPalette();
   editorObjectives=[];editorFlyover=null;renderObjectives(); // fresh board starts with no goals, no flyover
   setBase('inactive'); // New Level opens on the Base brush — lay the foundation first (also engages the Base layer + renders)
@@ -2565,6 +2566,7 @@ function enterEditorWithLevel(startPlaying){
   setReadOnly(false); // editable by default — editBundleLevel re-locks a PUBLISHED bundle's level after this
   flyTeardown(); // editor shows the FULL board (scrollable wrap) — no camera window
   fitEditorBoard(); // scale the grid to fill the viewport (device-independent), not a fixed 44px
+  resetMultiStage(false); // Multi-Stage off; this level's own stops stay loaded for when it's turned on
   document.body.classList.remove('player-playing'); // editor styling (inactive ghost tiles)
   // fill gems for a ready-to-play board; pre-placed PUs stay as painted. SKIP
   // startEmpty (field.empty), items and crates — same guard as togglePlay. Was
@@ -4833,11 +4835,30 @@ function buildStagePad(){
 }
 function toggleMultiRegion(){
   multiRegion=!multiRegion;
-  const btn=document.getElementById('mr-toggle');
-  if(btn){ btn.classList.toggle('on', multiRegion); btn.textContent=multiRegion?'▦ Multi-Stage: ON':'▦ Multi-Stage'; }
+  syncMultiBtn();
   if(multiRegion && flyStops.length===0) flyStops.push({r:0,c:0});   // stop #1 = the origin, free with every level
   if(!multiRegion){ flyViewR=0; flyViewC=0; }
   buildStagePad(); renderStopList(); syncGrowArrows();
+}
+function syncMultiBtn(){
+  const btn=document.getElementById('mr-toggle');
+  if(btn){ btn.classList.toggle('on', multiRegion); btn.textContent=multiRegion?'▦ Multi-Stage: ON':'▦ Multi-Stage'; }
+}
+// EVERY LEVEL OPENS WITH MULTI-STAGE OFF (Jed 2026-11-02, Akashic Window L15). The mode
+// used to survive from the last level: after a Multi-Stage L14, ＋ New 9x9 opened inside
+// L14's 9x11 window — still clipped at L14's (smaller) cell size, so the bigger 9x9 cells
+// showed ~5 columns — with L14's flyover stops listed. Off here = no window clip, no
+// shifted view, an empty list. `clearStops` wipes the stops (a NEW level has none); a
+// LOADED level keeps the stops loadLevelData read, shown when Multi-Stage is turned on.
+// Deliberately skips renderStopList(): its spec re-sync would rewrite a loaded level's
+// saved flyover just for being opened.
+function resetMultiStage(clearStops){
+  multiRegion=false; flyViewR=0; flyViewC=0; _flying=false;
+  if(clearStops) window.flyStops=[];
+  syncMultiBtn();
+  const list=document.getElementById('mstage-list'); if(list) list.innerHTML='';
+  const bd=document.getElementById('board'); if(bd) bd.style.transform='';
+  syncGrowArrows();   // multiRegion off → removes the window clip, hides pad/list/Fly it
 }
 // Same name — togglePlay() calls it. Shows/hides the pad, keeps the 9x11 window clip
 // and view transform in sync, and sets each cell's enabled state: FORWARD cells (and
