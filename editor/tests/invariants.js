@@ -310,9 +310,9 @@ window.runInvariants = async function(){
       // colours (r+2c)%4: no three alike in any row or column, and colour 4 is free for the test match
       const reset=()=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.active=true; cd.obs=null; cd.item=null; cd.pu=null; cd.wallE=null; cd.wallS=null; cd.source=null; cd.gen=null; cd.startEmpty=false; cd.sub=null; cd.gem=(r+2*c)%4; } flow.forEach(row=>row.fill('down')); };
       // 1. a V-Dragonfly down a column of plain gems leaves the 1-hit leaves beside it alone
-      reset(); for(let r=0;r<R;r++)for(const c of [2,4]){ board[r][c].obs='leaf1'; board[r][c].item='acorn'; board[r][c].gem=null; }
+      reset(); for(let r=0;r<R;r++)for(const c of [2,4]){ board[r][c].obs='leaf1'; board[r][c].item='egg'; board[r][c].gem=null; }
       await fireDet('rocket_v',0,3);
-      const side=[]; for(let r=0;r<R;r++)for(const c of [2,4]) side.push(board[r][c].obs==='leaf1'&&board[r][c].item==='acorn');
+      const side=[]; for(let r=0;r<R;r++)for(const c of [2,4]) side.push(board[r][c].obs==='leaf1'&&board[r][c].item==='egg');
       ok('splash · a beam through gems does NOT clip the leaves beside its path', side.every(Boolean), side.filter(x=>!x).length+' clipped');
       // ...and crates follow the same rule: a beam BESIDE a crate leaves it; a beam THROUGH it cracks it
       await startPlayerLevel(1,false); await wait(45); playing=false; reset();
@@ -456,22 +456,22 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);
 
-    // NO CLOVER UNDER AN ACORN (Jed 2026-10-07, Akashic Window L5): a clear touching clover
-    // plants its whole set EXCEPT acorn cells; once the acorn is collected the cell plants normally.
+    // NO CLOVER UNDER AN EGG (Jed 2026-10-07, Akashic Window L5): a clear touching clover
+    // plants its whole set EXCEPT egg cells; once the egg is collected the cell plants normally.
     await startPlayerLevel(1,false); await wait(45); playing=false;
     {
       for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.sub=null; cd.item=null; cd.obs=null; }
       board[1][1].sub='clover';                                   // the set touches clover here
-      board[1][2].item='acorn'; board[1][2].obs='leaf2';          // an acorn under a 2-hit leaf
+      board[1][2].item='egg'; board[1][2].obs='leaf2';          // an egg under a 2-hit leaf
       const set=[[1,1],[1,2],[1,3],[2,2]];
       plantClover(set);
-      ok('clover · a clover-touching clear plants its set but NOT the acorn cell',
+      ok('clover · a clover-touching clear plants its set but NOT the egg cell',
          board[1][3].sub==='clover'&&board[2][2].sub==='clover'&&board[1][2].sub!=='clover', set.map(([r,c])=>board[r][c].sub));
       plantClover(set,true);
-      ok('clover · forced plants (charged blasts, hopper landings) skip acorn cells too', board[1][2].sub!=='clover', board[1][2].sub);
-      board[1][2].item=null; board[1][2].obs=null;                // acorn collected
+      ok('clover · forced plants (charged blasts, hopper landings) skip egg cells too', board[1][2].sub!=='clover', board[1][2].sub);
+      board[1][2].item=null; board[1][2].obs=null;                // egg collected
       plantClover(set);
-      ok('clover · once the acorn is gone, the cell plants like any other', board[1][2].sub==='clover', board[1][2].sub);
+      ok('clover · once the egg is gone, the cell plants like any other', board[1][2].sub==='clover', board[1][2].sub);
     }
 
     // ═══ 3. CLOVER RULES (blank canvas, V-rocket = column) ═════════════════════
@@ -779,7 +779,7 @@ window.runInvariants = async function(){
     // Jed 2026-08-27, his own bundle: the level's only remaining goal was "fire 4
     // Grasshoppers", three hoppers spawned from a cascade, and not one of them went
     // for the Grasshoppers sitting on the board. autoGrasshopperTarget knew about
-    // collect/plant/acorn/key/crate goals and nothing else — worse, in EDITOR test
+    // collect/plant/egg/key/crate goals and nothing else — worse, in EDITOR test
     // play a PU objective fell through the mapping and was read as "collect gem 0",
     // so it actively aimed at the wrong thing. A hopper landing on a PU detonates it
     // (clearCellD → puFired), so seeking one really does advance the goal.
@@ -843,6 +843,25 @@ window.runInvariants = async function(){
       ok('editor · ＋ after a run DRAWS the blank board (not the last level)', _cells.length===99&&_bd.querySelectorAll('.cell.inactive').length===0&&_filled===0, {cells:_cells.length,filled:_filled});
       ok('editor · ＋ after a run opens in Edit, with no undo back into the old level', !playing&&!playerMode&&undoQ.length===0&&editorObjectives.length===0, {playing,playerMode,undo:undoQ.length});
       architectPlaying=_keepArch;
+    }
+
+    // ACORNS ARE EASTER EGGS (Jed 2026-11-01). Board eggs wear one of four dyed looks
+    // fixed by position; the goal icon is always the golden egg; a file that still says
+    // "acorn" (saved before the rename) loads as eggs; and nothing we ship says acorn.
+    {
+      const looks=new Set(); for(let r=0;r<4;r++)for(let c=0;c<4;c++)looks.add(eggLook(r,c));
+      ok('egg · board eggs use exactly the four dyed looks (A B C E — never the gold D)', looks.size===4&&!looks.has('D'), [...looks]);
+      ok('egg · a cell always shows the same egg', eggLook(3,7)===eggLook(3,7), eggLook(3,7));
+      ok('egg · the goal icon is the golden egg', eggIconSVG(20).includes('#d9a521'), 'not gold');
+      ok('egg · a board egg is drawn, not the old lettered tile', !obsSVG(OBS_TYPES.find(o=>o.id==='egg'),30,'B').includes('<text'), 'still a text tile');
+      const old={objectives:[{type:'collect',item:'acorn',count:3}],obstacles:[{functionalId:'item.acorn',positions:['R0C0']}]};
+      legacyEggs(old);
+      ok('egg · a pre-rename file ("acorn") reads as eggs', old.objectives[0].item==='egg'&&old.obstacles[0].functionalId==='item.egg', JSON.stringify(old));
+      let saysAcorn=[];
+      for(const L of [12,13,14,17,19]){ const t=await (await fetch('levels/level-'+String(L).padStart(3,'0')+'.json',{cache:'no-cache'})).text(); if(/acorn/i.test(t))saysAcorn.push(L); }
+      ok('egg · no shipped level still says acorn', saysAcorn.length===0, saysAcorn);
+      await startPlayerLevel(12,false); await wait(45);       // L12 has egg goals
+      ok('egg · L12 loads with an egg goal', playerGoals.some(g=>g.kind==='egg'), playerGoals.map(g=>g.kind));
     }
     saveTargetBundle=_tgt; bundleEditNum=_edit;
 

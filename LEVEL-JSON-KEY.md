@@ -49,7 +49,7 @@ Each grid is `rows` strings of `cols` characters, row-major.
 | 2 | `flow`      | `v` down · `^` up · `<` left · `>` right · `.` hole |
 | 3 | `source`    | `I` inlet · `D` drain · `E` window Exit · `R` window Re-entry · `.` none/hole |
 | 4 | `substrate` | `c` clover · `o` oil · `.` none/hole |
-| 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` acorn · `t` tire · `x` crate · `G` generator · `S H V A W` power-ups · `.` hole |
+| 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` egg · `t` tire · `x` crate · `G` generator · `S H V A W` power-ups · `.` hole |
 | 6 | `overlay`   | `B` chain (bind) · `L` leaf · `.` none/hole |
 
 **`.` convention:** *hole* in `board`; *hole-or-none* in flow/source/substrate/overlay
@@ -84,7 +84,7 @@ and exact-dup detection work.
 ## `objectives`
 
 - `{type:"collect", gem:"<color>", count:N}`
-- `{type:"collect", item:"key"|"acorn", count:N}`
+- `{type:"collect", item:"key"|"egg", count:N}`
 - `{type:"plant", obstacle:"clover", count:N}`
 - `{type:"clear", obstacle:"crate"|"tire", count:N}` — counted when one is fully destroyed (a dented tire/crate doesn't count)
 - `{type:"detonate"|"create", pu:"<power-up>", count:N}`

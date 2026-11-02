@@ -50,7 +50,7 @@ Cell = { r, c,
   reservedBy }       // GemId | null  — a gem currently SLIDING into this cell
 
 gems : Map<GemId, Gem>              // every gem/item/power-up as an entity
-Gem = { id, kind,                   // kind: a color, or 'key'|'acorn', or a PU type
+Gem = { id, kind,                   // kind: a color, or 'key'|'egg', or a PU type
   state,             // 'SEATED' | 'SLIDING'
   home,              // CellKey — the cell this gem belongs to
   from, to, p }      // SLIDING only: source cell, dest cell, progress p ∈ [0,1)

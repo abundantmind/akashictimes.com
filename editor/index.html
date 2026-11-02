@@ -1202,17 +1202,17 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
       </div>
       <div class="rsec">
         <div class="rtitle">Goals</div>
-        <!-- Objectives list: board-derived goals (clover/key/acorn) auto-fill via Recommend;
+        <!-- Objectives list: board-derived goals (clover/key/egg) auto-fill via Recommend;
              gem-color goals are added + edited by hand (the board can't guess color/count). -->
         <div id="objlist"></div>
         <div class="objbtns edit-only">
-          <button class="tb" onclick="recommendObjectives()" title="Auto-fill clover / key / acorn goals from what's painted on the board. Gem goals stay manual.">↺ Recommend</button>
+          <button class="tb" onclick="recommendObjectives()" title="Auto-fill clover / key / egg goals from what's painted on the board. Gem goals stay manual.">↺ Recommend</button>
         </div>
         <div class="objbtns edit-only">
           <button class="tb" onclick="addObjective('gem')">+ Gem</button>
           <button class="tb" onclick="addObjective('clover')">+ Clover</button>
           <button class="tb" onclick="addObjective('key')">+ Key</button>
-          <button class="tb" onclick="addObjective('acorn')">+ Acorn</button>
+          <button class="tb" onclick="addObjective('egg')">+ Egg</button>
           <button class="tb" onclick="addObjective('crate')">+ Crate</button>
           <button class="tb" onclick="addObjective('tire')">+ Tire</button>
           <button class="tb" onclick="addObjective('pu')">+ Power-up</button>
@@ -1552,8 +1552,8 @@ en:{
     text:'Swap two neighboring gems to line up 3 or more '+g.name+' gems in a row or column. Each '+g.name+' gem cleared counts toward the goal.'}),
   plantHelp:n=>({title:'Plant '+n+' Clover',
     text:'Make a match with a gem standing on clover to plant clover under every gem in the match. Power-up blasts that touch clover plant their whole area — and a Grasshopper plants wherever it lands. Cover the board!'}),
-  acornHelp:n=>({title:'Free '+n+' Acorns',
-    text:'Acorns are trapped under leaves. Match right next to a leaf (or hit it with a power-up blast) to tear it away — the last hit frees the acorn and collects it. Leaves without acorns hold gems hostage the same way.'}),
+  eggHelp:n=>({title:'Find '+n+' Easter Eggs',
+    text:'Easter eggs are hidden under leaves — any color counts. Match right next to a leaf (or hit it with a power-up blast) to tear it away — the last hit frees the egg and collects it. Leaves without eggs hold gems hostage the same way.'}),
   keyHelp:n=>({title:'Collect '+n+' Keys',
     text:'Keys drop straight down. Clear the gems beneath a key so it falls, and the moment it reaches the bottom it exits and is collected. Open a clean path to the bottom for each key.'}),
   tireHelp:n=>({title:'Clear '+n+' Tires',
@@ -1669,8 +1669,8 @@ ko:{
     text:'클로버 위에 있는 보석으로 매치를 만들면 매치된 모든 보석 아래에 클로버가 심어집니다. 클로버에 닿는 파워업 폭발은 그 범위 전체에 심고, 메뚜기는 착지하는 곳마다 심습니다. 보드를 뒤덮으세요!'}),
   keyHelp:n=>({title:'열쇠 '+n+'개 모으기',
     text:'열쇠는 아래로 떨어집니다. 열쇠 아래의 젬을 없애 길을 터 주면 열쇠가 떨어지고, 맨 아래에 닿는 순간 빠져나가 수집됩니다. 각 열쇠마다 바닥까지 길을 열어 주세요.'}),
-  acornHelp:n=>({title:'도토리 '+n+'개 구출',
-    text:'도토리는 나뭇잎 아래에 갇혀 있습니다. 나뭇잎 바로 옆에서 매치하거나 파워업 폭발로 맞추면 잎이 벗겨지고, 마지막 타격이 도토리를 구출해 수집합니다. 도토리가 없는 잎도 같은 방식으로 보석을 붙잡고 있습니다.'}),
+  eggHelp:n=>({title:'부활절 달걀 '+n+'개 찾기',
+    text:'부활절 달걀은 나뭇잎 아래에 숨어 있습니다 — 색깔은 상관없습니다. 나뭇잎 바로 옆에서 매치하거나 파워업 폭발로 맞추면 잎이 벗겨지고, 마지막 타격이 달걀을 꺼내 수집합니다. 달걀이 없는 잎도 같은 방식으로 보석을 붙잡고 있습니다.'}),
   tireHelp:n=>({title:'타이어 '+n+'개 없애기',
     text:'타이어는 보석과 함께 굴러 내려오지만 매치되지 않습니다. 옆으로 밀어내거나, 바로 옆에서 매치하거나, 파워업으로 맞추세요 — 한 번 맞을 때마다 흰 층이 하나씩 벗겨집니다. 잠자리는 처음 맞는 타이어에서 멈춥니다. 모두 없애세요!'}),
   crateHelp:n=>({title:'상자 '+n+'개 부수기',
@@ -1790,8 +1790,8 @@ es:{
     text:'Haz una combinación con una gema que esté sobre un trébol para plantar trébol bajo cada gema de la combinación. Las explosiones de potenciadores que tocan trébol plantan toda su área — y un Saltamontes planta donde aterrice. ¡Cubre el tablero!'}),
   keyHelp:n=>({title:'Recoge '+n+' llaves',
     text:'Las llaves caen en línea recta. Despeja las gemas bajo una llave para que caiga, y en cuanto llega al fondo sale y se recoge. Abre un camino limpio hasta el fondo para cada llave.'}),
-  acornHelp:n=>({title:'Libera '+n+' bellotas',
-    text:'Las bellotas están atrapadas bajo hojas. Combina justo al lado de una hoja (o golpéala con la explosión de un potenciador) para arrancarla — el último golpe libera la bellota y la recoge. Las hojas sin bellota retienen gemas de la misma forma.'}),
+  eggHelp:n=>({title:'Encuentra '+n+' huevos de Pascua',
+    text:'Los huevos de Pascua están escondidos bajo hojas — cualquier color cuenta. Combina justo al lado de una hoja (o golpéala con la explosión de un potenciador) para arrancarla — el último golpe libera el huevo y lo recoge. Las hojas sin huevo retienen gemas de la misma forma.'}),
   tireHelp:n=>({title:'Quita '+n+' llantas',
     text:'Las llantas ruedan con las gemas pero nunca combinan. Muévela a un lado, combina justo al lado o golpéala con un potenciador — cada golpe le quita una capa blanca. La Libélula se detiene en la primera llanta que toca. ¡Quítalas todas!'}),
   crateHelp:n=>({title:'Rompe '+n+' cajas',
@@ -3231,7 +3231,7 @@ async function nextBundleLevelNum(b){
 async function saveBoardToBundle(){
   if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
   { const wp=windowProblems(); if(wp.length){ alert('Fix the windows before saving:\n\n• '+wp.join('\n• ')); return; } }
-  if(!fixBareAcorns())return;
+  if(!fixBareEggs())return;
   const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); if(!b){ alert('No target bundle set — open a bundle and ＋ Add level.'); return; }
   try{ if((await b.dir.queryPermission({mode:'readwrite'}))!=='granted' && (await b.dir.requestPermission({mode:'readwrite'}))!=='granted'){ alert('Folder access denied.'); return; } }catch(e){}
   let num=bundleEditNum;
@@ -3692,7 +3692,7 @@ function buildCellEl(r,c,dropping){
     // Middle layer: generator, item, power-up, or gem (mutually exclusive)
     if(cd.gen){inner.innerHTML=genHTML(cd.gen,flow[r]&&flow[r][c],gemSize());
       el.title='Generator — a '+(GEN_NAMES[cd.gen.emit]||cd.gen.emit)+' on a random drop from the 2nd to the '+ordinal(cd.gen.every)+' (always by the '+ordinal(cd.gen.every)+')';}
-    else if(cd.item){const o=OBS_TYPES.find(x=>x.id===cd.item);if(o)inner.innerHTML=obsSVG(o,gemSize());}
+    else if(cd.item){const o=OBS_TYPES.find(x=>x.id===cd.item);if(o)inner.innerHTML=obsSVG(o,gemSize(),eggLook(r,c));} // look only matters for eggs
     else if(cd.pu){inner.innerHTML=puSVG(cd.pu,gemSize());}
     else if(cd.gem!==null){inner.innerHTML=gemSVG(cd.gem,gemSize());}
     else if(!cd.sub&&!cd.obs&&!cd.gen){el.classList.add('empty-hint');}
@@ -3816,7 +3816,7 @@ function buildGPal(){
 
 // ══ OBJECTIVES (editor Goals panel) ═══════════════════════════════════════════
 // The level's win conditions, authored as a list. Board-derived goals
-// (clover/key/acorn) are Recommend-able — their counts are computed from what's
+// (clover/key/egg) are Recommend-able — their counts are computed from what's
 // painted; gem-color goals are added + edited by hand because the board can't
 // know which colors matter or how many (Jed, 2026-07-29). Editor Play stays a
 // sandbox — objective counting happens only in the Game (loadLevelData→playerGoals).
@@ -3828,7 +3828,7 @@ function objKind(o){
   if(o.type==='clear'&&o.obstacle==='tire')return 'tire';   // clear-N-tires goal (Jed 2026-10-12)
   if(o.type==='clear'&&o.obstacle==='crate')return 'crate'; // clear-N-crates goal
   if(o.type==='collect'&&o.item==='key')return 'key';
-  if(o.type==='collect'&&o.item==='acorn')return 'acorn';
+  if(o.type==='collect'&&o.item==='egg')return 'egg';
   if(o.type==='detonate'||o.type==='create')return 'pu';    // "Use/Make N {power-up}" goal
   return 'gem';
 }
@@ -3870,18 +3870,18 @@ function renderPalette(){
 // Scan the painted board for the board-derived goal counts.
 //  clover = UNCLOVERED plantable cells (active, not a solid crate, no clover yet)
 //           — the bare ground clover can still spread onto (Jed's formula).
-//  key / acorn = items currently on the board.
+//  key / egg = items currently on the board.
 function boardCounts(){
-  let clover=0,key=0,acorn=0,crate=0,tire=0;
+  let clover=0,key=0,egg=0,crate=0,tire=0;
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     const cd=board[r][c]; if(!cd||!cd.active)continue;
     if(!isSolid(r,c)&&cd.sub!=='clover')clover++;
     if(cd.item==='key')key++;
-    if(cd.item==='acorn')acorn++;
+    if(cd.item==='egg')egg++;
     if(isCrate(r,c))crate++;                       // any-HP crate cell = one to clear
     if(isTire(r,c))tire++;                         // any-HP tire = one to clear
   }
-  return {clover,key,acorn,crate,tire};
+  return {clover,key,egg,crate,tire};
 }
 // Render the objectives list into #objlist.
 function renderObjectives(){
@@ -3898,7 +3898,7 @@ function renderObjectives(){
     const row=document.createElement('div');row.className='objrow';
     // icon
     const ic=document.createElement('span');ic.className='oicon';
-    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='acorn'?acornIconSVG(20):k==='tire'?tireIconSVG(20):k==='crate'?crateIconSVG(20):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),20):gemSVG(GEMMAP[o.gem]??3,20);
+    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='egg'?eggIconSVG(20):k==='tire'?tireIconSVG(20):k==='crate'?crateIconSVG(20):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),20):gemSVG(GEMMAP[o.gem]??3,20);
     row.appendChild(ic);
     // label, or a selector for goals with a variant (gem color / which power-up)
     if(k==='gem'){
@@ -3920,15 +3920,15 @@ function renderObjectives(){
       row.appendChild(sel);
     }else{
       const lb=document.createElement('span');lb.className='olabel';
-      lb.textContent = k==='clover'?'Plant clover':k==='key'?'Collect keys':k==='crate'?'Clear crates':k==='tire'?'Clear tires':'Free acorns';
+      lb.textContent = k==='clover'?'Plant clover':k==='key'?'Collect keys':k==='crate'?'Clear crates':k==='tire'?'Clear tires':'Free eggs';
       row.appendChild(lb);
     }
     // count (manual override — always editable)
     const cnt=document.createElement('input');cnt.type='number';cnt.min='1';cnt.className='sinput ocount';cnt.value=o.count||0;
     cnt.onchange=()=>{o.count=Math.max(1,parseInt(cnt.value)||1);};
     row.appendChild(cnt);
-    // board-derived auto count (clover/key/acorn only) — click to accept
-    const auto = k==='clover'?bc.clover:k==='key'?bc.key:k==='acorn'?bc.acorn:k==='crate'?bc.crate:k==='tire'?bc.tire:null;
+    // board-derived auto count (clover/key/egg only) — click to accept
+    const auto = k==='clover'?bc.clover:k==='key'?bc.key:k==='egg'?bc.egg:k==='crate'?bc.crate:k==='tire'?bc.tire:null;
     if(auto!=null){
       const a=document.createElement('span');a.className='oauto';a.textContent='auto '+auto;a.title='Click to set the count from the board';
       a.onclick=()=>{o.count=auto;renderObjectives();};
@@ -3954,7 +3954,7 @@ function addObjective(kind){
   }
   else if(kind==='clover')editorObjectives.push({type:'plant',obstacle:'clover',count:bc.clover||1});
   else if(kind==='key')   editorObjectives.push({type:'collect',item:'key',count:bc.key||1});
-  else if(kind==='acorn') editorObjectives.push({type:'collect',item:'acorn',count:bc.acorn||1});
+  else if(kind==='egg') editorObjectives.push({type:'collect',item:'egg',count:bc.egg||1});
   else if(kind==='crate') editorObjectives.push({type:'clear',obstacle:'crate',count:bc.crate||1});
   else if(kind==='tire')  editorObjectives.push({type:'clear',obstacle:'tire',count:bc.tire||1});
   else if(kind==='pu')    editorObjectives.push({type:'detonate',pu:'helicopter',count:2});
@@ -3967,7 +3967,7 @@ function recommendObjectives(){
   const ensure=(pred,make)=>{const ex=editorObjectives.find(pred);if(ex)ex.count=make().count;else editorObjectives.push(make());};
   if(bc.clover>0)ensure(o=>o.type==='plant', ()=>({type:'plant',obstacle:'clover',count:bc.clover}));
   if(bc.key>0)   ensure(o=>o.type==='collect'&&o.item==='key', ()=>({type:'collect',item:'key',count:bc.key}));
-  if(bc.acorn>0) ensure(o=>o.type==='collect'&&o.item==='acorn', ()=>({type:'collect',item:'acorn',count:bc.acorn}));
+  if(bc.egg>0) ensure(o=>o.type==='collect'&&o.item==='egg', ()=>({type:'collect',item:'egg',count:bc.egg}));
   if(bc.crate>0) ensure(o=>o.type==='clear'&&o.obstacle==='crate', ()=>({type:'clear',obstacle:'crate',count:bc.crate}));
   if(bc.tire>0)  ensure(o=>o.type==='clear'&&o.obstacle==='tire',  ()=>({type:'clear',obstacle:'tire',count:bc.tire}));
   renderObjectives();
@@ -4008,7 +4008,7 @@ function serializeLevel(){
       if(isCrate(r,c)){const hp=+cd.obs.replace('crate','')||1;if(hp>1)cprops['R'+r+'C'+c]={hp};return 'x';}
       if(cd.pu)return PU_CH[cd.pu]||'?';
       if(cd.item==='key')return 'k';
-      if(cd.item==='acorn')return 'a';
+      if(cd.item==='egg')return 'a';
       if(isTireId(cd.item)){const hp=+cd.item.replace('tire','')||1;if(hp>1)cprops['R'+r+'C'+c]={hp};return 't';} // tire: HP rides in props like a crate's
       if(cd.startEmpty)return 'e';                              // Contents = Empty (field.empty)
       return 'g';                                              // Contents = Gem (color seeded, not stored)
@@ -4081,7 +4081,7 @@ async function saveLevelToDisk(){
   if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
   if(editorReadOnly) return;   // published levels are final
   { const wp=windowProblems(); if(wp.length){ alert('Fix the windows before saving:\n\n• '+wp.join('\n• ')); return; } }
-  if(!fixBareAcorns())return;
+  if(!fixBareEggs())return;
   if(!window.showDirectoryPicker){
     alert('Local Save needs a Chromium browser (File System Access API). Use ⌘ Serialize → ⧉ Copy as a fallback.');return;
   }
@@ -4193,7 +4193,7 @@ const OBS_TYPES=[
   {id:'crate2',  label:'BX2', color:'#7a5a2a', desc:'Crate 2HP',         layer:'obs', solid:true, hp:2, stageResident:true},
   {id:'crate3',  label:'BX3', color:'#6a4a1a', desc:'Crate 3HP',         layer:'obs', solid:true, hp:3, stageResident:true},
   {id:'key',     label:'ANK', color:'#d4aa40', desc:'Ankh (falls)',        layer:'item', stageResident:true},
-  {id:'acorn',   label:'ACN', color:'#7a5a2a', desc:'Acorn (collect)',    layer:'item', stageResident:true},
+  {id:'egg',   label:'EGG', color:'#7a5a2a', desc:'Easter egg (collect — hide it under a leaf)', layer:'item', stageResident:true},
   // TIRES (Jed 2026-10-10/12) — Contents items like keys: they FLOW like gems, slide aside in a
   // swap like a key, never match; detonations and adjacent matches (like crates) knock one HP
   // off (3→2→1→gone). HP rides in the id, the same
@@ -4204,7 +4204,7 @@ const OBS_TYPES=[
 ];
 // ── STAGE RESIDENTS — the gate for multi-stage (flyover) levels ──────────────
 // A "resident" is a board object REMOVED when its goal is met — a crate breaks, a
-// key exits, an acorn is collected — so "none left in this stage's window" is a
+// key exits, an egg is collected — so "none left in this stage's window" is a
 // clean, legible advance signal (Township's rule). NOT gems (a global colour COUNT,
 // placeless) and NOT clover (a plant-COUNT that SPREADS, never removed). Membership
 // is the `stageResident` flag ABOVE, so a future element (Tires, …) gates a stage
@@ -4214,14 +4214,14 @@ const OBS_BYID={}; OBS_TYPES.forEach(o=>OBS_BYID[o.id]=o);
 function isResidentId(id){ return !!(id && OBS_BYID[id] && OBS_BYID[id].stageResident); }
 // Every current resident is removed when satisfied, so PRESENCE == still holding.
 // ...and only a resident the level is actually ASKING FOR holds a stage: keys on a key goal,
-// crates on a crate goal, acorns on an acorn goal, tires on a tire goal. Portrait L23 (Jed
+// crates on a crate goal, eggs on an egg goal, tires on a tire goal. Portrait L23 (Jed
 // 2026-10-21) is a 6-KEY level with dozens of crates as scenery: its 3 keys dropped out of
 // stage 1 and the camera sat still, waiting on crates nobody was asked to break. That is the
 // original L23 rule too — "collect the live zone's 3 keys, then pan". A level with no goals
 // (a bare sandbox) keeps the old behaviour: every resident holds.
 function residentKind(id){
   if(!id)return null;
-  if(id==='key'||id==='acorn')return id;
+  if(id==='key'||id==='egg')return id;
   if(id.startsWith('crate'))return 'crate';
   if(isTireId(id))return 'tire';
   return null;
@@ -4320,9 +4320,10 @@ function tireSVG(hp,s){
     +`<circle cx="${h}" cy="${h}" r="${R*.42}" fill="#2f7fe0" stroke="#0d3d80" stroke-width="${s*.035}"/>` // blue hub
     +`<circle cx="${h}" cy="${h}" r="${R*.13}" fill="#9cc8ff"/></svg>`;
 }
-function obsSVG(obs,size){
+function obsSVG(obs,size,look){
   const s=size||34,h=s/2;
   if(obs.tire)return tireSVG(obs.hp,s);
+  if(obs.id==='egg')return eggSVG(look||'A',s);   // a board cell passes its own look (eggLook); palette shows A
   // Ankh: black ankh symbol on transparent background
   if(obs.id==='key'){
     return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">`
@@ -4711,13 +4712,13 @@ function paintCell(r,c){
         else if(ot.layer==='obs'&&ot.solid){cd.obs=b.id;cd.gem=null;cd.pu=null;cd.startEmpty=false;cd.gen=null;} // solid block: replaces gem (and a generator)
         else if(ot.layer==='obs'){cd.obs=b.id;}                        // overlay: additive, sits over gem
         else if(ot.layer==='item'){                                        // item: occupies gem slot
-          // AN ACORN ALWAYS LIVES UNDER A LEAF (Jed 2026-10-09, Akashic Window L6): a bare
-          // acorn can never be collected — the leaf breaking IS the collection — and painting
-          // an acorn used to WIPE the leaf already on the cell. Keep an existing leaf (and its
-          // hit count); give a bare acorn a 1-hit leaf. Keys stay bare: they fall to the exit.
-          const keepLeaf=b.id==='acorn'&&isLeafy(r,c);
+          // AN EGG ALWAYS LIVES UNDER A LEAF (Jed 2026-10-09, Akashic Window L6): a bare
+          // egg can never be collected — the leaf breaking IS the collection — and painting
+          // an egg used to WIPE the leaf already on the cell. Keep an existing leaf (and its
+          // hit count); give a bare egg a 1-hit leaf. Keys stay bare: they fall to the exit.
+          const keepLeaf=b.id==='egg'&&isLeafy(r,c);
           cd.gem=null;cd.pu=null;cd.item=b.id;cd.startEmpty=false;cd.gen=null;
-          cd.obs=b.id==='acorn'?(keepLeaf?cd.obs:'leaf1'):null;
+          cd.obs=b.id==='egg'?(keepLeaf?cd.obs:'leaf1'):null;
         }
       }
     }
@@ -5003,7 +5004,7 @@ function togglePlay(sandbox=true){
     if(sandbox){
       playerGoals=(editorObjectives||[]).map(o=>{
         if(o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null) return {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem};
-        if(o.type==='collect'&&o.item==='acorn') return {kind:'acorn',need:o.count,have:0,name:'acorn'};
+        if(o.type==='collect'&&o.item==='egg') return {kind:'egg',need:o.count,have:0,name:'egg'};
         if(o.type==='collect'&&o.item==='key') return {kind:'key',need:o.count,have:0,name:'key'};
         if(o.type==='clear'&&o.obstacle==='crate') return {kind:'crate',need:o.count,have:0,name:'crate'};
         if(o.type==='clear'&&o.obstacle==='tire') return {kind:'tire',need:o.count,have:0,name:'tire'};
@@ -5079,8 +5080,8 @@ function togglePlay(sandbox=true){
 // areas are never promoted).
 // LEAVES ride the same machinery (immovable, hit-absorbing) with two twists:
 // they ALSO take splash damage from orthogonally adjacent matches (chains
-// don't — chains need direct hits), and an acorn-bearing leaf COLLECTS its
-// acorn on break (goal tick), leaving the cell empty to refill.
+// don't — chains need direct hits), and an egg-bearing leaf COLLECTS its
+// egg on break (goal tick), leaving the cell empty to refill.
 const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2',
                   leaf1:null,leaf2:'leaf1',leaf3:'leaf2',
                   // Crates: solid boxes (no gem inside). Same hit-absorbing / gravity-
@@ -5164,13 +5165,13 @@ function winMouthOpen(r,c,kind){
   const [nr,nc]=winMouthCell(r,c,kind);
   return !(nr>=0&&nr<R&&nc>=0&&nc<C&&board[nr][nc].active);
 }
-// A BARE ACORN (no leaf over it) can never be collected, so the level can't be won.
+// A BARE EGG (no leaf over it) can never be collected, so the level can't be won.
 // Before a save: offer to give each one a 1-hit leaf (OK) or cancel the save to fix them
 // by hand. Returns false = don't save. (Jed's Akashic Window L6, 2026-10-09.)
-function fixBareAcorns(){
-  const bare=[]; for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; if(cd.active&&cd.item==='acorn'&&!isLeafy(r,c))bare.push([r,c]); }
+function fixBareEggs(){
+  const bare=[]; for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; if(cd.active&&cd.item==='egg'&&!isLeafy(r,c))bare.push([r,c]); }
   if(!bare.length)return true;
-  if(!confirm(bare.length+' acorn'+(bare.length>1?'s have':' has')+' no leaf over '+(bare.length>1?'them':'it')+' — a bare acorn can never be collected, so the level could not be won.\n\nOK = give each a 1-hit leaf and save.   Cancel = don\'t save (fix by hand).'))return false;
+  if(!confirm(bare.length+' egg'+(bare.length>1?'s have':' has')+' no leaf over '+(bare.length>1?'them':'it')+' — a bare egg can never be collected, so the level could not be won.\n\nOK = give each a 1-hit leaf and save.   Cancel = don\'t save (fix by hand).'))return false;
   bare.forEach(([r,c])=>{board[r][c].obs='leaf1';}); render();
   return true;
 }
@@ -5202,16 +5203,16 @@ function damageChain(r,c){
   if(left)return;
   // BREAK: shattered bits rain off — gold links for chains, green for leaves, brown planks for crates
   if(window.spawnFragments)spawnFragments(r,c,0,wasLeaf?'#4a8a3a':wasCrate?'#8a6a3a':'#e8c060');
-  // A fully-broken crate ticks the 'clear crates' goal (parallel to acorn-on-leaf-break).
+  // A fully-broken crate ticks the 'clear crates' goal (parallel to egg-on-leaf-break).
   if(wasCrate&&playerMode){
     playerGoals.forEach(g=>{if(g.kind==='crate')g.have=Math.min(g.need,g.have+1);});
     updatePlayerHUD();
   }
-  if(wasLeaf&&board[r][c].item==='acorn'){
-    board[r][c].item=null; // acorn freed = COLLECTED
+  if(wasLeaf&&board[r][c].item==='egg'){
+    board[r][c].item=null; // egg freed = COLLECTED
     if(window.spawnFragments)spawnFragments(r,c,0,'#8a6a3a');
     if(playerMode){
-      playerGoals.forEach(g=>{if(g.kind==='acorn')g.have=Math.min(g.need,g.have+1);});
+      playerGoals.forEach(g=>{if(g.kind==='egg')g.have=Math.min(g.need,g.have+1);});
       updatePlayerHUD();
     }
   }
@@ -5368,7 +5369,7 @@ function grasshopperOrthCells(r,c){
 // HIGHEST remaining need, then jump to the nearest cell that ADVANCES it:
 //   collect-gem  → nearest gem of that color
 //   plant-clover → nearest UNCLOVERED, non-shielded cell (seeds clover inward — L7)
-//   acorn        → nearest acorn or leaf (breaking a leaf frees its acorn)
+//   egg        → nearest egg or leaf (breaking a leaf frees its egg)
 //   key          → nearest key
 // Falls back to the nearest gem of any color when nothing advances the goal
 // (or the level has no goals). Excludes self + already-cleared (excludeSet) cells.
@@ -5381,7 +5382,7 @@ function autoGrasshopperTarget(r,c,excludeSet){
   const goals=playerMode?playerGoals:editorObjectives.map(o=>
       o.type==='plant' ? {kind:'plant',need:o.count,have:0}
     : o.gem!=null      ? {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0}
-    : o.item==='acorn' ? {kind:'acorn',need:o.count,have:0}
+    : o.item==='egg' ? {kind:'egg',need:o.count,have:0}
     : o.item==='key'   ? {kind:'key',need:o.count,have:0}
     : o.type==='clear' ? {kind:o.obstacle==='tire'?'tire':'crate',need:o.count,have:0}
     : o.type==='detonate'? {kind:'detonate',pu:o.pu,need:o.count,have:0}
@@ -5395,7 +5396,7 @@ function autoGrasshopperTarget(r,c,excludeSet){
     if(!goal)return cd.gem!==null;                                    // no goals → any gem
     if(goal.kind==='collect')return cd.gem===goal.gemIdx;             // gem color
     if(goal.kind==='plant')  return cd.sub!=='clover'&&!shielded(nr,nc); // unclovered plantable ground
-    if(goal.kind==='acorn')  return cd.item==='acorn'||isLeafy(nr,nc);
+    if(goal.kind==='egg')  return cd.item==='egg'||isLeafy(nr,nc);
     if(goal.kind==='key')    return cd.item==='key';
     if(goal.kind==='crate')  return isCrate(nr,nc);                  // hunt the nearest crate (lands → clearCell → damageChain cracks it)
     if(goal.kind==='tire')   return isTire(nr,nc)&&!(excludeSet&&excludeSet.tireHits&&excludeSet.tireHits.has(nr+','+nc)); // nearest tire this event hasn't dented yet
@@ -5517,12 +5518,12 @@ function plantClover(cells,force){
     if(!inG(r,c))return;
     const cd=board[r][c];
     if(!cd.active||cd.sub==='clover')return;
-    // NO CLOVER UNDER AN ACORN (Jed 2026-10-07, Akashic Window L5): a clear that touches
-    // clover plants every cell in its set EXCEPT cells holding an Acorn — the blast only
-    // knocks the acorn's leaf down a hit. Every caller plants BEFORE it clears, so an
-    // acorn collected by this very blast still counts as "here". Once the acorn is gone,
+    // NO CLOVER UNDER AN EGG (Jed 2026-10-07, Akashic Window L5): a clear that touches
+    // clover plants every cell in its set EXCEPT cells holding an Egg — the blast only
+    // knocks the egg's leaf down a hit. Every caller plants BEFORE it clears, so an
+    // egg collected by this very blast still counts as "here". Once the egg is gone,
     // the cell is ordinary ground and a later clear plants it.
-    if(cd.item==='acorn')return;
+    if(cd.item==='egg')return;
     cd.sub='clover';planted++;
   });
   if(planted&&playerMode){
@@ -5531,13 +5532,42 @@ function plantClover(cells,force){
   }
 }
 
-// HUD icon for the acorn goal — brown acorn with a cap
-function acornIconSVG(s){
-  return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 '+s+' '+s+'" xmlns="http://www.w3.org/2000/svg">'
-    +'<ellipse cx="'+(s*.5)+'" cy="'+(s*.6)+'" rx="'+(s*.28)+'" ry="'+(s*.32)+'" fill="#8a6a3a" stroke="#5a4020" stroke-width="1.5"/>'
-    +'<path d="M '+(s*.18)+' '+(s*.38)+' Q '+(s*.5)+' '+(s*.18)+' '+(s*.82)+' '+(s*.38)+' L '+(s*.78)+' '+(s*.46)+' Q '+(s*.5)+' '+(s*.32)+' '+(s*.22)+' '+(s*.46)+' Z" fill="#6a4a1a" stroke="#4a3010" stroke-width="1"/>'
-    +'<rect x="'+(s*.46)+'" y="'+(s*.12)+'" width="'+(s*.08)+'" height="'+(s*.12)+'" rx="'+(s*.03)+'" fill="#4a3010"/></svg>';
+// ── EASTER EGGS (Jed 2026-11-01: the old acorn, renamed — "AC" was Township's look) ──
+// One item, five looks. On the BOARD each egg is one of four dyed designs (A zigzag,
+// B stripes, C speckled, E two-tone), picked by the cell's position so a level always
+// shows the same eggs (reloads, Undo) without storing anything. The GOAL is always D,
+// the golden egg — any color on the board counts toward it.
+// Drawn in a 100x100 box and scaled to s; a dark outline keeps it readable on sand.
+const EGG_PATH='M50 6 C73 6 88 40 88 61 C88 83 71 95 50 95 C29 95 12 83 12 61 C12 40 27 6 50 6 Z';
+const EGG_ART={
+  A:'<rect width="100" height="100" fill="#4b2a8a"/>'                                  // zigzag: purple,
+   +'<path d="M0 52 L12 40 L24 52 L36 40 L48 52 L60 40 L72 52 L84 40 L96 52 L108 40 L108 64 L96 76 L84 64 L72 76 L60 64 L48 76 L36 64 L24 76 L12 64 L0 76 Z" fill="#f2c230"/>'
+   +'<circle cx="38" cy="24" r="5" fill="#ff7eb6"/><circle cx="62" cy="24" r="5" fill="#ff7eb6"/><circle cx="50" cy="86" r="5" fill="#ff7eb6"/>', // yellow band, pink dots
+  B:'<rect width="100" height="100" fill="#0f5e5a"/>'                                  // stripes: teal,
+   +'<rect y="30" width="100" height="10" fill="#ff7eb6"/><rect y="50" width="100" height="10" fill="#f2c230"/><rect y="70" width="100" height="10" fill="#ff7eb6"/>',
+  C:'<rect width="100" height="100" fill="#2a7fb0"/>'                                  // speckled: robin blue
+   +[[34,30],[58,22],[66,44],[40,52],[28,70],[56,66],[70,78],[46,84],[22,48],[52,38]]
+     .map(([x,y])=>'<circle cx="'+x+'" cy="'+y+'" r="3.2" fill="#0c2a44"/>').join(''),
+  D:'<rect width="100" height="100" fill="#d9a521"/><rect y="62" width="100" height="40" fill="#b07d10"/>' // golden: the GOAL egg
+   +'<path d="M36 22 C30 30 27 40 27 48" stroke="#fff3c4" stroke-width="6" fill="none" stroke-linecap="round"/>',
+  E:'<rect width="100" height="100" fill="#1d2f6b"/>'                                  // two-tone: navy bottom,
+   +'<path d="M0 0 H100 V50 C88 58 76 42 64 50 C52 58 40 42 28 50 C16 58 8 46 0 50 Z" fill="#c62828"/>' // red top,
+   +'<path d="M0 50 C8 46 16 58 28 50 C40 42 52 58 64 50 C76 42 88 58 100 50" stroke="#fff" stroke-width="5" fill="none"/>' // white wave seam
+};
+const EGG_BOARD_LOOKS=['A','B','C','E'];   // D is reserved for the goal
+let _eggClipN=0;                             // every SVG on the page needs its own clipPath id
+function eggSVG(look,s){
+  const id='eggclip'+(++_eggClipN);
+  return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+    +'<defs><clipPath id="'+id+'"><path d="'+EGG_PATH+'"/></clipPath></defs>'
+    +'<g clip-path="url(#'+id+')">'+(EGG_ART[look]||EGG_ART.A)+'</g>'
+    +'<path d="'+EGG_PATH+'" fill="none" stroke="#1a1206" stroke-width="5"/></svg>';
 }
+// Which dyed design a board cell shows — a fixed scramble of its position, so
+// neighbours rarely match and the same cell always gets the same egg.
+function eggLook(r,c){ return EGG_BOARD_LOOKS[(r*5+c*3)%4]; }
+// HUD/goal icon for the egg goal — always the golden egg (D)
+function eggIconSVG(s){ return eggSVG('D',s); }
 
 // HUD icon for the key goal — gold ankh (matches the in-board key symbol)
 function keyIconSVG(s){
@@ -5966,7 +5996,7 @@ Motion.onQuiet=boardQuiet;
 // (and by which chain), what the engine thinks is still moving, whether a reticle
 // or the flyover camera has the input, and the last six moves with the pattern each
 // one resolved. Board legend: digit = gem colour, '.' = empty active cell,
-// ' ' = hole, X crate, B chain, L leaf, k key, a acorn, PU chars per LEVEL-JSON-KEY.
+// ' ' = hole, X crate, B chain, L leaf, k key, a egg, PU chars per LEVEL-JSON-KEY.
 // A breakpoint cannot get this — pausing the thread IS a stall, and the watchdog
 // would clean up the evidence before you looked at it.
 window.freezeReport=function(){
@@ -5977,7 +6007,7 @@ window.freezeReport=function(){
     if(cd.obs&&/leaf/.test(cd.obs))return 'L';
     if(cd.pu)return PU_CH[cd.pu]||'?';
     if(cd.item==='key')return 'k';
-    if(cd.item==='acorn')return 'a';
+    if(cd.item==='egg')return 'a';
     if(isTireId(cd.item))return 't';
     return cd.gem===null?'.':String(cd.gem);};
   const FL={down:'v',up:'^',left:'<',right:'>'};
@@ -7019,7 +7049,7 @@ function playTap(r,c){
   if(!cd.active)return; // inactive holes are never interactive
   if(!selCell){
     // FIRST tap picks up a MOVER — a gem, a PU, or a key. Empty cells hold
-    // nothing to move (and acorns are static), so they can't be selected.
+    // nothing to move (and eggs are static), so they can't be selected.
     // Keys ARE swappable like a gem (Township): a key holds no gem/pu, so the
     // old guard rejected it — you couldn't slide a key aside to line up a match
     // under it (Jed 2026-07-24). The key never color-matches itself; swapping it
@@ -7327,10 +7357,10 @@ function gravityWithMap(){
   const vecAt=(r,c)=>FLOW_VEC[(flow[r]&&flow[r][c])||'down'];
   const inGrid=(r,c)=>r>=0&&r<R&&c>=0&&c<C;
   // items occupy their cell — gravity must not fill it. Two kinds: STATIC
-  // (acorns, under leaves — never move) and FALLERS (keys — fall with gravity
+  // (eggs, under leaves — never move) and FALLERS (keys — fall with gravity
   // and exit at the bottom, Township "key drops to bottom to be collected").
   const occ=(r,c)=>board[r][c].gem!==null||!!board[r][c].pu||!!board[r][c].item;
-  const isFaller=(r,c)=>board[r][c].item==='key'||isTire(r,c); // keys fall & exit; tires flow like gems; acorns are static
+  const isFaller=(r,c)=>board[r][c].item==='key'||isTire(r,c); // keys fall & exit; tires flow like gems; eggs are static
   // A crate is a SOLID box (no gem) — gravity must treat it like a wall, never a
   // fill target. Without this a gem fell straight INTO the crate cell and vanished
   // behind the box (Jed's "gems disappearing into crates", 2026-07-24). Broken
@@ -7534,7 +7564,7 @@ function gravityWithMap(){
     // chain-blind topology, so sealed areas never become spawn sources).
     for(let r=R-1;r>=0;r--)for(let c=0;c<C;c++){
       if(!board[r][c].active||!occ(r,c)||isChained(r,c))continue;
-      if(board[r][c].item&&!isFaller(r,c))continue; // static items (acorns) don't fall; keys do
+      if(board[r][c].item&&!isFaller(r,c))continue; // static items (eggs) don't fall; keys do
       const [dr,dc]=vecAt(r,c);
       if(emptyActive(r+dr,c+dc)&&!wallBetween(r,c,r+dr,c+dc)){step(r,c,r+dr,c+dc);progress=true;} // never through a barrier
     }
@@ -7603,7 +7633,7 @@ function gravityWithMap(){
       const donors=perp.filter(([pr,pc])=>{
         if(!inGrid(pr,pc)||!board[pr][pc].active||!occ(pr,pc))return false;
         if(isChained(pr,pc))return false; // chained gems can't slide anywhere
-        if(board[pr][pc].item&&!isTire(pr,pc))return false; // keys/acorns never slip-donate diagonally — a tire flows like a gem, so it does
+        if(board[pr][pc].item&&!isTire(pr,pc))return false; // keys/eggs never slip-donate diagonally — a tire flows like a gem, so it does
         if(winOut.has(pr+','+pc))return false; // a gem in an Exit waits for its window — it never slips sideways
         // THE CORNER A SLIP CROSSES. Four cells meet there: D (donor), T (receiver), A (T's
         // feeder, beside D) and B (beside T, after D). A diagonal slide is only allowed when
@@ -8512,7 +8542,7 @@ function updEditorFrame(){
       // done, from the same playerGoals the real game ticks (goalDone()).
       g.innerHTML=playerGoals.map(pg=>{
         const done=goalDone(pg);
-        const icon=pg.kind==='plant'?cloverIconSVG(44):pg.kind==='acorn'?acornIconSVG(44):pg.kind==='key'?keyIconSVG(44):pg.kind==='tire'?tireIconSVG(44):pg.kind==='crate'?crateIconSVG(44):(pg.kind==='detonate'||pg.kind==='create')?puSVG(goalPuIcon(pg.pu||'helicopter'),44):gemSVG(pg.gemIdx??3,44);
+        const icon=pg.kind==='plant'?cloverIconSVG(44):pg.kind==='egg'?eggIconSVG(44):pg.kind==='key'?keyIconSVG(44):pg.kind==='tire'?tireIconSVG(44):pg.kind==='crate'?crateIconSVG(44):(pg.kind==='detonate'||pg.kind==='create')?puSVG(goalPuIcon(pg.pu||'helicopter'),44):gemSVG(pg.gemIdx??3,44);
         const remaining=Math.max(0,pg.need-pg.have);
         return '<div class="ehud-goalrow'+(done?' done':'')+'"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(done?'✓':remaining)+'</div></div>';
       }).join('');
@@ -8520,7 +8550,7 @@ function updEditorFrame(){
       // Static preview — editing, not testing: shows the AUTHORED target count.
       g.innerHTML=(editorObjectives||[]).map(o=>{
         const k=objKind(o);
-        const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='acorn'?acornIconSVG(44):k==='tire'?tireIconSVG(44):k==='crate'?crateIconSVG(44):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),44):gemSVG(GEMMAP[o.gem]??3,44);
+        const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='egg'?eggIconSVG(44):k==='tire'?tireIconSVG(44):k==='crate'?crateIconSVG(44):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),44):gemSVG(GEMMAP[o.gem]??3,44);
         return '<div class="ehud-goalrow"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(o.count||0)+'</div></div>';
       }).join('');
     }
@@ -8898,7 +8928,7 @@ function applyPatterns(P){
 
 // Pre-placed power-ups map onto engine power-ups; substrate.clover positions
 // become live seed cells (spread mechanics: plantClover). Chains, leaves,
-// acorns and keys are simulated; crates are not yet — those cells stay gems.
+// eggs and keys are simulated; crates are not yet — those cells stay gems.
 function applyObstacles(json){
   const PU={'powerup.rainbow':'rainbow','powerup.seeker':'helicopter',
             'powerup.dragonfly':'rocket_v','powerup.area':'bomb'};
@@ -8906,12 +8936,12 @@ function applyObstacles(json){
     const isClover=ob.functionalId==='substrate.clover';
     const isChain=ob.functionalId==='overlay.bind';
     const isLeaf=ob.functionalId==='overlay.leaf';
-    const isAcorn=ob.functionalId==='item.acorn';
+    const isEgg=ob.functionalId==='item.egg';
     const isKey=ob.functionalId==='item.key';
     const isEmpty=ob.functionalId==='field.empty';
     const isCrate=ob.functionalId==='block.crate';
     const pu=PU[ob.functionalId];
-    if(!pu&&!isClover&&!isChain&&!isLeaf&&!isAcorn&&!isKey&&!isEmpty&&!isCrate)return;
+    if(!pu&&!isClover&&!isChain&&!isLeaf&&!isEgg&&!isKey&&!isEmpty&&!isCrate)return;
     // overlay HP: entry-level 'hp' field, else 1 (footage: L8-L21 chains are HP1)
     const hpN=Math.min(3,Math.max(1,ob.hp||1));
     const chainId='bind'+hpN, leafId='leaf'+hpN, crateId='crate'+hpN;
@@ -8922,7 +8952,7 @@ function applyObstacles(json){
       if(isClover){board[r][c].sub='clover';}
       else if(isChain){board[r][c].obs=chainId;}
       else if(isLeaf){board[r][c].obs=leafId;}
-      else if(isAcorn){board[r][c].item='acorn';board[r][c].gem=null;} // acorn occupies the gem slot
+      else if(isEgg){board[r][c].item='egg';board[r][c].gem=null;} // egg occupies the gem slot
       else if(isKey){board[r][c].item='key';board[r][c].gem=null;} // key occupies the gem slot, falls to exit
       else if(isEmpty){board[r][c].startEmpty=true;}
       else if(isCrate){board[r][c].obs=crateId;board[r][c].gem=null;board[r][c].pu=null;} // solid box: no gem/PU inside
@@ -8963,7 +8993,7 @@ function loadCanonicalLayers(json){
         }
         else if(PU_FROM[ct])cell.pu=PU_FROM[ct];
         else if(ct==='k')cell.item='key';
-        else if(ct==='a')cell.item='acorn';
+        else if(ct==='a')cell.item='egg';
         else if(ct==='t'){const hp=Math.min(3,Math.max(1,(cprops['R'+r+'C'+c]||{}).hp||1));cell.item='tire'+hp;} // tire 1-3 HP
         else if(ct==='e')cell.startEmpty=true;                // field.empty — stays gem-free
         // 'g' (and anything else) = a normal gem cell — color seeded at play/open, not stored
@@ -8985,6 +9015,16 @@ function loadCanonicalLayers(json){
   });
 }
 
+// ACORN → EGG, READ SIDE (Jed 2026-11-01). Every level we own was rewritten to say "egg",
+// but a file saved earlier (an Architect's own disk, an old download) still says "acorn".
+// This is the ONE place that word is still understood: rename it in place on load so the
+// rest of the engine only ever sees "egg". The canonical Contents letter 'a' never changed.
+function legacyEggs(json){
+  (json.objectives||[]).forEach(o=>{ if(o&&o.item==='acorn') o.item='egg'; });                          // collect-N goal
+  (json.obstacles||[]).forEach(ob=>{ if(ob&&ob.functionalId==='item.acorn') ob.functionalId='item.egg'; }); // old hand-authored shape
+  return json;
+}
+
 // Returns TRUE when the level was loaded, FALSE when this build refused it.
 // Every caller must honour the false — the board is deliberately left untouched.
 function loadLevelData(json,num){
@@ -9000,6 +9040,7 @@ function loadLevelData(json,num){
     return false;
   }
   levelEngineVersion=want;
+  legacyEggs(json);   // a file saved before 2026-11-01 says "acorn" — read it as the egg it now is
   inFlight.clear(); _fallQueue.length=0; _fallActive=false;   // a new board has nothing in the air
   boardGen++;   // this is a DIFFERENT board now, even if it is the same level number
   R=json.board.rows; C=json.board.cols;
@@ -9056,13 +9097,13 @@ function loadLevelData(json,num){
   // L1–5 use 5 colors, no Amethyst). Fallback: full set.
   const pool=(json.gemTypes||[]).map(g=>GEMMAP[g]).filter(i=>i!=null);
   GEM_POOL=[...new Set(pool)].length?[...new Set(pool)]:[0,1,2,3,4,5];
-  // objectives: collect-gem, plant-clover, free-acorn, collect-key, clear-crate goals
+  // objectives: collect-gem, plant-clover, free-egg, collect-key, clear-crate goals
   playerGoals=(json.objectives||[])
     .map(o=>{
       if(o.type==='collect'&&o.gem!=null&&GEMMAP[o.gem]!=null)
         return {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0,name:o.gem};
-      if(o.type==='collect'&&o.item==='acorn')
-        return {kind:'acorn',need:o.count,have:0,name:'acorn'};
+      if(o.type==='collect'&&o.item==='egg')
+        return {kind:'egg',need:o.count,have:0,name:'egg'};
       if(o.type==='collect'&&o.item==='key')
         return {kind:'key',need:o.count,have:0,name:'key'};
       if(o.type==='clear'&&o.obstacle==='crate')
@@ -9418,7 +9459,7 @@ function flyScrollCheck(){
   let target=flyStop;
   if(flyover.axis==='x'){
     // WIDE (L23): the live zone stays framed until it holds NO more residents —
-    // keys collected out, crates broken, acorns freed (Jed's unlock rule,
+    // keys collected out, crates broken, eggs freed (Jed's unlock rule,
     // 2026-07-24, generalized from keys-only 2026-09-17). "No resident left within
     // the current window's columns" = zone done, pan to the next.
     while(target<flyover.stops.length-1){
@@ -9660,25 +9701,25 @@ function updatePlayerHUD(){
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
   if(!playerGoals.length){goalEl.innerHTML='';return;}
-  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='acorn'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate'||playerGoals[0].kind==='tire'||playerGoals[0].kind==='detonate'||playerGoals[0].kind==='create')){
-    // Single collect/plant/acorn/key/crate/detonate/create goal — classic big-icon layout. Counts DOWN, 0 = done.
+  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='egg'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate'||playerGoals[0].kind==='tire'||playerGoals[0].kind==='detonate'||playerGoals[0].kind==='create')){
+    // Single collect/plant/egg/key/crate/detonate/create goal — classic big-icon layout. Counts DOWN, 0 = done.
     const g=playerGoals[0];
     const remaining=Math.max(0,g.need-g.have);
     const isPu=g.kind==='detonate'||g.kind==='create';
-    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='acorn'?acornIconSVG(48):g.kind==='key'?keyIconSVG(48):g.kind==='tire'?tireIconSVG(48):g.kind==='crate'?crateIconSVG(48):isPu?puSVG(goalPuIcon(g.pu),48):gemSVG(g.gemIdx,48);
-    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'||g.kind==='key'?TXT('cap_collect'):g.kind==='acorn'?TXT('cap_free'):(g.kind==='crate'||g.kind==='tire')?TXT('cap_clear'):g.kind==='detonate'?TXT('verb_fire'):g.kind==='create'?TXT('verb_make'):TXT('cap_plant'))+'</div>'+
+    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='egg'?eggIconSVG(48):g.kind==='key'?keyIconSVG(48):g.kind==='tire'?tireIconSVG(48):g.kind==='crate'?crateIconSVG(48):isPu?puSVG(goalPuIcon(g.pu),48):gemSVG(g.gemIdx,48);
+    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'||g.kind==='key'?TXT('cap_collect'):g.kind==='egg'?TXT('cap_free'):(g.kind==='crate'||g.kind==='tire')?TXT('cap_clear'):g.kind==='detonate'?TXT('verb_fire'):g.kind==='create'?TXT('verb_make'):TXT('cap_plant'))+'</div>'+
       '<div class="phud-icon">'+icon+'</div>'+
       '<div class="phud-gcount">'+remaining+'</div>';
     return;
   }
   // Multi-goal (entrance) — one row per goal: verb, icon, remaining/✓, and a "?" help button.
   // Two-stage 'pu' goals show "Make" until the power-up exists, then flip to "Fire".
-  const VERBS={collect:TXT('verb_get'),create:TXT('verb_make'),detonate:TXT('verb_fire'),plant:TXT('verb_plant'),acorn:TXT('verb_free'),key:TXT('verb_get'),crate:TXT('verb_clear')};
+  const VERBS={collect:TXT('verb_get'),create:TXT('verb_make'),detonate:TXT('verb_fire'),plant:TXT('verb_plant'),egg:TXT('verb_free'),key:TXT('verb_get'),crate:TXT('verb_clear')};
   let html='<div class="phud-cap">'+TXT('goals_cap')+'</div>';
   playerGoals.forEach((g,i)=>{
     const done=goalDone(g);
     const verb=g.kind==='pu'?(g.made?TXT('verb_fire'):TXT('verb_make')):(VERBS[g.kind]||'');
-    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):g.kind==='acorn'?acornIconSVG(30):g.kind==='key'?keyIconSVG(30):g.kind==='tire'?tireIconSVG(30):g.kind==='crate'?crateIconSVG(30):puSVG(goalPuIcon(g.pu),30);
+    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):g.kind==='egg'?eggIconSVG(30):g.kind==='key'?keyIconSVG(30):g.kind==='tire'?tireIconSVG(30):g.kind==='crate'?crateIconSVG(30):puSVG(goalPuIcon(g.pu),30);
     const status=done?'<span class="goal-done">✓</span>'
       :g.kind==='pu'?'<span class="goal-count"></span>'
       :'<span class="goal-count">'+Math.max(0,g.need-g.have)+'</span>';
@@ -9754,7 +9795,7 @@ function shapeDiagramSVG(rows,cols,hi){
 }
 
 // Help DIAGRAMS, keyed by goal — language-neutral match SHAPES; copy lives in I18N
-// (TXT('gh') make-help, TXT('det') detonation help, TXT('collectHelp'/'plantHelp'/'acornHelp') templates).
+// (TXT('gh') make-help, TXT('det') detonation help, TXT('collectHelp'/'plantHelp'/'eggHelp') templates).
 const HELP_DIAGRAMS={
   collect:()=>shapeDiagramSVG(1,3,[[0,0],[0,1],[0,2]]),
   helicopter:()=>shapeDiagramSVG(2,2,[[0,0],[0,1],[1,0],[1,1]]),
@@ -9773,7 +9814,7 @@ function showGoalHelp(i){
   let h=null,diagram=null;
   if(g.kind==='collect'){h=TXT('collectHelp')(g);diagram=HELP_DIAGRAMS.collect;}
   else if(g.kind==='plant'){h=TXT('plantHelp')(g.need);}
-  else if(g.kind==='acorn'){h=TXT('acornHelp')(g.need);}
+  else if(g.kind==='egg'){h=TXT('eggHelp')(g.need);}
   else if(g.kind==='key'){h=TXT('keyHelp')(g.need);}
   else if(g.kind==='crate'){h=TXT('crateHelp')(g.need);}
   else if(g.kind==='tire'){h=TXT('tireHelp')(g.need);}
