@@ -7637,16 +7637,29 @@ function gravityWithMap(){
       // (L8 donut / L9 waist stay empty by design).
       // A BARRIER between this cell and its feeder blocks the straight feed for good (until
       // a blast breaks it) — the cell is filled diagonally, around the barrier's end.
-      let br=fr,bc=fc,blockedForever=!!wallBetween(r,c,fr,fc);
+      // An empty Re-entry on the way is NOT proof a feed is coming — only if its window
+      // can deliver. So the walk goes THROUGH the window: it jumps to the paired Exit and
+      // carries on up the Exit's own feed (Jed 2026-11-07, Akashic Window L17: pillar 3's
+      // right column sat empty above one gem, because window 6's Exit at the bottom of
+      // pillar 2 was still under a crate — the engine waited on a window that couldn't
+      // send anything, and never slipped gems in from the column beside it).
+      let br=fr,bc=fc,sdr=fdr,sdc=fdc,blockedForever=!!wallBetween(r,c,fr,fc);
+      const thruWin=new Set();                         // windows already walked through (a loop of windows can't spin forever)
       for(;!blockedForever;){
         if(!inGrid(br,bc))break;                       // open sky: spawns feed it
         if(!board[br][bc].active){blockedForever=true;break;} // hole gap
-        if(winIn.has(br+','+bc)&&!occ(br,bc))break;    // an empty Re-entry upstream: its window will feed it
+        if(winIn.has(br+','+bc)&&!occ(br,bc)){         // an empty Re-entry upstream: follow its window back to the Exit
+          if(thruWin.has(br+','+bc))break;             // walked round a loop of windows: assume the feed is live (old behaviour)
+          thruWin.add(br+','+bc);
+          [br,bc]=winIn.get(br+','+bc);
+          const [edr,edc]=vecAt(br,bc); sdr=-edr; sdc=-edc;   // from the Exit, keep walking toward ITS source
+          continue;
+        }
         if(isGen(br,bc))break;                         // a generator feeds this cell — wait for its drop, don't slip
         if(isCrate(br,bc)){blockedForever=true;break;} // solid box: gems route around it like a hole
         if(occ(br,bc)){blockedForever=isChained(br,bc)||(!!board[br][bc].item&&!isFaller(br,bc));break;} // a falling key isn't a forever-block — gems follow it down, not slip around
-        if(wallBetween(br,bc,br+fdr,bc+fdc)){blockedForever=true;break;} // an empty run cut off by a barrier
-        br+=fdr;bc+=fdc;                               // empty active: keep walking toward the source
+        if(wallBetween(br,bc,br+sdr,bc+sdc)){blockedForever=true;break;} // an empty run cut off by a barrier
+        br+=sdr;bc+=sdc;                               // empty active: keep walking toward the source
       }
       if(!blockedForever)continue;
       // the two diagonals flanking the feeder, perpendicular to the feed axis

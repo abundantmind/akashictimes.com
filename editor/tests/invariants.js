@@ -165,6 +165,19 @@ window.runInvariants = async function(){
       for(const c of [4,6]) for(let r=0;r<R;r++) board[r][c].gem=0;
       for(let k=0;k<20;k++) gravityWithMap();
       ok('window · a Re-entry with a plugged Exit stays EMPTY (never slip-fed)', board[NR][NC].gem===null, board[NR][NC].gem);
+      // 3b. ...but the column BELOW it doesn't wait on a window that can't send anything
+      // (Jed 2026-11-07, Akashic Window L17: Exit under a crate → the Re-entry column sat
+      // empty above one gem). It slip-fills from its neighbours; the mouth alone waits.
+      board[ER][EC].obs='crate'; board[ER][EC].gem=null;           // the Exit is boxed in by a crate
+      for(let r=0;r<R-1;r++) board[r][NC].gem=null;                // one gem left at the bottom
+      board[R-1][NC].gem=3;
+      // the neighbours stay topped up (in L17 they have their own window; this test board gives them no feed)
+      for(let k=0;k<20;k++){ for(const c of [4,6]) for(let r=0;r<R;r++) if(board[r][c].gem===null) board[r][c].gem=0; gravityWithMap(); }
+      let colFull=true; for(let r=1;r<R;r++) if(board[r][NC].gem===null) colFull=false;
+      ok('window · a crated Exit: the Re-entry column slip-fills below the mouth', colFull&&board[NR][NC].gem===null, board.map(row=>row[NC].gem));
+      board[ER][EC].obs=null; board[ER][EC].gem=1;
+      for(let k=0;k<20;k++) gravityWithMap();
+      ok('window · crate gone: the window delivers into the mouth again', board[NR][NC].gem!==null, board[NR][NC].gem);
       board[ER][EC].obs=null;
       // 4. keys ride through a paired Exit instead of being collected there
       for(let r=0;r<R;r++) board[r][NC].gem=null;
