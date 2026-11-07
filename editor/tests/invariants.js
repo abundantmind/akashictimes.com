@@ -1726,10 +1726,20 @@ window.runInvariants = async function(){
       // flaky: a cascade may legitimately clear the other chain's cell later.)
       let fired=0; const _puFired=window.puFired;
       window.puFired=function(k){ if(k==='helicopter')fired++; return _puFired.apply(this,arguments); };
+      // PIN THE LANDING (flake 2026-11-07: "3 fired, owns 2", green on re-run). The
+      // swarm's jump target is random by design, and a hopper that LANDS on the other
+      // chain's cell legitimately fires it through clearCellD — a blast, not the swarm
+      // taking it — so the count read 3 about one run in a few dozen. Every jump now
+      // lands on a plain gem in the far corner, nowhere near `theirs`. With no blast
+      // able to reach (4,4) and cascades never detonating a PU, the ONLY way a third
+      // helicopter fires is the swarm itself picking it up — the exact regression
+      // this guards (the old whole-board scan still reads 3, every run).
+      const _target=window.randomHopperTarget, pin=[R-1,0];
+      window.randomHopperTarget=function(){ return pin.slice(); };
       try{
         hopperSequence(mine.map(x=>x.slice()),{r:1,c:1,convertTo:'helicopter'},ch2);
         for(let i=0;i<80&&Motion.tags().some(t=>t.indexOf(ch2+'/')===0);i++) await wait(50);
-      } finally { window.puFired=_puFired; }
+      } finally { window.puFired=_puFired; window.randomHopperTarget=_target; }
       ok('swarm · the swarm activates only the hoppers it owns', fired<=mine.length, fired+' fired, owns '+mine.length);
       Motion.releaseAll(); playing=false; playerMode=false;
     }
