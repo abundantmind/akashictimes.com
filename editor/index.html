@@ -4665,7 +4665,14 @@ document.addEventListener('pointerup',()=>{ if(borderStroke){ const n=borderStro
 function paintCell(r,c){
   if(editorReadOnly){ const sb=document.getElementById('sb3'); if(sb)sb.textContent='🔒 Published level — read-only. ▶ Play to test it.'; return; }
   const cd=board[r][c];
-  if(layer==='base'){save();cd.active=(selBase==='active');} // SET to the chosen brush, not toggle
+  if(layer==='base'){save();cd.active=(selBase==='active'); // SET to the chosen brush, not toggle
+    // A HOLE HOLDS NOTHING (Jed 2026-11-07, Akashic Window L21). Painting Hole used to keep
+    // the cell's contents hidden underneath — so re-painting it Active brought back the
+    // crate + clover + Empty he had just "deleted" with the row. The save never writes a
+    // hole's contents anyway; now the editor forgets them too. (Flow is kept: it's the
+    // river's direction, not something IN the cell.)
+    if(!cd.active){cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;cd.gen=null;cd.startEmpty=false;cd.source=null;cd.win=null;}
+  }
   // 'obstacle' shares the tile paint pass — its brushes (crate/chain/leaf) already
   // live in the Tile layer's palette (blk-pal). Picking a brush auto-corrects layer
   // back to 'tile' (pickBrush), but clicking the Obstacle TAB alone (without
@@ -4679,7 +4686,7 @@ function paintCell(r,c){
     // painted gem colour is never serialized — so each was a tool that edited data
     // the save discards, on the one brush type where that is true. Erase stays: it
     // clears every layer of a cell, which IS saved.
-    if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;cd.gen=null;}
+    if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;cd.gen=null;cd.startEmpty=false;} // …and un-Empties it: Erase missed field.empty, so a cell painted Empty could never be made ordinary again (Jed 2026-11-07)
     else if(tool==='paint'){
       save();
       if(b.type==='clear'){                                             // clear-brush: null one layer, leave the rest
@@ -4737,7 +4744,7 @@ function paintCell(r,c){
 }
 
 function doRandom(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=randGem();board[r][c].pu=null;}clean();render();markLevelBrushes();}
-function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;board[r][c].sub=null;board[r][c].item=null;}render();markLevelBrushes();}
+function doClear(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++){board[r][c].gem=null;board[r][c].pu=null;board[r][c].obs=null;board[r][c].sub=null;board[r][c].item=null;board[r][c].startEmpty=false;}render();markLevelBrushes();} // Empty is contents too — Clear wipes it
 // Reset the board to a full rectangle — every cell active (fills any holes). Gives
 // a clean all-active canvas when a template's hole layout isn't wanted (Jed 2026-07-29).
 function fillGrid(){save();for(let r=0;r<R;r++)for(let c=0;c<C;c++)board[r][c].active=true;render();}

@@ -702,6 +702,19 @@ window.runInvariants = async function(){
     setTool('paint');
     ok('editor · every tool button actually changes the cell it clicks',
        Object.keys(toolActs).length>0&&Object.values(toolActs).every(Boolean), toolActs);
+    // A HOLE HOLDS NOTHING (Jed 2026-11-07, Akashic Window L21): a row of crate-on-clover
+    // Empty cells painted Hole, then Active again, came back with all of it. And Erase
+    // could never remove the Empty marking.
+    {
+      const cd=board[3][3]; cd.active=true; cd.obs='crate'; cd.sub='clover'; cd.startEmpty=true; cd.gem=null;
+      setLayer('base'); setBase('inactive'); paintCell(3,3);
+      setBase('active'); paintCell(3,3);
+      ok('editor · Hole then Active = a plain cell (no crate, clover or Empty comes back)',
+         cd.active&&!cd.obs&&!cd.sub&&!cd.startEmpty&&!cd.item&&!cd.pu, JSON.stringify(cd));
+      cd.startEmpty=true; cd.sub='clover';
+      setLayer('tile'); setTool('erase'); paintCell(3,3); setTool('paint');
+      ok('editor · Erase removes the Empty marking too', !cd.startEmpty&&!cd.sub, JSON.stringify(cd));
+    }
     // Flow brush (Jed 2026-09-24): ONE click lands the chosen direction, from ANY
     // starting direction — the old click-to-cycle needed up to three clicks.
     const oneClick={};
