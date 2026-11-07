@@ -178,6 +178,15 @@ window.runInvariants = async function(){
       board[ER][EC].obs=null; board[ER][EC].gem=1;
       for(let k=0;k<20;k++) gravityWithMap();
       ok('window · crate gone: the window delivers into the mouth again', board[NR][NC].gem!==null, board[NR][NC].gem);
+      // 3c. a crate ON the Re-entry itself (L17's R0C4/R0C6): the Exit is live, but nothing
+      // can come out of a boxed mouth — the cells under it slip-fill from the side. A crate
+      // holds no gem, so the walk used to read the crated mouth as "empty, window coming".
+      board[NR][NC].obs='crate'; board[NR][NC].gem=null;
+      for(let r=1;r<R;r++) board[r][NC].gem=null;
+      for(let k=0;k<20;k++){ for(const c of [4,6]) for(let r=0;r<R;r++) if(board[r][c].gem===null) board[r][c].gem=0; gravityWithMap(); }
+      let underFull=true; for(let r=1;r<R;r++) if(board[r][NC].gem===null) underFull=false;
+      ok('window · a crate ON the Re-entry: the column under it slip-fills', underFull, board.map(row=>row[NC].gem));
+      board[NR][NC].obs=null;
       board[ER][EC].obs=null;
       // 4. keys ride through a paired Exit instead of being collected there
       for(let r=0;r<R;r++) board[r][NC].gem=null;
