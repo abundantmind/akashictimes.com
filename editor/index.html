@@ -4248,7 +4248,19 @@ function holdsStage(r,c){
     const k=residentKind(id);
     return playerGoals.some(g=>g.kind===k&&!goalDone(g));          // a goal still open for this kind
   };
-  return wanted(cd.item) || wanted(cd.obs);
+  return wanted(cd.item) || wanted(cd.obs) || wantsClover(cd);
+}
+// CLOVER HOLDS A STAGE TOO — when clover is the goal (Jed 2026-11-07, Akashic Window L21:
+// a 95-clover multi-stage level flew to stage 2 after the first move, stranding the
+// unplanted first half). Clover isn't a removable resident, so it gates differently: the
+// camera stays while any cell in view still lacks clover AND the plant goal is open. Cells
+// clover can never take don't hold — a generator (a fixture, never cleared) and an egg's
+// cell (planting skips eggs; once the egg is collected the cell is ordinary ground and holds).
+// A crate's cell DOES hold: breaking the crate is how that ground gets planted.
+// No goals (a bare sandbox) → clover never holds, the old behaviour.
+function wantsClover(cd){
+  if(cd.sub==='clover'||cd.gen||cd.item==='egg')return false;
+  return !!(playerGoals&&playerGoals.some(g=>g.kind==='plant'&&!goalDone(g)));
 }
 
 // Red X icon for per-layer clear buttons in palette

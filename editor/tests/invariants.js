@@ -900,6 +900,30 @@ window.runInvariants = async function(){
       ok('editor · ＋ 9x9 draws all 81 cells', document.querySelectorAll('#board .cell').length===81, document.querySelectorAll('#board .cell').length);
     }
 
+    // CLOVER HOLDS A STAGE WHEN CLOVER IS THE GOAL (Jed 2026-11-07, Akashic Window L21: a
+    // 95-clover two-stage level flew to stage 2 after the first move). Shipped tall L20's
+    // camera, given a plant goal: stays while any stage-1 cell lacks clover, flies once all do.
+    {
+      const j=await (await fetch('levels/level-020.json',{cache:'no-cache'})).json();
+      loadLevelData(j,20);
+      const _pm=playerMode, _pg=playerGoals, _fg=window.flyGo; let went=[];
+      playerMode=true; playerGoals=[{kind:'plant',need:999,have:0}]; flyStop=0; flyLock=false;
+      window.flyGo=t=>{went.push(t);};
+      try{
+        const top=flyover.stops[0], bot=top+flyover.viewRows-1, view=[];
+        for(let r=top;r<=bot;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.item=null; if(cd.obs&&isResidentId(cd.obs))cd.obs=null; if(cd.active&&!cd.gen)view.push(cd); } // only clover can hold now
+        view.forEach(cd=>{cd.sub=null;});
+        flyScrollCheck();
+        ok('flyover · clover goal: an unplanted stage 1 holds the camera', went.length===0, went);
+        view.slice(1).forEach(cd=>{cd.sub='clover';}); went=[]; flyScrollCheck();
+        ok('flyover · clover goal: ONE unplanted cell still holds it', went.length===0, went);
+        view[0].sub='clover'; went=[]; flyScrollCheck();
+        ok('flyover · clover goal: every stage-1 cell planted → fly to stage 2', went[0]===1, went);
+        view.forEach(cd=>{cd.sub=null;}); playerGoals=[{kind:'plant',need:5,have:5}]; went=[]; flyScrollCheck();
+        ok('flyover · clover goal already met: unplanted cells no longer hold', went[0]>=1, went); // (L20 has 3 stops: nothing holds any of them now)
+      } finally { window.flyGo=_fg; playerMode=_pm; playerGoals=_pg; flyStop=0; }
+    }
+
     // ACORNS ARE EASTER EGGS (Jed 2026-11-01). Board eggs wear one of four dyed looks
     // fixed by position; the goal icon is always the golden egg; a file that still says
     // "acorn" (saved before the rename) loads as eggs; and nothing we ship says acorn.
