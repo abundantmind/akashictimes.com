@@ -714,6 +714,12 @@ window.runInvariants = async function(){
       cd.startEmpty=true; cd.sub='clover';
       setLayer('tile'); setTool('erase'); paintCell(3,3); setTool('paint');
       ok('editor · Erase removes the Empty marking too', !cd.startEmpty&&!cd.sub, JSON.stringify(cd));
+      // the Gem palette's red X un-Empties ONLY — Jed's quicker way: crate/clover stay put
+      cd.startEmpty=true; cd.gem=null; cd.sub='clover'; cd.obs='leaf1';
+      setLayer('tile'); pickBrush('clear','_clear_empty',null); paintCell(3,3);
+      ok('editor · Gem-palette red X makes an Empty cell ordinary, leaving its other layers', !cd.startEmpty&&cd.sub==='clover'&&cd.obs==='leaf1', JSON.stringify(cd));
+      ok('editor · the Gem palette has its red X', !!document.querySelector('#gpal svg'), 'no X in #gpal');
+      cd.sub=null; cd.obs=null; pickBrush('gem',0,null);
     }
     // Flow brush (Jed 2026-09-24): ONE click lands the chosen direction, from ANY
     // starting direction — the old click-to-cycle needed up to three clicks.
