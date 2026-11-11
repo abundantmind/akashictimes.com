@@ -8760,7 +8760,7 @@ async function openCommunityBundle(id){
   renderCommunityGrid();
 }
 
-// ── CHECKOUT ($2 bundles, Stripe — db/007 + supabase/functions/stripe) ──────────
+// ── CHECKOUT ($2.50 bundles since db/011 — price comes from bundles.price_cents; Stripe — db/007 + supabase/functions/stripe) ──────────
 // Buy = sign in with email (if not already) → Stripe's hosted checkout page → back here
 // with ?checkout=success&session_id=… → confirm → the bundle opens. The page never sees a
 // card number; Stripe does. The DATABASE decides who owns what, not this code.
