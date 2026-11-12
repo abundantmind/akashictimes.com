@@ -347,6 +347,18 @@ body.font-lg{--base-font:20px;}
    the database (migration 005) is what refuses a non-admin. ── */
 #admin-wrap{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:flex-start;justify-content:center;z-index:240;overflow-y:auto;padding:40px 16px;box-sizing:border-box;}
 #admin-wrap.open{display:flex;}
+/* EARNINGS (Architect payouts, db/012 — 2026-11-12): same shell as the Admin panel, narrower */
+#earn-wrap{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:flex-start;justify-content:center;z-index:240;overflow-y:auto;padding:40px 16px;box-sizing:border-box;}
+#earn-wrap.open{display:flex;}
+#earn-box{background:#13111a;border:0.5px solid #3d2060;border-radius:12px;padding:20px 22px;width:560px;max-width:100%;box-sizing:border-box;color:#d8cce8;}
+#earn-box h3{font-size:var(--fz-lg);font-weight:600;color:#e0d0f0;margin:0;flex:1;}
+.earn-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:14px 0;}
+.earn-stat{border:0.5px solid #2d2540;border-radius:8px;padding:10px 12px;background:#0f0c18;}
+.earn-stat b{display:block;font-size:var(--fz-lg);color:#e0d0ff;font-weight:600;}
+.earn-stat span{font-size:var(--fz-sm);color:#8a79aa;}
+.earn-bar{height:6px;border-radius:3px;background:#2d2540;overflow:hidden;margin:6px 0 2px;}
+.earn-bar i{display:block;height:100%;background:#7fe0a0;}
+.earn-p{font-size:var(--fz-ui);line-height:1.5;color:#b8a8d0;margin:8px 0;}
 #admin-box{background:#13111a;border:0.5px solid #3d2060;border-radius:12px;padding:20px 22px;width:900px;max-width:100%;box-sizing:border-box;}
 #admin-box h3{font-size:var(--fz-lg);font-weight:600;color:#e0d0f0;margin:0;flex:1;}
 .adm-tabs{display:flex;gap:6px;align-items:center;margin:12px 0 10px;flex-wrap:wrap;}
@@ -886,6 +898,8 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="profile-item" onclick="openSettings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg><span data-i18n="settings">Settings</span></button>
           <!-- Review a submitted level JSON in the editor (Jed's Wizard-of-Oz moderation). -->
           <button class="profile-item" onclick="openReview()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>Review a JSON</span></button>
+          <!-- What this Architect has earned / been paid, and the Stripe payouts setup (db/012). -->
+          <button class="profile-item" onclick="openEarnings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Earnings</span></button>
           <button class="profile-item admin-entry" style="display:none" onclick="openAdmin()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg><span>Admin</span></button>
           <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
           <div class="profile-langlabel" data-i18n="language">Language</div>
@@ -996,9 +1010,20 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <div class="adm-tabs">
       <button class="adm-tab on" id="adm-tab-q" onclick="adminTab('q')">Review queue</button>
       <button class="adm-tab" id="adm-tab-b" onclick="adminTab('b')">Bugs</button>
+      <button class="adm-tab" id="adm-tab-p" onclick="adminTab('p')">Payouts</button>
       <button class="adm-btn" style="margin-left:auto;" onclick="adminRefresh()">↻ Refresh</button>
     </div>
     <div id="adm-body"></div>
+  </div>
+</div>
+
+<!-- EARNINGS (Architect payouts, db/012 — 2026-11-12) — Profile menu → Earnings. What an
+     Architect has earned, been paid and is owed, plus the button to connect Stripe. A VIEW:
+     the numbers come from my_earnings() and the Stripe status from the `stripe` function. -->
+<div id="earn-wrap" onclick="if(event.target===this)closeEarnings()">
+  <div id="earn-box">
+    <div style="display:flex;align-items:center;gap:10px;"><h3>💵 Earnings</h3><button class="adm-btn" onclick="closeEarnings()">✕ Close</button></div>
+    <div id="earn-body"></div>
   </div>
 </div>
 
@@ -1268,6 +1293,8 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="profile-item" onclick="openSettings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg><span data-i18n="settings">Settings</span></button>
           <!-- Review a submitted level JSON in the editor (Jed's Wizard-of-Oz moderation). -->
           <button class="profile-item" onclick="openReview()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>Review a JSON</span></button>
+          <!-- What this Architect has earned / been paid, and the Stripe payouts setup (db/012). -->
+          <button class="profile-item" onclick="openEarnings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Earnings</span></button>
           <button class="profile-item admin-entry" style="display:none" onclick="openAdmin()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg><span>Admin</span></button>
           <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
           <div class="profile-langlabel" data-i18n="language">Language</div>
@@ -2966,7 +2993,7 @@ function openAdmin(){
   adminRefresh();
 }
 function closeAdmin(){ document.getElementById('admin-wrap').classList.remove('open'); }
-function adminTab(t){ adminState.tab=t; renderAdmin(); }
+function adminTab(t){ adminState.tab=t; renderAdmin(); if(t==='p')adminPayoutsLoad(); }
 async function adminRefresh(){
   document.getElementById('adm-body').innerHTML='<div class="adm-empty">Loading…</div>';
   if(!window.AkashicAuth||!AkashicAuth.user){ document.getElementById('adm-body').innerHTML='<div class="adm-err">Sign in first.</div>'; return; }
@@ -2979,6 +3006,7 @@ function renderAdmin(){
   const st=adminState, open=st.bugs.filter(x=>x.status==='open').length;
   document.getElementById('adm-tab-q').classList.toggle('on',st.tab==='q');
   document.getElementById('adm-tab-b').classList.toggle('on',st.tab==='b');
+  document.getElementById('adm-tab-p').classList.toggle('on',st.tab==='p');
   document.getElementById('adm-tab-q').textContent='Review queue ('+st.queue.filter(r=>!r.returned_at).length+')';
   document.getElementById('adm-tab-b').textContent='Bugs ('+open+' open)';
   const when=t=>t?new Date(t).toLocaleString():'—';
@@ -2997,6 +3025,8 @@ function renderAdmin(){
         +'<button class="adm-btn go" onclick="adminPublish('+r.id+')">Publish</button>'
         +'<button class="adm-btn warn" onclick="adminReturn('+r.id+')">Send back…</button></div></div>';
     });
+  }else if(st.tab==='p'){
+    h+=renderAdminPayouts();
   }else{
     if(st.bErr) h+='<div class="adm-err">'+escHtml(st.bErr)+' — has migration 005 been run?</div>';
     h+='<div class="adm-head" style="margin-bottom:4px"><span class="adm-meta">Show</span>'
@@ -3065,6 +3095,155 @@ async function adminBug(id,status){
   const res=await AkashicAuth.setBugStatus(id,status,inp?inp.value.trim():undefined);
   if(!res.ok){ alert('Update failed: '+res.error); return; }
   adminRefresh();
+}
+
+// ═══ ARCHITECT PAYOUTS (db/012 + supabase/functions/stripe — 2026-11-12) ═══════
+// Jed's model: $2.50 a sale → Stripe's card fee off the top → the Architect earns 90% of
+// the rest. Earnings pile up from the FIRST sale with no Stripe account; payouts go out
+// MONTHLY once the balance reaches $25 (smaller balances carry over). To be paid, the
+// Architect connects a Stripe Express account — Stripe's own form takes their identity,
+// bank and tax details; we never see them. Editor text is English (locked).
+const money=c=>'$'+(Math.max(0,Number(c)||0)/100).toFixed(2);
+let earnState={data:null,stripe:null,err:'',busy:false};
+function openEarnings(){
+  document.querySelectorAll('.profilemenu .profile-drop.open,.profilemenu.open').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.profile-btn[aria-expanded="true"]').forEach(b=>b.setAttribute('aria-expanded','false'));
+  document.getElementById('earn-wrap').classList.add('open');
+  earnRefresh();
+}
+function closeEarnings(){ document.getElementById('earn-wrap').classList.remove('open'); }
+async function earnRefresh(){
+  const body=document.getElementById('earn-body');
+  if(!window.AkashicAuth||!AkashicAuth.isEmailUser||!AkashicAuth.isEmailUser()){
+    body.innerHTML='<p class="earn-p">Sign in with your email to see what your bundles have earned.</p>'
+      +'<button class="adm-btn go" onclick="closeEarnings();AkashicAuth.open()">Sign in</button>';
+    return;
+  }
+  body.innerHTML='<div class="adm-empty">Loading…</div>';
+  const [d,st]=await Promise.all([AkashicAuth.myEarnings(),AkashicAuth.connectStatus()]);
+  earnState.data=d.error?null:d; earnState.stripe=st.error?null:st;
+  earnState.err=d.error?d.error+' (has migration 012 been run?)':(st.error||'');
+  renderEarnings();
+}
+function renderEarnings(){
+  const d=earnState.data||{earned_cents:0,paid_cents:0,sales:0,threshold_cents:2500,bundles:[],payouts:[]};
+  const st=earnState.stripe||{connected:false,details_submitted:false,payouts_enabled:false};
+  const bal=Math.max(0,d.earned_cents-d.paid_cents), thr=d.threshold_cents||2500;
+  let h='';
+  if(earnState.err) h+='<div class="adm-err">'+escHtml(earnState.err)+'</div>';
+  h+='<div class="earn-stats">'
+    +'<div class="earn-stat"><b>'+(d.sales||0)+'</b><span>sales</span></div>'
+    +'<div class="earn-stat"><b>'+money(d.earned_cents)+'</b><span>earned</span></div>'
+    +'<div class="earn-stat"><b>'+money(d.paid_cents)+'</b><span>paid out</span></div>'
+    +'<div class="earn-stat"><b>'+money(bal)+'</b><span>balance</span></div></div>';
+  // Progress to the $25 bar
+  h+='<div class="earn-bar"><i style="width:'+Math.min(100,Math.round(bal/thr*100))+'%"></i></div>'
+    +'<p class="earn-p" style="margin-top:2px">'+(bal>=thr
+      ?'Your balance has reached '+money(thr)+'. It goes out with the next monthly payout.'
+      :money(thr-bal)+' to go until your first '+money(thr)+' payout. Payouts are monthly; smaller balances carry over.')+'</p>';
+  // Stripe status → the one button that matters right now
+  if(!st.connected){
+    h+='<p class="earn-p">To get paid, connect a Stripe account. Stripe asks for your legal name, date of birth, bank account and SSN or tax ID (for the year-end tax form). It takes about 5 minutes, and your details stay with Stripe.</p>'
+      +'<button class="adm-btn go" onclick="earnConnect(this)">Set up payouts with Stripe</button>';
+  }else if(!st.payouts_enabled){
+    h+='<p class="earn-p">'+(st.details_submitted
+      ?'Stripe is reviewing your details. This usually takes minutes, sometimes a day or two. Your earnings keep adding up meanwhile.'
+      :'Your Stripe setup isn\'t finished yet. Pick up where you left off:')+'</p>'
+      +'<button class="adm-btn go" onclick="earnConnect(this)">'+(st.details_submitted?'Review Stripe details':'Finish Stripe setup')+'</button> '
+      +'<button class="adm-btn" onclick="earnRefresh()">↻ Check again</button>';
+  }else{
+    h+='<p class="earn-p">✓ Stripe is connected and ready. Payouts land in your bank account.</p>'
+      +'<button class="adm-btn" onclick="earnDashboard(this)">Open my Stripe dashboard</button>';
+  }
+  if(d.bundles&&d.bundles.length){
+    h+='<p class="earn-p" style="margin-top:16px;color:#e0d0f0">By bundle</p>';
+    d.bundles.forEach(b=>{ h+='<div class="adm-row"><div class="adm-head"><span class="adm-title">'+escHtml(b.title)+'</span><span class="adm-meta">'+b.sales+' sale'+(b.sales===1?'':'s')+' · '+money(b.cents)+'</span></div></div>'; });
+  }
+  if(d.payouts&&d.payouts.length){
+    h+='<p class="earn-p" style="margin-top:16px;color:#e0d0f0">Payouts</p>';
+    d.payouts.forEach(x=>{ h+='<div class="adm-row"><div class="adm-head"><span class="adm-title">'+escHtml(x.period)+'</span><span class="adm-meta">'+money(x.cents)+' · sent '+escHtml(new Date(x.at).toLocaleDateString())+'</span></div></div>'; });
+  }
+  h+='<p class="earn-p" style="font-size:var(--fz-sm);color:#8a79aa;margin-top:16px">Each $2.50 sale: Stripe\'s card fee (about $0.37) comes off first, then you earn 90% of the rest (about $1.91). <a href="/pricing/" style="color:#c8a8ff">How pricing works</a></p>';
+  document.getElementById('earn-body').innerHTML=h;
+}
+async function earnConnect(btn){
+  if(btn){ btn.disabled=true; btn.textContent='Opening Stripe…'; }
+  const r=await AkashicAuth.connectOnboard();
+  if(r.url){ location.href=r.url; return; }
+  if(btn){ btn.disabled=false; }
+  alert(r.error==='publish a bundle first'
+    ?'Payouts open once one of your bundles is published on the marketplace.'
+    :'Couldn\'t reach Stripe: '+(r.error||'?'));
+  renderEarnings();
+}
+async function earnDashboard(btn){
+  if(btn){ btn.disabled=true; }
+  const r=await AkashicAuth.connectDashboard();
+  if(btn){ btn.disabled=false; }
+  if(r.url){ window.open(r.url,'_blank','noopener'); return; }
+  alert('Couldn\'t open the Stripe dashboard: '+(r.error||'?'));
+}
+// Back from Stripe's onboarding form: ?connect=return (done or left) → show Earnings with
+// fresh status; ?connect=refresh (the one-time link expired) → ask Stripe for a new one.
+let connectReturnHandled=false;
+async function handleConnectReturn(){
+  if(connectReturnHandled) return;
+  const q=new URLSearchParams(location.search), c=q.get('connect');
+  if(!c) return;
+  if(!window.AkashicAuth||!AkashicAuth.ready) return;            // wait for the session
+  connectReturnHandled=true;
+  q.delete('connect');
+  history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
+  if(c==='refresh'){ earnConnect(null); return; }
+  openEarnings();
+}
+window.addEventListener('akashic-auth',handleConnectReturn);
+
+// ── Admin → Payouts tab: the monthly run ─────────────────────────────────────
+// Preview first (who is owed, who clears $25 with Stripe ready, the platform's settled
+// balance), then one click sends the transfers. Safe to click twice — the function and
+// the database both refuse a second payout to the same Architect in the same month.
+let adminPay={data:null,err:'',result:null,busy:false};
+async function adminPayoutsLoad(){
+  adminPay.data=null; adminPay.err=''; renderAdmin();
+  const r=await AkashicAuth.payoutsPreview();
+  if(r.error) adminPay.err=r.error; else adminPay.data=r;
+  if(adminState.tab==='p') renderAdmin();
+}
+function renderAdminPayouts(){
+  let h='';
+  if(adminPay.err) return '<div class="adm-err">'+escHtml(adminPay.err)+'</div>';
+  const d=adminPay.data;
+  if(!d) return '<div class="adm-empty">Loading…</div>';
+  const due=d.rows.filter(r=>r.eligible&&!r.paid_this_period), total=due.reduce((t,r)=>t+Number(r.balance_cents),0);
+  h+='<div class="adm-row"><div class="adm-head"><span class="adm-title">'+escHtml(d.period)+' payout run</span>'
+    +'<span class="adm-meta">'+due.length+' Architect'+(due.length===1?'':'s')+' due · '+money(total)+' · platform settled balance '+money(d.available_cents)+'</span></div>'
+    +'<div class="adm-desc" style="margin-top:6px">Due = balance ≥ '+money(d.threshold_cents)+' and Stripe ready. Connect fees (≈ $2.31 per Architect per month) are paid by AkashicTimes.</div>'
+    +'<div class="adm-head" style="margin-top:8px"><button class="adm-btn go" '+(due.length&&!adminPay.busy?'':'disabled ')+'onclick="adminPayoutsRun()">'+(adminPay.busy?'Sending…':'Send '+money(total)+' now')+'</button>'
+    +'<button class="adm-btn" onclick="adminPayoutsLoad()">↻ Preview again</button></div></div>';
+  if(adminPay.result){
+    h+='<div class="adm-row"><div class="adm-title">Last run</div>';
+    adminPay.result.forEach(x=>{ h+='<div class="adm-desc">'+escHtml(x.architect)+' · '+money(x.cents)+' — '+escHtml(x.transfer?('sent '+x.transfer):(x.skipped||x.error||''))+(x.warning?' ⚠ '+escHtml(x.warning):'')+'</div>'; });
+    h+='</div>';
+  }
+  if(!d.rows.length) h+='<div class="adm-empty">No Architect has a balance yet.</div>';
+  d.rows.forEach(r=>{
+    const why=r.paid_this_period?'paid this month':!r.stripe_account_id?'hasn\'t connected Stripe':!r.payouts_enabled?'Stripe not ready':Number(r.balance_cents)<d.threshold_cents?'under '+money(d.threshold_cents)+', carries over':'due';
+    h+='<div class="adm-row"><div class="adm-head"><span class="adm-pill'+(r.eligible&&!r.paid_this_period?' fixed':'')+'">'+escHtml(why)+'</span>'
+      +'<span class="adm-title">'+escHtml(r.architect)+'</span><span class="adm-meta">balance '+money(r.balance_cents)+'</span></div></div>';
+  });
+  return h;
+}
+async function adminPayoutsRun(){
+  const d=adminPay.data; if(!d)return;
+  const due=d.rows.filter(r=>r.eligible&&!r.paid_this_period), total=due.reduce((t,r)=>t+Number(r.balance_cents),0);
+  if(!confirm('Send '+money(total)+' to '+due.length+' Architect'+(due.length===1?'':'s')+' now?\n\nThis moves real money from the AkashicTimes Stripe balance. It can\'t be undone from here.'))return;
+  adminPay.busy=true; renderAdmin();
+  const r=await AkashicAuth.payoutsRun();
+  adminPay.busy=false;
+  if(r.error){ alert('Payout run failed: '+r.error); }
+  else adminPay.result=r.results||[];
+  adminPayoutsLoad();
 }
 
 // ═══ IN-GAME BUG FORM (Jed 2026-10-24: "move bugs into the database") ═══════════

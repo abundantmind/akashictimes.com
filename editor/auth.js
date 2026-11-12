@@ -363,6 +363,28 @@ const AkashicAuth = {
     return data || { ok:false, error: 'no response' };
   },
 
+  // ── ARCHITECT PAYOUTS (db/012 + the `stripe` function, 2026-11-12) ──────────
+  // Earnings totals come from the database (my_earnings: totals + per-bundle counts,
+  // never who bought). Everything Stripe-side goes through the Edge Function, which
+  // holds the secret key; this page never talks to Stripe directly.
+  async myEarnings(){
+    const { data, error } = await supabase.rpc('my_earnings');
+    if(error) return { error: error.message };
+    return data || { earned_cents:0, paid_cents:0, sales:0, threshold_cents:2500, bundles:[], payouts:[] };
+  },
+  // Generic call to the stripe function → its JSON, or { error }.
+  async _stripeCall(body){
+    const { data, error } = await supabase.functions.invoke('stripe', { body });
+    if(error) return { error: await fnError(error) };
+    return data || { error: 'no response' };
+  },
+  connectStatus(){ return this._stripeCall({ action:'connect_status' }); },
+  // → { url } of Stripe's onboarding form; Stripe sends them back with ?connect=return
+  connectOnboard(){ return this._stripeCall({ action:'connect_onboard', return_url: location.origin + location.pathname }); },
+  connectDashboard(){ return this._stripeCall({ action:'connect_dashboard' }); },
+  payoutsPreview(){ return this._stripeCall({ action:'payouts_preview' }); },   // admin
+  payoutsRun(){ return this._stripeCall({ action:'payouts_run' }); },           // admin
+
   // ── ADMIN (migration 005, Jed 2026-10-24) ────────────────────────────────────
   // The Admin panel's data layer. NONE of this is the security: is_admin(), the
   // admins-only RLS policies and the publish/return functions refuse a non-admin in
