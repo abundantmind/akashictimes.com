@@ -280,9 +280,30 @@ window.runInvariants = async function(){
           if(cd.wallS==='breakable') cd.wallS=null;
           cd.gem=null; }                                                  // the whole board drains
         for(let i=0;i<500;i++){ if(!gravityWithMap().length) break; }    // refill to a fixpoint
+        // VAULTS stay empty by design (Jed 2026-11-14): a compartment walled off by
+        // UNBREAKABLE barriers takes no slip in. Compartments = active cells flood-filled
+        // without crossing an unbreakable seam. A vault is one that touches an unbreakable
+        // seam and holds no spring of its own (open sky, a painted Inlet, a generator, a
+        // window Re-entry). Its cells are skipped; every other cell must still fill.
+        const comp=board.map(row=>row.map(()=>-1)), vault=new Set();
+        const reentry=new Set(); windowPairs().forEach(p=>{ if(p.exit&&p.entry) reentry.add(p.entry.join(',')); });
+        for(let r0=0,id=0;r0<R;r0++)for(let c0=0;c0<C;c0++){
+          if(!board[r0][c0].active||comp[r0][c0]!==-1) continue;
+          const cells=[[r0,c0]]; comp[r0][c0]=id; let walled=false, spring=false;
+          for(let k=0;k<cells.length;k++){ const [r,c]=cells[k], cd=board[r][c];
+            const [dr,dc]=FLOW_VEC[flow[r][c]||'down'];
+            if(!(r-dr>=0&&r-dr<R&&c-dc>=0&&c-dc<C)||cd.source==='inlet'||cd.gen||reentry.has(r+','+c)) spring=true;
+            for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+              if(nr<0||nr>=R||nc<0||nc>=C||!board[nr][nc].active) continue;
+              if(wallBetween(r,c,nr,nc)==='unbreakable'){ walled=true; continue; }   // breakables were stripped above
+              if(comp[nr][nc]===-1){ comp[nr][nc]=id; cells.push([nr,nc]); } } }
+          if(walled&&!spring) vault.add(id);
+          id++;
+        }
         const empty=[];
         for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c];
           if(!cd.active||isSolid(r,c)) continue;                          // holes + generators never hold gems
+          if(vault.has(comp[r][c])) continue;                             // sealed vault: empty by design
           if(cd.gem===null&&!cd.pu&&!cd.item) empty.push('R'+r+'C'+c); }
         return empty;
       };
