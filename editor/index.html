@@ -3132,7 +3132,7 @@ async function adminBug(id,status){
 // PAYOUTS_LIVE: the Earnings entry and Admin's Payouts tab stay hidden until db/012 is run
 // AND the new `stripe` function (connect_* / payouts_* actions) is pasted into Supabase.
 // Flip to true in the same ship as that switch-over.
-const PAYOUTS_LIVE=false;
+const PAYOUTS_LIVE=true;
 if(PAYOUTS_LIVE) document.addEventListener('DOMContentLoaded',()=>document.querySelectorAll('.earn-entry').forEach(b=>b.style.display=''));
 const money=c=>'$'+(Math.max(0,Number(c)||0)/100).toFixed(2);
 let earnState={data:null,stripe:null,err:'',busy:false};
