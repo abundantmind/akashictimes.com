@@ -912,7 +912,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <!-- Review a submitted level JSON in the editor (Jed's Wizard-of-Oz moderation). -->
           <button class="profile-item" onclick="openReview()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>Review a JSON</span></button>
           <!-- What this Architect has earned / been paid, and the Stripe payouts setup (db/012). -->
-          <button class="profile-item" onclick="openEarnings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Earnings</span></button>
+          <button class="profile-item earn-entry" style="display:none" onclick="openEarnings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Earnings</span></button>
           <button class="profile-item admin-entry" style="display:none" onclick="openAdmin()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg><span>Admin</span></button>
           <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
           <div class="profile-langlabel" data-i18n="language">Language</div>
@@ -1023,7 +1023,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <div class="adm-tabs">
       <button class="adm-tab on" id="adm-tab-q" onclick="adminTab('q')">Review queue</button>
       <button class="adm-tab" id="adm-tab-b" onclick="adminTab('b')">Bugs</button>
-      <button class="adm-tab" id="adm-tab-p" onclick="adminTab('p')">Payouts</button>
+      <button class="adm-tab earn-entry" style="display:none" id="adm-tab-p" onclick="adminTab('p')">Payouts</button>
       <button class="adm-btn" style="margin-left:auto;" onclick="adminRefresh()">↻ Refresh</button>
     </div>
     <div id="adm-body"></div>
@@ -1307,7 +1307,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <!-- Review a submitted level JSON in the editor (Jed's Wizard-of-Oz moderation). -->
           <button class="profile-item" onclick="openReview()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><span>Review a JSON</span></button>
           <!-- What this Architect has earned / been paid, and the Stripe payouts setup (db/012). -->
-          <button class="profile-item" onclick="openEarnings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Earnings</span></button>
+          <button class="profile-item earn-entry" style="display:none" onclick="openEarnings()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Earnings</span></button>
           <button class="profile-item admin-entry" style="display:none" onclick="openAdmin()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg><span>Admin</span></button>
           <button class="profile-item profile-auth" onclick="profileAuth()"><svg class="pi-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="profile-auth-label"></span></button>
           <div class="profile-langlabel" data-i18n="language">Language</div>
@@ -3129,6 +3129,11 @@ async function adminBug(id,status){
 // MONTHLY once the balance reaches $25 (smaller balances carry over). To be paid, the
 // Architect connects a Stripe Express account — Stripe's own form takes their identity,
 // bank and tax details; we never see them. Editor text is English (locked).
+// PAYOUTS_LIVE: the Earnings entry and Admin's Payouts tab stay hidden until db/012 is run
+// AND the new `stripe` function (connect_* / payouts_* actions) is pasted into Supabase.
+// Flip to true in the same ship as that switch-over.
+const PAYOUTS_LIVE=false;
+if(PAYOUTS_LIVE) document.addEventListener('DOMContentLoaded',()=>document.querySelectorAll('.earn-entry').forEach(b=>b.style.display=''));
 const money=c=>'$'+(Math.max(0,Number(c)||0)/100).toFixed(2);
 let earnState={data:null,stripe:null,err:'',busy:false};
 function openEarnings(){
