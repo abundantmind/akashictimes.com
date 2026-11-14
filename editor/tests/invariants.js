@@ -264,6 +264,57 @@ window.runInvariants = async function(){
       for(let r=0;r<R;r++)for(let c=0;c<C;c++) flow[r][c]='down';      // leave plain flow for the tests below
     }
 
+    // FLOW NEVER CREATES EMPTY CELLS — EVERY LEVEL (Jed 2026-11-14, CELL-ENGINE.md I11).
+    // Slip-fill is the guard. Leaves, eggs, crates and breakable barriers can hold a cell
+    // empty only until they're cleared, so the test clears them first. Holes, flow
+    // arrows, windows, sources, generators and unbreakable barriers stay, because those
+    // are the level's plumbing. Then every cell is emptied and gravity (spawns included)
+    // runs until nothing moves. Any cell still empty is one the flow can never refill.
+    {
+      // Strip one loaded level down to its plumbing, drain it, refill it; return the empty cells.
+      const drainAndRefill=()=>{
+        playing=false;
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c];
+          cd.obs=null; cd.item=null; cd.pu=null; cd.puClover=false;      // everything clearable goes
+          if(cd.wallE==='breakable') cd.wallE=null;                       // breakable barriers break
+          if(cd.wallS==='breakable') cd.wallS=null;
+          cd.gem=null; }                                                  // the whole board drains
+        for(let i=0;i<500;i++){ if(!gravityWithMap().length) break; }    // refill to a fixpoint
+        const empty=[];
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c];
+          if(!cd.active||isSolid(r,c)) continue;                          // holes + generators never hold gems
+          if(cd.gem===null&&!cd.pu&&!cd.item) empty.push('R'+r+'C'+c); }
+        return empty;
+      };
+      // The shipped levels, 1..MAX_BUILT_LEVEL.
+      const MAXL=(typeof MAX_BUILT_LEVEL!=='undefined')?MAX_BUILT_LEVEL:25;
+      for(let L=1;L<=MAXL;L++){
+        await startPlayerLevel(L,false); await wait(45); if(window.flyover){flyStop=0;flyLock=false;}
+        const empty=drainAndRefill();
+        ok(`L${L} · flow leaves no cell empty (drained + refilled)`, empty.length===0, empty.slice(0,8));
+      }
+      // Local bundles (editor/Bundles/ is gitignored, so this runs only where they exist:
+      // the dev server lists folders; production 404s and the block is skipped).
+      const listDir=async url=>{ try{ const res=await fetch(url,{cache:'no-cache'}); if(!res.ok) return [];
+        const html=await res.text(); return [...html.matchAll(/href="([^"?#]+)"/g)].map(m=>decodeURIComponent(m[1])); }catch(e){ return []; } };
+      for(const orient of ['Landscape','Portrait']){
+        const base='/editor/Bundles/'+orient+'/';
+        for(const dir of (await listDir(base)).filter(h=>h.endsWith('/')&&!h.startsWith('/')&&!h.startsWith('..'))){
+          const files=(await listDir(base+encodeURI(dir))).filter(h=>/^level-\d+\.json$/.test(h)).sort();
+          if(!files.length) continue;
+          const bad=[];
+          for(const f of files){
+            let j; try{ j=await (await fetch(base+encodeURI(dir)+f,{cache:'no-cache'})).json(); }catch(e){ bad.push(f+': unreadable'); continue; }
+            try{ loadLevelData(j,1); }catch(e){ bad.push(f+': load failed'); continue; }
+            const empty=drainAndRefill();
+            if(empty.length) bad.push(f+': '+empty.slice(0,6).join(' '));
+          }
+          ok(`bundle ${orient}/${dir.replace(/\/$/,'')} · flow leaves no cell empty (${files.length} levels)`, bad.length===0, bad.slice(0,6));
+        }
+      }
+      await startPlayerLevel(1,false); await wait(45);       // leave a real level on the board
+    }
+
     // KEY RESPAWN (Jed 2026-10-07, Township L28/L41): while the board holds fewer keys
     // than the run started with AND collected + on-board < the goal, the next spawn is a key.
     await startPlayerLevel(1,false); await wait(45);
