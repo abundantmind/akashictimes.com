@@ -627,6 +627,19 @@ body.level-readonly #objlist :is(input,select){border-color:transparent;backgrou
 .bundle-card .bplay{display:inline-block;margin-top:20px;padding:9px 30px;background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;border-radius:6px;font-size:var(--fz-base);font-weight:500;}
 /* a paid bundle the player hasn't bought: the button is the price, in the site's gold */
 .bundle-card .bplay.bbuy{background:#4a3a14;color:#f0c45c;border-color:#a8842e;}
+/* BUNDLE FAMILIES (db/013): a family = header + its chapters side by side */
+.fam-block{width:100%;max-width:720px;margin:0 0 22px;}
+.fam-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 12px;margin:0 0 10px;}
+.fam-head .fam-name{font-size:var(--fz-xl);color:#e0d0ff;font-weight:500;}
+.fam-head .fam-meta{font-size:var(--fz-sm);color:#9a86b8;letter-spacing:.04em;}
+.fam-row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;}
+.fam-row > div:empty{display:none;}
+#fam-native-more{display:contents;}
+#community-bundles{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;}
+.fam-row .bundle-card{max-width:330px;padding:28px 26px;}
+.bundle-card .fam-ch{font-size:var(--fz-xs);color:#9a86b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;}
+.bundle-card .fam-lock{font-size:var(--fz-sm);color:#f0c070;margin-top:12px;line-height:1.4;}
+.bundle-card.fam-shut h2{color:#8a79aa;}
 /* Multi-Stage stop list — red circle + trash can deletes a mistaken flyover stop */
 .stop-del{margin-left:auto;width:18px;height:18px;padding:0;border-radius:50%;border:1px solid #ff8a8a;
   background:#c62828;color:#fff;font-size:10px;line-height:16px;text-align:center;cursor:pointer;flex:0 0 auto;}
@@ -1516,9 +1529,13 @@ en:{
   pback_bundles:'← Bundles',pback_levels:'← Levels',pback_home:'← Home',
   rotate_msg:'Rotate your device',rotate_sub:'Screen won’t turn? Turn off rotation lock.',
   moves_cap:'Moves',goals_cap:'Goals',speed_cap:'Speed',open_cap:'Hints',undo_cap:'↶ Undo',
-  bundle_title:'Go with the Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
+  bundle_title:'Akashic Flow',bundle_sub:'25 handcrafted levels',bundle_n:'Bundle 1',
   bundle_play:'Play',grid_sub:'Bundle 1 · 25 levels',soon:'Soon',
   community_bundles_label:'Community Bundles',community_by:n=>'by '+n,
+  // BUNDLE FAMILIES (db/013, Jed 2026-11-12): chapters numbered straight through
+  fam_chapter:n=>'Chapter '+n,fam_levels:(a,b)=>'Levels '+a+'–'+b,fam_landscape:'Landscape',fam_portrait:'Portrait',
+  fam_reach:n=>'Furthest: level '+n,fam_locked:'Locked',
+  fam_lock:(t,h,m)=>'Opens when every level of '+t+' has 3 stars. You have '+h+' of '+m+'.',
   buy_price:c=>'$'+(c/100).toFixed(2),buy_btn:c=>'Buy · $'+(c/100).toFixed(2),buy_owned:'Owned',buy_soon:'The store opens soon — bundles go on sale shortly. Thanks for your patience!',buy_levels:n=>n+' level'+(n===1?'':'s'),
   buy_signin:'Sign in with your email to buy — your bundle then follows you to any device.',
   buy_going:'Opening secure checkout…',buy_fail:e=>'Checkout could not start: '+e,
@@ -1630,9 +1647,12 @@ ko:{
   pback_bundles:'← 번들',pback_levels:'← 레벨 목록',pback_home:'← 홈',
   rotate_msg:'기기를 가로로 돌려주세요',rotate_sub:'화면이 안 돌아가나요? 회전 잠금을 끄세요.',
   moves_cap:'이동',goals_cap:'목표',speed_cap:'속도',open_cap:'힌트',undo_cap:'↶ 되돌리기',
-  bundle_title:'물 흐르듯이',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
+  bundle_title:'아카식 플로우',bundle_sub:'정성껏 만든 레벨 25개',bundle_n:'번들 1',
   bundle_play:'플레이',grid_sub:'번들 1 · 레벨 25개',soon:'곧',
   community_bundles_label:'커뮤니티 번들',community_by:n=>n+' 제작',
+  fam_chapter:n=>n+'장',fam_levels:(a,b)=>'레벨 '+a+'–'+b,fam_landscape:'가로',fam_portrait:'세로',
+  fam_reach:n=>'최고 도달: 레벨 '+n,fam_locked:'잠김',
+  fam_lock:(t,h,m)=>t+'의 모든 레벨에서 별 3개를 받으면 열립니다. 현재 '+m+'개 중 '+h+'개.',
   buy_price:c=>'$'+(c/100).toFixed(2),buy_btn:c=>'구매 · $'+(c/100).toFixed(2),buy_owned:'보유 중',buy_soon:'스토어가 곧 열립니다 — 번들 판매가 곧 시작돼요. 조금만 기다려 주세요!',buy_levels:n=>'레벨 '+n+'개',
   buy_signin:'구매하려면 이메일로 로그인하세요 — 구매한 번들은 어느 기기에서든 함께합니다.',
   buy_going:'보안 결제 화면을 여는 중…',buy_fail:e=>'결제를 시작할 수 없습니다: '+e,
@@ -1749,9 +1769,12 @@ es:{
   pback_bundles:'← Paquetes',pback_levels:'← Niveles',pback_home:'← Inicio',
   rotate_msg:'Gira tu dispositivo',rotate_sub:'¿La pantalla no gira? Desactiva el bloqueo de rotación.',
   moves_cap:'Movimientos',goals_cap:'Objetivos',speed_cap:'Velocidad',open_cap:'Pistas',undo_cap:'↶ Deshacer',
-  bundle_title:'Déjate llevar',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
+  bundle_title:'Akashic Flow',bundle_sub:'25 niveles hechos a mano',bundle_n:'Paquete 1',
   bundle_play:'Jugar',grid_sub:'Paquete 1 · 25 niveles',soon:'Pronto',
   community_bundles_label:'Paquetes de la comunidad',community_by:n=>'por '+n,
+  fam_chapter:n=>'Capítulo '+n,fam_levels:(a,b)=>'Niveles '+a+'–'+b,fam_landscape:'Horizontal',fam_portrait:'Vertical',
+  fam_reach:n=>'Más lejos: nivel '+n,fam_locked:'Bloqueado',
+  fam_lock:(t,h,m)=>'Se abre cuando cada nivel de '+t+' tenga 3 estrellas. Tienes '+h+' de '+m+'.',
   buy_price:c=>'$'+(c/100).toFixed(2),buy_btn:c=>'Comprar · $'+(c/100).toFixed(2),buy_owned:'Tuyo',buy_soon:'La tienda abre pronto — los paquetes saldrán a la venta en breve. ¡Gracias por tu paciencia!',buy_levels:n=>n+' nivel'+(n===1?'':'es'),
   buy_signin:'Inicia sesión con tu correo para comprar — así tu paquete te acompaña en cualquier dispositivo.',
   buy_going:'Abriendo el pago seguro…',buy_fail:e=>'No se pudo iniciar el pago: '+e,
@@ -2700,7 +2723,8 @@ function renderProductsList(){
   // orientation folder they live in) + its own "+ New … bundle" button at the foot.
   const card=b=>'<div class="prod-card" onclick="openUserBundle('+jsArg(b.id)+')">'+
       '<div><div class="pc-name">'+escHtml(b.name)+statusTag(b.status,b.reviewNote)+'</div>'+
-        '<div class="pc-meta">Your bundle · on disk</div></div>'+
+        // a family chapter says where it sits: "Ground Zero · chapter 2 · levels 26–50"
+        '<div class="pc-meta">'+(b.family?escHtml(b.family.name)+' · chapter '+b.family.seq+' · levels '+b.family.firstLevel+'–'+(b.family.firstLevel+24):'Your bundle · on disk')+'</div></div>'+
       '<div class="pc-arrow">→</div></div>';
   html+='<div class="bcols">';
   BUNDLE_ORIENTS.forEach(o=>{
@@ -2709,7 +2733,7 @@ function renderProductsList(){
     if(o==='Landscape') PRODUCTS.forEach(p=>{
       html+='<div class="prod-card" onclick="renderBundleLevels(\''+p.id+'\')">'+
         '<div><div class="pc-name">'+TXT(p.nameKey)+statusTag(p.published?'published':'draft')+'</div>'+
-          '<div class="pc-meta">'+TXT('bundle_n')+' · '+bundleLevelCount(p)+' '+TXT('products_levels')+'</div></div>'+
+          '<div class="pc-meta">'+NATIVE_FAMILY+' · chapter 1 · levels 1–'+bundleLevelCount(p)+'</div></div>'+
         '<div class="pc-arrow">→</div></div>';
     });
     const group=USER_BUNDLES.filter(b=>b.orient===o);
@@ -2800,7 +2824,7 @@ const jsArg=s=>escHtml(JSON.stringify(String(s)));
 function _idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('akashic-bundles',1);
   r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function persistUserBundles(){ try{ const db=await _idb(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite');
-  tx.objectStore('kv').put(USER_BUNDLES.map(b=>({id:b.id,name:b.name,dir:b.dir,orient:b.orient,subs:b.subs,status:b.status})),'list'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('bundle persist',e);} }
+  tx.objectStore('kv').put(USER_BUNDLES.map(b=>({id:b.id,name:b.name,dir:b.dir,orient:b.orient,subs:b.subs,family:b.family||null,status:b.status})),'list'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('bundle persist',e);} }
 async function persistBundleRoot(){ try{ const db=await _idb(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite');
   tx.objectStore('kv').put(bundleRoot,'root'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('root persist',e);} }
 async function loadUserBundles(){ try{ const db=await _idb();
@@ -2823,10 +2847,12 @@ async function scanBundles(){
   const scanDir=async(dir,orient)=>{
     for await(const [n,h] of dir.entries()){
       if(h.kind!=='directory'||(orient===''&&BUNDLE_ORIENTS.includes(n))) continue;
-      let name,subs;
-      try{ const j=JSON.parse(await (await (await h.getFileHandle('bundle.json')).getFile()).text()); name=j.name||n.replace(/-/g,' '); subs=j.submissions||[]; }
+      let name,subs,family=null;
+      try{ const j=JSON.parse(await (await (await h.getFileHandle('bundle.json')).getFile()).text()); name=j.name||n.replace(/-/g,' '); subs=j.submissions||[];
+           // bundle families (db/013): {"name","seq","firstLevel"} in bundle.json → shown on the card
+           if(j.family&&j.family.name) family={name:String(j.family.name),seq:Number(j.family.seq)||1,firstLevel:Number(j.family.firstLevel)||1}; }
       catch(e){ continue; }                                   // no readable manifest → not a bundle
-      found.push({id:(orient?orient+'/':'')+n,name,dir:h,orient,subs,status:subs.length?'review':'draft'});
+      found.push({id:(orient?orient+'/':'')+n,name,dir:h,orient,subs,family,status:subs.length?'review':'draft'});
     }
   };
   try{
@@ -3269,7 +3295,7 @@ async function sendBugReport(){
   if(!desc){ msg.textContent=TXT('bug_empty'); return; }
   send.disabled=true; send.textContent=TXT('bug_sending'); msg.textContent='';
   let board=null; try{ board=JSON.parse(freezeReport()); }catch(e){}
-  const bundle=(typeof editorBundle!=='undefined'&&editorBundle)||(curBundle&&curBundle.title)||'Go with the Flow';
+  const bundle=(typeof editorBundle!=='undefined'&&editorBundle)||(curBundle&&curBundle.title)||'Akashic Flow';
   let tag=''; try{ tag=(window.AkashicID&&AkashicID.name&&AkashicID.name())||''; }catch(e){}
   const report={
     reporter_tag:String(tag||_generateReporterId()).slice(0,64),
@@ -8782,7 +8808,12 @@ function updEditorFrame(){
     if(el&&el.offsetHeight)document.documentElement.style.setProperty('--grid-h',el.offsetHeight+'px');
   }
   const lvl=document.getElementById('ehud-level');
-  if(lvl)lvl.textContent=(typeof curLevelNum==='number'&&curLevelNum)?TXT('lvl_prefix')+curLevelNum:'—';
+  // A family chapter's level shows its FAMILY number (Akashic Window level-001 → "Level 26").
+  // The bundle being edited: saveTargetBundle (a folder on disk). The built-in Akashic Flow starts at 1.
+  let eoff=0;
+  try{ const eb=(typeof saveTargetBundle!=='undefined'&&saveTargetBundle)?USER_BUNDLES.find(x=>x.id===saveTargetBundle):null;
+       if(eb&&eb.family&&eb.family.firstLevel>1) eoff=eb.family.firstLevel-1; }catch(e){}
+  if(lvl)lvl.textContent=(typeof curLevelNum==='number'&&curLevelNum)?TXT('lvl_prefix')+(curLevelNum+eoff):'—';
   const mv=document.getElementById('ehud-moves'); if(mv)mv.textContent=moves;
   const g=document.getElementById('ehud-goal');
   if(g){
@@ -8874,6 +8905,48 @@ function showPlayerShell(){
 // never leak its PlayerProgress.bundle context into native play.
 let curBundle=null;
 
+// ═══ BUNDLE FAMILIES (db/013 — Jed 2026-11-12) ═══════════════════════════════
+// A family = bundles numbered straight through (chapter 2 starts at level 26), ONE
+// orientation each. GROUND ZERO (Landscape) = Akashic Flow (the built-in bundle 0) →
+// Akashic Window (levels 26–50). Only the NUMBER SHOWN changes: level files,
+// progress, purchases and approvals stay keyed by (bundle, local level 1..25).
+// Rules: any chapter can be bought any time; it can't be PLAYED until every level of
+// the chapter before it has 3 stars (Architects roam free, as with level gating).
+const NATIVE_FAMILY='Ground Zero';   // families.name of the family whose chapter 1 is bundle 0
+const NATIVE_LEVELS=25;
+// What a shown level number adds to a local one, for the bundle being played.
+function levelOffset(){ return (curBundle&&curBundle.first_level>1)?curBundle.first_level-1:0; }
+function dispLevel(n){ return n+levelOffset(); }
+// Stars held across a whole bundle's levels (local progress store, any bundle id).
+function bundleStars(bid,n){
+  const b=PlayerProgress.data[bid]||{}; let have=0;
+  for(let i=1;i<=n;i++){ const d=b[i]; have+=typeof d==='number'?d:(d&&d.s)||0; }
+  return have;
+}
+// The chapter before this storefront row, as {id,title,levels}, or null (chapter 1 / no family).
+function prevChapter(row){
+  if(!row||!row.family_id||!(row.family_seq>1)) return null;
+  if(row.family_seq===2&&row.family_name===NATIVE_FAMILY) return {id:0,title:TXT('bundle_title'),levels:NATIVE_LEVELS};
+  const p=communityRows.find(r=>r.family_id===row.family_id&&r.family_seq===row.family_seq-1);
+  return p?{id:p.id,title:p.title,levels:p.levels||25}:null;
+}
+// Is this chapter playable? → {open, prev, have, max}. Architects (and local dev) are never gated.
+function chapterGate(row){
+  const prev=prevChapter(row);
+  if(!prev) return {open:true};
+  const max=prev.levels*3, have=bundleStars(prev.id,prev.levels);
+  return {open:isArchitect()||have>=max, prev, have, max};
+}
+// How far down Ground Zero this player has gotten: the highest FAMILY level they've
+// finished (same idea as the leaderboard's reach, db/013 standings()).
+function nativeFamilyReach(){
+  let top=0;
+  const scan=(bid,off)=>{ const b=PlayerProgress.data[bid]||{}; Object.keys(b).forEach(k=>{ const d=b[k], st=typeof d==='number'?d:(d&&d.s)||0; if(st>0) top=Math.max(top,Number(k)+off); }); };
+  scan(0,0);
+  communityRows.filter(r=>r.family_name===NATIVE_FAMILY).forEach(r=>scan(r.id,(r.first_level||1)-1));
+  return top;
+}
+
 function renderBundles(){
   showPlayerShell();
   lastPView='bundles'; // language switch re-renders this screen
@@ -8887,11 +8960,20 @@ function renderBundles(){
   // the `engine1-stable` tag; its level DATA still loads here via the engineVersion pin.)
   document.getElementById('pbody').innerHTML=
     '<div id="pgrid-title">'+escHtml(possBundles())+'</div>'+
-    '<div class="bundle-card" onclick="renderGrid()">'+
-      '<h2>'+TXT('bundle_title')+'</h2>'+
-      '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
-      '<div class="bcount">'+TXT('bundle_n')+' · ★ '+t.have+' / '+t.max+'</div>'+
-      '<div class="bplay">'+TXT('bundle_play')+'</div>'+
+    // GROUND ZERO family block: its header, chapter 1 (the built-in Akashic Flow), then
+    // its later chapters, which renderCommunityBundleList drops into #fam-native-more.
+    '<div class="fam-block">'+
+      '<div class="fam-head" id="fam-native-head">'+famHead(NATIVE_FAMILY,'landscape',1,NATIVE_LEVELS)+'</div>'+
+      '<div class="fam-row">'+
+      '<div class="bundle-card" onclick="renderGrid()">'+
+        '<div class="fam-ch">'+TXT('fam_chapter')(1)+' · '+TXT('fam_levels')(1,NATIVE_LEVELS)+'</div>'+
+        '<h2>'+TXT('bundle_title')+'</h2>'+
+        '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
+        '<div class="bcount">★ '+t.have+' / '+t.max+'</div>'+
+        '<div class="bplay">'+TXT('bundle_play')+'</div>'+
+      '</div>'+
+      '<div id="fam-native-more"></div>'+
+      '</div>'+
     '</div>'+
     '<div id="community-bundles"></div>';
   renderCommunityBundleList();
@@ -8908,19 +8990,44 @@ async function renderCommunityBundleList(){
   communityRows=rows;
   const host=document.getElementById('community-bundles');
   if(!host) return; // navigated away before the fetch resolved
-  if(!rows.length){ host.innerHTML=''; return; }
-  host.innerHTML='<div class="home-bundles-label">'+TXT('community_bundles_label')+'</div>'+
-    rows.map(b=>{
-      const author=b.author_name||'?';
-      // PAID + not owned → the button is the price; owned (or free) → Play.
-      const buy=b.price_cents>0&&!b.owned;
-      return '<div class="bundle-card" onclick="openCommunityBundle('+b.id+')">'+
-        '<h2>'+escHtml(b.title)+'</h2>'+
-        '<div class="bsub">'+TXT('community_by')(escHtml(author))+'</div>'+
-        '<div class="bcount">'+TXT('buy_levels')(b.levels||0)+(b.price_cents>0?' · '+(b.owned?TXT('buy_owned'):TXT('buy_price')(b.price_cents)):'')+'</div>'+
-        '<div class="bplay'+(buy?' bbuy':'')+'">'+(buy?TXT('buy_btn')(b.price_cents):TXT('bundle_play'))+'</div>'+
-      '</div>';
-    }).join('');
+  // One card. A family chapter shows its chapter + level range, and a lock line while
+  // the chapter before it still lacks stars (still BUYABLE — only play is gated).
+  const card=b=>{
+    const author=b.author_name||'?';
+    const buy=b.price_cents>0&&!b.owned;           // PAID + not owned → the button is the price
+    const g=chapterGate(b), n=b.levels||0, a=b.first_level||1;
+    const ch=b.family_id?'<div class="fam-ch">'+TXT('fam_chapter')(b.family_seq)+' · '+TXT('fam_levels')(a,a+n-1)+'</div>':'';
+    const st=bundleStars(b.id,n);
+    return '<div class="bundle-card'+(g.open?'':' fam-shut')+'" onclick="openCommunityBundle('+b.id+')">'+ch+
+      '<h2>'+escHtml(b.title)+'</h2>'+
+      '<div class="bsub">'+TXT('community_by')(escHtml(author))+'</div>'+
+      '<div class="bcount">'+(b.family_id&&st?'★ '+st+' / '+(n*3):TXT('buy_levels')(n))+(b.price_cents>0?' · '+(b.owned?TXT('buy_owned'):TXT('buy_price')(b.price_cents)):'')+'</div>'+
+      (g.open?'':'<div class="fam-lock">&#128274; '+escHtml(TXT('fam_lock')(g.prev.title,g.have,g.max))+'</div>')+
+      '<div class="bplay'+(buy?' bbuy':'')+'">'+(buy?TXT('buy_btn')(b.price_cents):g.open?TXT('bundle_play'):TXT('fam_locked'))+'</div>'+
+    '</div>';
+  };
+  // Ground Zero's later chapters go under its header, beside Akashic Flow.
+  const gz=rows.filter(b=>b.family_name===NATIVE_FAMILY);
+  const more=document.getElementById('fam-native-more'); if(more) more.innerHTML=gz.map(card).join('');
+  const last=gz.length?gz[gz.length-1]:null;
+  const head=document.getElementById('fam-native-head');
+  if(head) head.innerHTML=famHead(NATIVE_FAMILY,'landscape',1,last?(last.first_level||1)+(last.levels||0)-1:NATIVE_LEVELS,nativeFamilyReach());
+  // Other families, each under its own header; then standalone bundles.
+  let h='';
+  const fams=[...new Set(rows.filter(b=>b.family_id&&b.family_name!==NATIVE_FAMILY).map(b=>b.family_id))];
+  fams.forEach(fid=>{
+    const ch=rows.filter(b=>b.family_id===fid), l=ch[ch.length-1];
+    h+='<div class="fam-block"><div class="fam-head">'+famHead(ch[0].family_name,ch[0].orientation,ch[0].first_level||1,(l.first_level||1)+(l.levels||0)-1)+'</div><div class="fam-row">'+ch.map(card).join('')+'</div></div>';
+  });
+  const solo=rows.filter(b=>!b.family_id);
+  if(solo.length) h+='<div class="home-bundles-label">'+TXT('community_bundles_label')+'</div>'+solo.map(card).join('');
+  host.innerHTML=h;
+}
+// A family's header line: name · orientation · level range (· furthest level reached).
+function famHead(name,orient,a,b,reach){
+  return '<span class="fam-name">'+escHtml(name)+'</span>'+
+    '<span class="fam-meta">'+TXT(orient==='portrait'?'fam_portrait':'fam_landscape')+' · '+TXT('fam_levels')(a,b)+
+    (reach?' · '+TXT('fam_reach')(reach):'')+'</span>';
 }
 let communityRows=[]; // the last storefront() result: price + owned per bundle
 
@@ -8932,9 +9039,15 @@ async function openCommunityBundle(id){
   if(!window.AkashicAuth||!AkashicAuth.getBundle) return;
   const meta=communityRows.find(r=>r.id===id);
   if(meta&&meta.price_cents>0&&!meta.owned){ startBundlePurchase(id); return; }
+  // Family rule (Jed 2026-11-12): owning a chapter isn't enough to PLAY it — every
+  // level of the chapter before it needs 3 stars first.
+  const g=chapterGate(meta);
+  if(!g.open){ alert(TXT('fam_lock')(g.prev.title,g.have,g.max)); return; }
   const row=await AkashicAuth.getBundle(id,meta&&meta.title);
   if(!row||!Array.isArray(row.data)||!row.data.length){ alert(TXT('alert_na')(id)); return; }
-  curBundle={ id:row.id, title:row.title, levels:row.data };
+  // first_level/family ride along so the grid, HUD and win screen show family numbers (26–50)
+  curBundle={ id:row.id, title:row.title, levels:row.data,
+              first_level:(meta&&meta.first_level)||1, family_name:meta&&meta.family_name, family_seq:meta&&meta.family_seq };
   PlayerProgress.bundle=id;
   renderCommunityGrid();
 }
@@ -8988,13 +9101,15 @@ function renderCommunityGrid(){
   const authStrip=(AUTH_ENABLED&&window.AkashicAuth)?AkashicAuth.stripHTML():'';
   const n=curBundle.levels.length;
   let html=authStrip+'<div id="pgrid-title">'+escHtml(curBundle.title)+'</div>'+
-           '<div id="pgrid-sub">'+TXT('bundle_n')+' · '+n+'</div><div class="pgrid">';
+           '<div id="pgrid-sub">'+(curBundle.family_name
+             ? escHtml(curBundle.family_name)+' · '+TXT('fam_chapter')(curBundle.family_seq)+' · '+TXT('fam_levels')(dispLevel(1),dispLevel(n))
+             : TXT('bundle_n')+' · '+n)+'</div><div class="pgrid">';
   const arch=isArchitect();
   for(let i=1;i<=n;i++){
     const open=arch||i===1||PlayerProgress.stars(i-1)>0, st=PlayerProgress.stars(i);
     if(open){const rc=PlayerProgress.record(i);
-      html+='<div class="pcell open" onclick="startCommunityLevel('+i+')"><span>'+i+'</span><span class="pstars">'+pStarStr(st)+'</span>'+(rc?'<span class="prec">'+TXT('rec_moves')(rc)+'</span>':'')+'</div>';}
-    else html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>';
+      html+='<div class="pcell open" onclick="startCommunityLevel('+i+')"><span>'+dispLevel(i)+'</span><span class="pstars">'+pStarStr(st)+'</span>'+(rc?'<span class="prec">'+TXT('rec_moves')(rc)+'</span>':'')+'</div>';}
+    else html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+dispLevel(i)+'</span></div>';
   }
   html+='</div>';
   document.getElementById('pbody').innerHTML=html;
@@ -9028,7 +9143,7 @@ function renderGrid(){
   // the auth module (deferred) has loaded; logged-out play is unaffected.
   const authStrip=(AUTH_ENABLED&&window.AkashicAuth)?AkashicAuth.stripHTML():'';
   let html=authStrip+'<div id="pgrid-title">'+TXT('bundle_title')+'</div>'+
-           '<div id="pgrid-sub">'+TXT('grid_sub')+'</div><div class="pgrid">';
+           '<div id="pgrid-sub">'+NATIVE_FAMILY+' · '+TXT('fam_chapter')(1)+' · '+TXT('fam_levels')(1,NATIVE_LEVELS)+'</div><div class="pgrid">';
   const arch=isArchitect(); // editors roam free; players gate sequentially
   for(let i=1;i<=25;i++){
     // Sequential gating is BY ROLE (Jed 2026-07-27 reversal, re-enabled 2026-07-29):
@@ -9945,7 +10060,7 @@ function updatePlayerHUD(){
   // updEditorFrame() no-ops there since #ehud/#eboost are display:none.
   if(editorSandboxPlay&&typeof updEditorFrame==='function')updEditorFrame();
   // Entrance is NOT Level 1 — Level 1 is reachable via Bundles. Distinct name.
-  document.getElementById('phud-level').textContent=entranceMode?TXT('lvl_qualifying'):TXT('lvl_prefix')+curLevelNum;
+  document.getElementById('phud-level').textContent=entranceMode?TXT('lvl_qualifying'):TXT('lvl_prefix')+dispLevel(curLevelNum); // family number (26–50 in chapter 2)
   // Moves count UP from 0 — no-fail model, no limit shown.
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
@@ -10188,7 +10303,7 @@ function playerFinish(win){
   document.getElementById('pwin-title').textContent=win?TXT('win_title'):TXT('lose_title');
   document.getElementById('pwin-stars').textContent=pStarStr(stars);
   document.getElementById('pwin-msg').textContent=win
-    ? TXT('win_msg')(curLevelNum,moves)
+    ? TXT('win_msg')(dispLevel(curLevelNum),moves)
     : TXT('try_again');
   // The bar to beat — the record that set ★1. Gives the player a target and a
   // reason to reach for the reset (Jed 2026-07-29).
@@ -10212,7 +10327,7 @@ function sandboxPlayerFinish(win){
   playing=false; Motion.claim('overlay');
   document.getElementById('pwin-title').textContent=win?TXT('win_title'):TXT('lose_title');
   document.getElementById('pwin-stars').textContent=win?'★★★':'';
-  document.getElementById('pwin-msg').textContent=win?TXT('win_msg')(curLevelNum,moves):TXT('try_again');
+  document.getElementById('pwin-msg').textContent=win?TXT('win_msg')(dispLevel(curLevelNum),moves):TXT('try_again');
   document.getElementById('pwin-rec').textContent='';
   document.getElementById('pwin-reset').style.display='none';
   document.getElementById('pwin-btn').textContent=win?TXT('cont'):TXT('retry');
