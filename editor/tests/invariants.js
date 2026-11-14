@@ -304,6 +304,13 @@ window.runInvariants = async function(){
         for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c];
           if(!cd.active||isSolid(r,c)) continue;                          // holes + generators never hold gems
           if(vault.has(comp[r][c])) continue;                             // sealed vault: empty by design
+          // VAULT SHADOW (Jed 2026-11-14, "THAT cell cannot be fed from above"): an
+          // unbreakable barrier sits on this cell's upstream seam, and both diagonals it
+          // could slip from are holes or vault cells. Nothing can reach it; empty by design.
+          { const [dr,dc]=FLOW_VEC[flow[r][c]||'down'], ur=r-dr, uc=c-dc;
+            if(ur>=0&&ur<R&&uc>=0&&uc<C&&wallBetween(r,c,ur,uc)==='unbreakable'){
+              const diag=dr!==0?[[ur,uc-1],[ur,uc+1]]:[[ur-1,uc],[ur+1,uc]];
+              if(diag.every(([pr,pc])=>pr<0||pr>=R||pc<0||pc>=C||!board[pr][pc].active||vault.has(comp[pr][pc]))) continue; } }
           if(cd.gem===null&&!cd.pu&&!cd.item) empty.push('R'+r+'C'+c); }
         return empty;
       };
