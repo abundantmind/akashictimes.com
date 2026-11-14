@@ -248,6 +248,22 @@ window.runInvariants = async function(){
       ok('window · no gem launches into a cell before its occupant leaves (through windows too)', bad.length===0, bad.slice(0,3));
     }
 
+    // SIDE-FLOWING UPSTREAM SLIPS (Jed 2026-11-14, Akashic Portrait Window L26): a column
+    // whose top cell has NO feeder — the cell above it flows SIDEWAYS — must slip-fill from
+    // the diagonals, not sit empty waiting on a gem that never comes. Board: row 0 runs
+    // right along cols 0–2 and turns down at col 3; column 2 below row 0 flows down but
+    // nothing points into R1C2. Empty that column; one gravity fixpoint must fill it.
+    await startPlayerLevel(1,false); await wait(45);
+    {
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.active=true; cd.obs=null; cd.item=null; cd.pu=null; cd.source=null; cd.win=null; cd.startEmpty=false; cd.gen=null; cd.wallE=null; cd.wallS=null; cd.gem=randGem(); flow[r][c]='down'; }
+      flow[0][0]='right'; flow[0][1]='right'; flow[0][2]='right';      // the top run turns down at col 3
+      for(let r=1;r<R;r++) board[r][2].gem=null;                      // the unfed column, emptied
+      for(let i=0;i<60;i++){ if(!gravityWithMap().length) break; }
+      const stillEmpty=[]; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===null&&!board[r][c].pu) stillEmpty.push('R'+r+'C'+c);
+      ok('gravity · a column under a side-flowing cell slip-fills (no feeder ≠ wait forever)', stillEmpty.length===0, stillEmpty.slice(0,6));
+      for(let r=0;r<R;r++)for(let c=0;c<C;c++) flow[r][c]='down';      // leave plain flow for the tests below
+    }
+
     // KEY RESPAWN (Jed 2026-10-07, Township L28/L41): while the board holds fewer keys
     // than the run started with AND collected + on-board < the goal, the next spawn is a key.
     await startPlayerLevel(1,false); await wait(45);
