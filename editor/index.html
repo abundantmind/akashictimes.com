@@ -7869,7 +7869,18 @@ function gravityWithMap(){
         const [ndr,ndc]=vecAt(nr,nc);
         if(nr+ndr===r&&nc+ndc===c){fr=nr;fc=nc;break;}  // this neighbor releases INTO (r,c) (a barrier between is handled below)
       }
-      if(fr<0){const [dr,dc]=vecAt(r,c);fr=r-dr;fc=c-dc;} // none flows in → geometric upstream (open-sky / hole-above, unchanged)
+      // SIDE-FLOWING UPSTREAM (Jed 2026-11-14, Akashic Portrait Window L26): no neighbour
+      // flows in, yet the cell straight upstream is ACTIVE — it releases SIDEWAYS (a channel
+      // row turning into an up-column beside this one, or a top run turning down past it).
+      // Its gem will never arrive here, so it's a forever-block exactly like a hole: slip
+      // from the two diagonals flanking it. Before this, the walk saw a plain gem there,
+      // concluded "a straight feed is coming", and the whole column sat empty for good
+      // (R6C3's up-column and R2C7's down-column after Jed narrowed 3 feeders to 2).
+      // Only cells with NO feeder at all reach this branch, so every level whose cells all
+      // have a feeder (every shipped level, per the dead-cell scan) is byte-identical.
+      let sideUpstream=false;
+      if(fr<0){const [dr,dc]=vecAt(r,c);fr=r-dr;fc=c-dc;   // none flows in → geometric upstream (open-sky / hole-above, unchanged)
+        sideUpstream=inGrid(fr,fc)&&board[fr][fc].active;}  // active but flows elsewhere → never feeds this cell
       const fdr=fr-r,fdc=fc-c;                            // unit step from (r,c) toward its feeder
       // Walk from the feeder onward past EMPTY active cells (L11: an empty RUN
       // under a chain must still refill) to the first PERMANENT block: a hole, a
@@ -7886,7 +7897,7 @@ function gravityWithMap(){
       // right column sat empty above one gem, because window 6's Exit at the bottom of
       // pillar 2 was still under a crate — the engine waited on a window that couldn't
       // send anything, and never slipped gems in from the column beside it).
-      let br=fr,bc=fc,sdr=fdr,sdc=fdc,blockedForever=!!wallBetween(r,c,fr,fc);
+      let br=fr,bc=fc,sdr=fdr,sdc=fdc,blockedForever=sideUpstream||!!wallBetween(r,c,fr,fc);
       const thruWin=new Set();                         // windows already walked through (a loop of windows can't spin forever)
       for(;!blockedForever;){
         if(!inGrid(br,bc))break;                       // open sky: spawns feed it
