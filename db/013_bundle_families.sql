@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- AkashicSwaps — migration 013: bundle families
--- (2026-11-13)  Run in the Supabase SQL editor, AFTER 012.
+-- (2026-11-13)  Run in the Supabase SQL editor. Independent of 012 — either order is fine.
 --
 -- ── What a family is (Jed 2026-11-12) ───────────────────────────────────────
 --   · A run of bundles numbered straight through. Chapter 1 = levels 1–25,
