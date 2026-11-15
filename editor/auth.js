@@ -315,6 +315,44 @@ const AkashicAuth = {
     return { ok:true, id: data && data.id };
   },
 
+  // ── CLOUD DRAFTS (db/016, Jed 2026-11-15 "everything is moving towards the cloud") ──
+  // The network half of editor/cloud-drafts.js, which owns the on-device copy and
+  // decides WHAT to send. These four calls only move rows; RLS keeps them the author's.
+  // Every call returns { ok, ... } and never throws, so an offline device just retries later.
+
+  // Everything of mine that reached the server after `since` (ISO, or null = all).
+  // Pages through draft_files 1000 rows at a time (PostgREST's default cap).
+  async draftsPull(since){
+    const u = this.user; if(!u) return { ok:false, error:'not signed in' };
+    const d = await supabase.from('drafts').select('id,orientation,created_at');
+    if(d.error) return { ok:false, error: d.error.message };
+    const files = [];
+    for(let from = 0; ; from += 1000){
+      let q = supabase.from('draft_files').select('draft_id,name,body,edited_at,updated_at')
+        .order('updated_at', { ascending:true }).range(from, from + 999);
+      if(since) q = q.gt('updated_at', since);
+      const r = await q;
+      if(r.error) return { ok:false, error: r.error.message };
+      files.push(...(r.data || []));
+      if(!r.data || r.data.length < 1000) break;
+    }
+    return { ok:true, drafts: d.data || [], files };
+  },
+  // Create the draft's row (idempotent: the id was minted on the device).
+  async draftUpsert({ id, orientation }){
+    const u = this.user; if(!u) return { ok:false, error:'not signed in' };
+    const { error } = await supabase.from('drafts')
+      .upsert({ id, author: u.id, orientation }, { onConflict:'id', ignoreDuplicates:true });
+    return error ? { ok:false, error: error.message } : { ok:true };
+  },
+  // Save one file; { ok, saved:false } = the server already has a NEWER edit of it.
+  async draftFileSave({ draftId, name, body, editedAt }){
+    const u = this.user; if(!u) return { ok:false, error:'not signed in' };
+    const { data, error } = await supabase.rpc('save_draft_file',
+      { p_draft: draftId, p_name: name, p_body: body, p_edited_at: editedAt });
+    return error ? { ok:false, error: error.message } : { ok:true, saved: !!data };
+  },
+
   // Draft / In review / Published for the architect's LOCAL bundle folders: each
   // folder's bundle.json remembers the row ids its submissions created, and this
   // reads back their `published` flag. RLS ("read published or own") lets an author
