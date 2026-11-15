@@ -3027,7 +3027,8 @@ async function submitUserBundle(id){
     for(const fn of fnames){ const fh=await b.dir.getFileHandle(fn); levels.push(JSON.parse(await (await fh.getFile()).text())); }
   }catch(e){ alert('Could not read level files: '+e.message); return; }
   if(btn){ btn.disabled=true; btn.textContent=TXT('submit_bundle_sending'); }
-  const res=await AkashicAuth.submitBundle({ title:b.name, levels });
+  // the family claim rides along (db/015): Publish places the bundle as that chapter
+  const res=await AkashicAuth.submitBundle({ title:b.name, levels, family:b.family||null, orientation:(b.orient||'').toLowerCase()||null });
   if(res.ok){
     if(btn){ btn.textContent=TXT('submit_bundle_sent'); }
     // Remember the server row this submission created, so the list can show In review → Published.
@@ -3104,6 +3105,8 @@ function renderAdmin(){
       const n=Array.isArray(r.data)?r.data.length:0;
       h+='<div class="adm-row"><div class="adm-head"><span class="adm-title">'+escHtml(r.title)+'</span>'
         +'<span class="adm-meta">by '+escHtml(who)+' · '+n+' levels · submitted '+escHtml(when(r.created_at))+'</span></div>'
+        // the family claim Publish will act on (db/015): "→ Wall of Sound · chapter 3"
+        +(r.req_family?'<div class="adm-meta" style="margin-top:4px">→ '+escHtml(r.req_family)+' · chapter '+(r.req_family_seq||1)+(r.req_orientation?' · '+escHtml(r.req_orientation):'')+'</div>':'')
         +(r.returned_at?'<div class="adm-note">↩ Sent back '+escHtml(when(r.returned_at))+': '+escHtml(r.review_note||'')+'</div>':'')
         +'<div class="adm-head" style="margin-top:8px">'
         +'<button class="adm-btn" onclick="adminOpenBundle('+r.id+')">Open &amp; play</button>'

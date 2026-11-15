@@ -299,11 +299,17 @@ const AkashicAuth = {
   // `published` in the Supabase SQL editor — no admin UI needed at this volume.
   // `levels` = the array of canonical serializeLevel() outputs already written
   // to the architect's local bundle folder; `data` just carries them as-is.
-  async submitBundle({ title, levels }){
+  // `family` = bundle.json's {name, seq} (Jed 2026-11-14, family first) and `orientation`
+  // the bundle's folder. They're a REQUEST: publish_bundle (db/015) checks the family is
+  // this author's (or new) and that the chapter slot is free, then places it.
+  async submitBundle({ title, levels, family, orientation }){
     const u = this.user; if(!u) return { ok:false, error:'not signed in' };
     if(!title || !levels || !levels.length) return { ok:false, error:'nothing to submit' };
+    const row = { author: u.id, title: title.slice(0,80), data: levels, published: false };
+    if(family && family.name){ row.req_family = String(family.name).slice(0,60); row.req_family_seq = Number(family.seq)||1; }
+    if(orientation === 'landscape' || orientation === 'portrait') row.req_orientation = orientation;
     const { data, error } = await supabase.from('bundles')
-      .insert({ author: u.id, title: title.slice(0,80), data: levels, published: false })
+      .insert(row)
       .select('id').maybeSingle();
     if(error){ console.warn('[auth] submitBundle failed', error.message); return { ok:false, error: error.message }; }
     return { ok:true, id: data && data.id };
@@ -398,7 +404,7 @@ const AkashicAuth = {
   // Every submission still waiting (published=false), oldest first, with its author.
   async listReviewQueue(){
     const { data, error } = await supabase.from('bundles')
-      .select('id,title,data,created_at,returned_at,review_note,author,profiles(username,handle)')
+      .select('*,profiles(username,handle)')   // * so db/015's family claim (req_family…) comes along once it exists
       .eq('published', false).order('created_at', { ascending:true });
     if(error){ console.warn('[auth] listReviewQueue failed', error.message); return { ok:false, error:error.message, rows:[] }; }
     return { ok:true, rows: data || [] };
