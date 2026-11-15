@@ -1480,6 +1480,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 <!-- Persistent visitor identity (generated handle / signed-in username) — loaded
      before the game script so AkashicID is ready; shared same-origin with landing. -->
 <script src="/identity.js"></script>
+<script src="./cloud-drafts.js"></script>
 <script>
 // ── i18n — English + 한국어 ────────────────────────────────────────────────────
 // Player-facing strings only; the editor tooling (palette, toolbar, status bar)
@@ -2724,7 +2725,7 @@ function renderProductsList(){
   const card=b=>'<div class="prod-card" onclick="openUserBundle('+jsArg(b.id)+')">'+
       '<div><div class="pc-name">'+escHtml(b.name)+statusTag(b.status,b.reviewNote)+'</div>'+
         // a family chapter says where it sits: "Ground Zero · chapter 2 · levels 26–50"
-        '<div class="pc-meta">'+(b.family?escHtml(b.family.name)+' · chapter '+b.family.seq+' · levels '+b.family.firstLevel+'–'+(b.family.firstLevel+24):'Your bundle · on disk')+'</div></div>'+
+        '<div class="pc-meta">'+(b.family?escHtml(b.family.name)+' · chapter '+b.family.seq+' · levels '+b.family.firstLevel+'–'+(b.family.firstLevel+24):'Your bundle')+'</div></div>'+
       '<div class="pc-arrow">→</div></div>';
   html+='<div class="bcols">';
   BUNDLE_ORIENTS.forEach(o=>{
@@ -2743,13 +2744,10 @@ function renderProductsList(){
     html+='</div>';
   });
   html+='</div>';
-  // Bundles sitting loose in the home (outside Landscape/ or Portrait/) still list, below.
-  const loose=USER_BUNDLES.filter(b=>!b.orient);
-  if(loose.length){ html+='<div class="pmsg" style="margin:16px 0 8px;">Unsorted — move into Landscape/ or Portrait/</div><div class="bcol" style="flex:none;">'; loose.forEach(b=>{ html+=card(b); }); html+='</div>'; }
-  // Where the bundles live, and a way to point at a different home (e.g. editor/Bundles).
-  if(window.showDirectoryPicker) html+='<div class="pmsg" style="font-size:12px;margin:16px 0 0;">Bundles home: '+
-    (bundleRoot?'<b>'+escHtml(bundleRoot.name)+'</b>':'not chosen yet')+
-    ' · <a href="#" onclick="refreshUserBundles(true);return false;">'+(bundleRoot?'change':'choose')+'</a></div>';
+  // Where the bundles live now: the Architect's account (cloud drafts), with this
+  // device's copy and the sync state on one line.
+  html+='<div class="pmsg" id="cloud-sync-line" style="font-size:12px;margin:16px 0 0;">'+cloudSyncLine()+'</div>';
+  html+=importSectionHtml();   // desktop only: bundle folders on this computer → Import
   html+='<div class="bfoot"><button class="prod-close" onclick="closeProducts();openNewLevel()">'+TXT('btn_new_level')+'</button>';
   html+='<button class="prod-close" onclick="closeProducts()">'+TXT('products_close')+'</button></div>';
   document.querySelector('#products .wbox').innerHTML=html;
@@ -2794,7 +2792,16 @@ function editorToBundle(){
   if(ub) openUserBundle(ub); else renderBundleLevels(b);
 }
 
-// ═══ USER BUNDLES — a bundle = a FOLDER OF REAL JSON FILES on the architect's
+// ═══ USER BUNDLES — CLOUD IS HOME (Jed 2026-11-15: "Everything is moving towards the
+// cloud."). An Architect's bundles live in their ACCOUNT as cloud drafts (cloud-drafts.js
+// + db/016): saved on the device first, synced to Supabase when online, so an iPad or an
+// Android tablet can build, offline included. A cloud draft holds the SAME files a folder
+// did (bundle.json + level-0NN.json) behind a stand-in folder handle (b.dir), so the save /
+// approve / submit code below works on either. Folders on a computer are now IMPORT
+// (bring a folder bundle, or your AI's level files, into your account) and EXPORT (write a
+// cloud bundle back out as a folder). The folder notes below describe that import side.
+//
+// (Before 2026-11-15:) a bundle = a FOLDER OF REAL JSON FILES on the architect's
 // machine (Chrome File System Access). The folder holds bundle.json (manifest) +
 // level-0NN.json files. This is the creator spine: name a bundle → build levels
 // into it as real files → the sellable unit.
@@ -2809,7 +2816,8 @@ function editorToBundle(){
 // Jed named "Akashic Window" and got an empty new folder instead of its 9 levels.)
 // The last scan is cached in IndexedDB so the list paints before permission is re-granted.
 const BUNDLE_ORIENTS=['Landscape','Portrait']; // the orientation folders, in list order
-let USER_BUNDLES=[];           // [{id:'Landscape/Akashic-Window',name,dir:FileSystemDirectoryHandle,orient}]
+let USER_BUNDLES=[];           // the Architect's CLOUD drafts: [{id:'cloud:<uuid>',name,dir:CloudDir,orient,subs,family,status,cloud:true}]
+let DISK_BUNDLES=[];           // bundle folders found on this computer: Import only (cloud is home, Jed 2026-11-15)
 let currentUserBundle=null;    // the user bundle whose level grid is showing
 let saveTargetBundle=null;     // id of the bundle the editor saves INTO (null = classic editor/levels)
 let bundleEditNum=null;        // level # being edited (null = adding new → auto-number)
@@ -2824,16 +2832,16 @@ const jsArg=s=>escHtml(JSON.stringify(String(s)));
 function _idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('akashic-bundles',1);
   r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function persistUserBundles(){ try{ const db=await _idb(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite');
-  tx.objectStore('kv').put(USER_BUNDLES.map(b=>({id:b.id,name:b.name,dir:b.dir,orient:b.orient,subs:b.subs,family:b.family||null,status:b.status})),'list'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('bundle persist',e);} }
+  tx.objectStore('kv').put(DISK_BUNDLES.map(b=>({id:b.id,name:b.name,dir:b.dir,orient:b.orient,subs:b.subs,family:b.family||null,status:b.status})),'list'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('bundle persist',e);} }
 async function persistBundleRoot(){ try{ const db=await _idb(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite');
   tx.objectStore('kv').put(bundleRoot,'root'); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch(e){console.warn('root persist',e);} }
-async function loadUserBundles(){ try{ const db=await _idb();
-  USER_BUNDLES=await new Promise((res,rej)=>{ const tx=db.transaction('kv','readonly');
+async function loadUserBundles(){ await loadCloudBundles(); try{ const db=await _idb();
+  DISK_BUNDLES=await new Promise((res,rej)=>{ const tx=db.transaction('kv','readonly');
     const q=tx.objectStore('kv').get('list'); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>rej(q.error); });
   bundleRoot=await new Promise((res)=>{ const tx=db.transaction('kv','readonly');
     const q=tx.objectStore('kv').get('root'); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); });
   // Pre-layout caches used 'ub-<time>' ids from the registered model — drop them; the scan rebuilds.
-  USER_BUNDLES=USER_BUNDLES.filter(b=>b.orient!==undefined);
+  DISK_BUNDLES=DISK_BUNDLES.filter(b=>b.orient!==undefined);
   // Chrome may keep the grant across reloads — if so, refresh from disk right away.
   if(bundleRoot&&(await bundleRoot.queryPermission({mode:'readwrite'}))==='granted') await scanBundles();
 }catch(e){console.warn('bundle load',e);} }
@@ -2861,7 +2869,7 @@ async function scanBundles(){
   }catch(e){ console.warn('bundle scan',e); return; }
   found.sort((a,b)=>a.name.localeCompare(b.name));
   await resolveBundleStatuses(found);
-  USER_BUNDLES=found; await persistUserBundles();
+  DISK_BUNDLES=found; await persistUserBundles();
 }
 // Draft (never submitted) · In review (submitted, not yet approved) · Published (any of
 // its submissions approved — published is FINAL, db/004). The server is the authority;
@@ -2896,35 +2904,148 @@ async function ensureBundleRoot(repick){
 // Opening the bundle list (a click) re-grants folder access and rescans, then repaints
 // if the list is still what's on screen. `repick` = choose a different bundles home.
 async function refreshUserBundles(repick){
-  if(!window.showDirectoryPicker) return;
-  if(!bundleRoot&&!repick){ renderProductsList(); return; }   // no home yet — the list offers to pick one
-  if(!(await ensureBundleRoot(repick))) return;
+  if(window.CloudDrafts) CloudDrafts.sync();          // pull what was built on another device (repaints via 'cloud-drafts')
+  if(!window.showDirectoryPicker) return;             // tablets: no folders at all, and none needed now
+  if(!bundleRoot&&!repick) return;                    // no import folder chosen yet
+  if(!repick){ try{ if((await bundleRoot.queryPermission({mode:'readwrite'}))!=='granted') return; }catch(e){ return; } }  // never prompt just for opening the list
+  else if(!(await ensureBundleRoot(true))) return;
   await scanBundles();
   if(document.getElementById('products').classList.contains('open')&&productsView==null&&currentUserBundle==null) renderProductsList();
 }
 
-// "+ New Landscape / Portrait bundle" — the NAME you type becomes a real folder inside
-// <home>/<orient>/. Naming a folder that already exists OPENS it (its levels and its
-// bundle.json are left alone) instead of making a second, empty bundle.
+// "+ New Landscape / Portrait bundle" → a new CLOUD DRAFT (no folder, no picker, so it
+// works on a tablet). Family first, then the name (pickFamilyAndName). Naming a bundle you
+// already have in this orientation OPENS it instead of making a twin, as folders did.
 async function createBundle(orient){
-  if(!window.showDirectoryPicker){ alert('Creating a bundle needs a Chromium browser (File System Access) — Chrome or Edge.'); return; }
-  if(!(await ensureBundleRoot())) return;                    // pick where bundles live (once), grant access
-  await scanBundles();                                       // the family list reads what's on disk right now
+  if(!window.CloudDrafts){ alert('The editor is still loading. Try again in a moment.'); return; }
   const pick=await pickFamilyAndName(orient); if(!pick) return;   // FAMILY first, then the bundle's name (Jed 2026-11-14)
   const name=pick.name, family=pick.family;
-  const folder=name.replace(/[^\w \-]+/g,'').replace(/\s+/g,'-') || ('bundle-'+Date.now()); // safe folder name
-  let dir;
-  try{ const od=await bundleRoot.getDirectoryHandle(orient,{create:true});             // Landscape/ or Portrait/
-    dir=await od.getDirectoryHandle(folder,{create:true}); }                            // the NAME creates (or finds) the folder
-  catch(e){ alert('Could not create the bundle folder: '+e.message); return; }
-  let hasManifest=true; try{ await dir.getFileHandle('bundle.json'); }catch(e){ hasManifest=false; }
-  if(!hasManifest){
-    try{ const fh=await dir.getFileHandle('bundle.json',{create:true}); const w=await fh.createWritable();
-      await w.write(JSON.stringify({schema:'akashic-bundle/1',name,orientation:orient,family,created:new Date().toISOString()},null,2)+'\n'); await w.close();
-    }catch(e){ alert('Could not write into the bundle folder: '+e.message); return; }
+  const same=USER_BUNDLES.find(b=>b.orient===orient&&b.name.toLowerCase()===name.toLowerCase());
+  if(same){ await openUserBundle(same.id); return; }
+  let id;
+  try{ id=await CloudDrafts.create(orient,{'bundle.json':JSON.stringify({schema:'akashic-bundle/1',name,orientation:orient,family,created:new Date().toISOString()},null,2)+'\n'}); }
+  catch(e){ alert('Could not create the bundle: '+e.message); return; }
+  await loadCloudBundles();
+  await openUserBundle('cloud:'+id);                          // straight into it
+}
+
+// My cloud drafts (this device's copy) → USER_BUNDLES. Paints from the device at once;
+// the review statuses (In review / Sent back / Published) come from the server after.
+async function loadCloudBundles(){
+  if(!window.CloudDrafts) return;
+  let list=[]; try{ list=await CloudDrafts.list(); }catch(e){ console.warn('cloud drafts',e); return; }
+  const out=list.map(d=>{
+    const m=d.manifest||{}, subs=m.submissions||[];
+    const family=m.family&&m.family.name?{name:String(m.family.name),seq:Number(m.family.seq)||1,firstLevel:Number(m.family.firstLevel)||1}:null;
+    return {id:'cloud:'+d.id,draftId:d.id,name:m.name||'Untitled bundle',dir:CloudDrafts.dir(d.id),
+      orient:d.orientation==='portrait'?'Portrait':'Landscape',subs,family,status:subs.length?'review':'draft',
+      cloud:true,importedFrom:m.importedFrom||null};
+  });
+  out.sort((a,b)=>a.name.localeCompare(b.name));
+  USER_BUNDLES=out;
+  try{ await resolveBundleStatuses(out); }catch(e){}
+}
+// A sync finished: re-read the drafts if it brought anything in, and refresh what's on screen.
+window.addEventListener('cloud-drafts',async e=>{
+  if(e.detail&&e.detail.changed) await loadCloudBundles();
+  const listOpen=document.getElementById('products').classList.contains('open')&&productsView==null&&currentUserBundle==null;
+  if(listOpen&&e.detail&&e.detail.changed) renderProductsList();
+  else{ const el=document.getElementById('cloud-sync-line'); if(el) el.innerHTML=cloudSyncLine(); }
+});
+// Sign in / out changes whose drafts are listed (and lets a signed-out device's drafts be claimed).
+window.addEventListener('akashic-auth',async()=>{ await loadCloudBundles();
+  if(document.getElementById('products').classList.contains('open')&&productsView==null&&currentUserBundle==null) renderProductsList(); });
+
+// Where a cloud bundle is kept, honestly: in the account only once an email user is signed in.
+const cloudWhere=()=>{ const u=window.AkashicAuth&&AkashicAuth.user; return (u&&!u.is_anonymous)?'Saved to your account.':'Saved on this device (sign in to keep it in your account).'; };
+// The one-line sync state under the bundle columns.
+function cloudSyncLine(){
+  const st=window.CloudDrafts?CloudDrafts.state:null; if(!st) return '';
+  const u=window.AkashicAuth&&AkashicAuth.user, emailUser=u&&!u.is_anonymous;
+  if(!emailUser) return '☁ Saved on this device. <a href="#" onclick="window.AkashicAuth&&AkashicAuth.open();return false;">Sign in</a> to keep your bundles in your account, on any device.';
+  if(st.syncing) return '☁ Syncing…';
+  if(st.pending){
+    const off=navigator.onLine===false||st.error==='offline';
+    return '☁ '+st.pending+' change'+(st.pending>1?'s':'')+' waiting to sync'
+      +(off?' (offline: they go up when you\'re back online)':st.error?' (last try failed: '+escHtml(st.error)+')':'');
   }
+  return '☁ Saved to your account';
+}
+
+// ── IMPORT: folder bundles on this computer → my account ────────────────────
+// Folder bundles (built before 2026-11-15, or written by an AI / the Fable kit) list here,
+// one Import each. Import copies bundle.json + every level-0NN.json byte for byte, so
+// approvals and submission records come along; bundle.json gains "importedFrom" so the
+// row shows ✓ afterwards. The folder itself is left untouched.
+const diskKey=d=>(bundleRoot?bundleRoot.name:'')+'/'+d.id;
+const importedAlready=d=>USER_BUNDLES.some(b=>b.importedFrom===diskKey(d));
+function importSectionHtml(){
+  if(!window.showDirectoryPicker) return '';
+  let h='<div class="pmsg" style="font-size:12px;margin:8px 0 0;">⇪ <a href="#" onclick="importBundlesFromFolder();return false;">'
+    +(bundleRoot?'Import from a different folder':'Import bundles from a folder')+'</a> (bundles built on disk, or your AI\'s level files)</div>';
+  if(!DISK_BUNDLES.length) return h;
+  const waiting=DISK_BUNDLES.filter(d=>!importedAlready(d));
+  h+='<div class="pmsg" style="font-size:12px;margin:12px 0 4px;">On this computer · <b>'+escHtml(bundleRoot?bundleRoot.name:'')+'</b>'
+    +(waiting.length>1?' · <a href="#" onclick="importAllDiskBundles();return false;">Import all '+waiting.length+'</a>':'')+'</div>';
+  h+='<div style="display:flex;flex-direction:column;gap:4px;font-size:12px;max-width:440px;margin:0 auto;">';
+  DISK_BUNDLES.forEach(d=>{
+    h+='<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;color:#c8b8e0;">'
+      +'<span>'+escHtml(d.name)+' <span style="color:#887a9a">· '+escHtml(d.orient||'unsorted')+'</span></span>'
+      +(importedAlready(d)?'<span style="color:#4caf7a">✓ in your account</span>'
+        :'<a href="#" style="color:#c8a8ff" onclick="importDiskBundle('+jsArg(d.id)+');return false;">⇪ Import</a>')+'</div>';
+  });
+  return h+'</div>';
+}
+// Pick a folder (a click): a bundles home (Landscape/ + Portrait/ inside) or one bundle folder.
+async function importBundlesFromFolder(){
+  if(!(await ensureBundleRoot(true))) return;
   await scanBundles();
-  await openUserBundle(orient+'/'+folder);                    // straight into it — new or existing
+  if(!DISK_BUNDLES.length){                                  // the folder IS a bundle (holds bundle.json)?
+    try{ const j=JSON.parse(await (await (await bundleRoot.getFileHandle('bundle.json')).getFile()).text());
+      const o=/^portrait$/i.test(j.orientation||'')?'Portrait':/^landscape$/i.test(j.orientation||'')?'Landscape':'';
+      DISK_BUNDLES=[{id:bundleRoot.name,name:j.name||bundleRoot.name,dir:bundleRoot,orient:o,subs:j.submissions||[],family:null,status:'draft'}];
+    }catch(e){ alert('No bundles in that folder. Pick a folder that holds bundle.json, or Landscape/ and Portrait/ folders of bundles.'); }
+  }
+  renderProductsList();
+}
+// Copy one folder bundle into a new cloud draft. `quiet` = part of Import all (one repaint at the end).
+async function importDiskBundle(id,quiet){
+  const d=DISK_BUNDLES.find(x=>x.id===id); if(!d) return false;
+  if(!quiet&&!(await ensureBundleRoot())) return false;      // re-grant access (needs this click)
+  try{
+    const files={};
+    for await(const [n,h] of d.dir.entries())
+      if(h.kind==='file'&&(n==='bundle.json'||/^level-\d{3,4}\.json$/.test(n))) files[n]=await (await h.getFile()).text();
+    let m={}; try{ m=JSON.parse(files['bundle.json']||'{}'); }catch(e){}
+    const orient=d.orient||(/^portrait$/i.test(m.orientation||'')?'Portrait':'Landscape');
+    m.schema=m.schema||'akashic-bundle/1'; m.name=m.name||d.name; m.orientation=orient; m.importedFrom=diskKey(d);
+    files['bundle.json']=JSON.stringify(m,null,2)+'\n';
+    await CloudDrafts.create(orient,files);
+  }catch(e){ alert('Import failed for '+d.name+': '+e.message); return false; }
+  if(!quiet){ await loadCloudBundles(); renderProductsList(); }
+  return true;
+}
+async function importAllDiskBundles(){
+  if(!(await ensureBundleRoot())) return;
+  let n=0; for(const d of DISK_BUNDLES.filter(x=>!importedAlready(x))) if(await importDiskBundle(d.id,true)) n++;
+  await loadCloudBundles(); renderProductsList();
+  const sb=document.getElementById('sb3'); if(sb) sb.textContent='Imported '+n+' bundle'+(n===1?'':'s')+' into your account';
+}
+
+// ── EXPORT: a cloud bundle → a folder on this computer (desktop Chrome/Edge) ──
+// Writes <picked folder>/<Bundle-Name>/ with bundle.json + every level file, the same
+// layout Import reads, an AI writes, and the old bundles home used.
+async function exportCloudBundle(id){
+  const b=USER_BUNDLES.find(x=>x.id===id); if(!b||!b.cloud) return;
+  let parent; try{ parent=await window.showDirectoryPicker({id:'akashic-export',mode:'readwrite'}); }
+  catch(e){ if(e.name!=='AbortError') alert('Could not open a folder: '+e.message); return; }
+  const folder=b.name.replace(/[^\w \-]+/g,'').replace(/\s+/g,'-')||'bundle';
+  let n=0;
+  try{ const dir=await parent.getDirectoryHandle(folder,{create:true});
+    for(const f of await CloudDrafts.files(b.draftId)){ const w=await (await dir.getFileHandle(f.name,{create:true})).createWritable(); await w.write(f.body); await w.close(); n++; } }
+  catch(e){ alert('Export failed: '+e.message); return; }
+  const sb=document.getElementById('sb3'); if(sb) sb.textContent='Exported '+n+' files → '+parent.name+'/'+folder;
+  alert('Exported '+n+' files to '+parent.name+'/'+folder);
 }
 
 // ═══ FAMILY FIRST (Jed 2026-11-14) ═══════════════════════════════════════════
@@ -2997,13 +3118,14 @@ async function openUserBundle(id){
     +(b.status==='returned'?'<div class="pmsg" style="color:#f0a0a0">↩ Sent back by the reviewer: '+escHtml(b.reviewNote||'')+' — fix it, re-approve, and Submit again.</div>':'')
     +'<div class="pmsg">'+(pub
     ?'Published — final. Open a level to view or ▶ Play it; it can\'t be changed.'
-    :'Real JSON files on your disk. Click a number to edit, or ＋ to add a level. <span style="color:#4caf7a">✓</span> = approved for submission.')+'</div><div class="prodlvls">';
+    :(b.cloud?cloudWhere():'Real JSON files on your disk.')+' Click a number to edit, or ＋ to add a level. <span style="color:#4caf7a">✓</span> = approved for submission.')+'</div><div class="prodlvls">';
   lv.forEach(l=>{ html+='<button class="prodlvl'+(l.approved?' approved':'')+'" onclick="editUserBundleLevel('+jsArg(id)+','+jsArg(l.fn)+')">'+l.num+'</button>'; });
   if(!pub) html+='<button class="prodlvl" style="border-style:dashed;color:#c8a8ff" onclick="addLevelToBundle('+jsArg(id)+')">＋</button>';
   html+='</div>';
   // Submit shows its progress; until the bundle is ready it is dimmed and the click explains why.
   if(lv.length&&!pub) html+='<button class="prod-submit'+(bundleReady(lv)?'':' gated')+'" id="prod-submit-btn" onclick="submitUserBundle('+jsArg(id)+')">'+
     TXT('submit_bundle_btn')+' · '+lv.filter(l=>l.approved).length+'/'+BUNDLE_SIZE+' approved</button>';
+  if(b.cloud&&window.showDirectoryPicker&&lv.length) html+='<button class="prod-close" onclick="exportCloudBundle('+jsArg(id)+')">⇩ Export to a folder</button>';
   html+='<button class="prod-close" onclick="currentUserBundle=null;renderProductsList()">← Bundles</button>';
   document.querySelector('#products .wbox').innerHTML=html;
 }
