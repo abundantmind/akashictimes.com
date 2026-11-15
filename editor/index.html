@@ -2909,7 +2909,9 @@ async function refreshUserBundles(repick){
 async function createBundle(orient){
   if(!window.showDirectoryPicker){ alert('Creating a bundle needs a Chromium browser (File System Access) — Chrome or Edge.'); return; }
   if(!(await ensureBundleRoot())) return;                    // pick where bundles live (once), grant access
-  const name=(prompt('Name your new '+orient+' bundle:','')||'').trim(); if(!name) return;
+  await scanBundles();                                       // the family list reads what's on disk right now
+  const pick=await pickFamilyAndName(orient); if(!pick) return;   // FAMILY first, then the bundle's name (Jed 2026-11-14)
+  const name=pick.name, family=pick.family;
   const folder=name.replace(/[^\w \-]+/g,'').replace(/\s+/g,'-') || ('bundle-'+Date.now()); // safe folder name
   let dir;
   try{ const od=await bundleRoot.getDirectoryHandle(orient,{create:true});             // Landscape/ or Portrait/
@@ -2918,11 +2920,68 @@ async function createBundle(orient){
   let hasManifest=true; try{ await dir.getFileHandle('bundle.json'); }catch(e){ hasManifest=false; }
   if(!hasManifest){
     try{ const fh=await dir.getFileHandle('bundle.json',{create:true}); const w=await fh.createWritable();
-      await w.write(JSON.stringify({schema:'akashic-bundle/1',name,orientation:orient,created:new Date().toISOString()},null,2)+'\n'); await w.close();
+      await w.write(JSON.stringify({schema:'akashic-bundle/1',name,orientation:orient,family,created:new Date().toISOString()},null,2)+'\n'); await w.close();
     }catch(e){ alert('Could not write into the bundle folder: '+e.message); return; }
   }
   await scanBundles();
   await openUserBundle(orient+'/'+folder);                    // straight into it — new or existing
+}
+
+// ═══ FAMILY FIRST (Jed 2026-11-14) ═══════════════════════════════════════════
+// "When an architect creates their first Bundle, they should consider the Family (Game
+// Path Name) before the Bundle name." A Family is the Architect's game path: bundles
+// numbered straight through (chapter 1 = levels 1–25, chapter 2 = 26–50, …), one
+// orientation, each chapter opening after every level of the one before has 3 stars.
+// The Create box asks for the Family on top and the Bundle's name underneath. Picking an
+// existing family makes the new bundle its NEXT chapter; a new family starts at chapter 1.
+// The answer lands in bundle.json as {"name","seq","firstLevel"}: the same field the
+// cards already read, and what Submit sends so Publish can place it (db/015).
+
+// This orientation's families on disk → [{name, next, firstLevel}], next = the next free chapter.
+function diskFamilies(orient){
+  const by=new Map();
+  USER_BUNDLES.filter(b=>b.orient===orient&&b.family&&b.family.name).forEach(b=>{
+    const k=b.family.name; by.set(k,Math.max(by.get(k)||0,b.family.seq||1)); });
+  return [...by.entries()].sort((a,b)=>a[0].localeCompare(b[0]))
+    .map(([name,last])=>({name,next:last+1,firstLevel:last*BUNDLE_SIZE+1}));
+}
+
+// The Create box. Resolves {family:{name,seq,firstLevel}, name} or null (cancelled).
+function pickFamilyAndName(orient){
+  return new Promise(resolve=>{
+    const fams=diskFamilies(orient), gate=document.getElementById('submit-gate'), box=document.getElementById('submit-gate-box');
+    const rng=(a)=>'levels '+a+'–'+(a+BUNDLE_SIZE-1);
+    let h='<h3>New '+orient+' bundle</h3>'
+      +'<p><b>1. Family</b>: your game path. Its bundles are numbered straight through, and players open each one after 3-starring the one before.</p>'
+      +'<div id="fam-opts" style="display:flex;flex-direction:column;gap:6px;margin:0 0 12px;">';
+    fams.forEach((f,i)=>{ h+='<label style="display:flex;gap:8px;align-items:baseline;cursor:pointer;"><input type="radio" name="fam-pick" value="'+i+'"'+(i===0?' checked':'')+'>'
+      +'<span><b>'+escHtml(f.name)+'</b> <span style="color:#887a9a">· chapter '+f.next+' · '+rng(f.firstLevel)+'</span></span></label>'; });
+    h+='<label style="display:flex;gap:8px;align-items:center;cursor:pointer;"><input type="radio" name="fam-pick" value="new"'+(fams.length?'':' checked')+'>'
+      +'<span>New family:</span><input id="fam-new" maxlength="60" placeholder="family name" style="flex:1;min-width:0;padding:6px 8px;background:#0d0a14;border:0.5px solid #3d2060;border-radius:6px;color:#e0d0ff;font-family:var(--font-sans);"></label>'
+      +'</div>'
+      +'<p><b>2. Bundle name</b>: this chapter\'s own title.</p>'
+      +'<input id="fam-bname" maxlength="80" placeholder="bundle name" style="width:100%;box-sizing:border-box;padding:8px 10px;margin:0 0 6px;background:#0d0a14;border:0.5px solid #3d2060;border-radius:6px;color:#e0d0ff;font-family:var(--font-sans);">'
+      +'<p id="fam-err" style="color:#f0a0a0;min-height:1.2em;margin:4px 0 0;"></p>'
+      +'<div style="display:flex;gap:8px;"><button id="fam-ok">Create</button><button id="fam-cancel" style="background:transparent;border-color:#2d2040;color:#887a9a;">Cancel</button></div>';
+    box.innerHTML=h; gate.classList.add('open');
+    const q=s=>box.querySelector(s), done=v=>{ gate.classList.remove('open'); gate.onclick=prev; resolve(v); };
+    const prev=gate.onclick; gate.onclick=e=>{ if(e.target===gate) done(null); };   // a click outside = cancel
+    q('#fam-new').addEventListener('focus',()=>{ q('input[name=fam-pick][value=new]').checked=true; });
+    q('#fam-cancel').onclick=()=>done(null);
+    q('#fam-ok').onclick=()=>{
+      const sel=(box.querySelector('input[name=fam-pick]:checked')||{}).value, name=q('#fam-bname').value.trim(), err=q('#fam-err');
+      let family;
+      if(sel==='new'){
+        const fn=q('#fam-new').value.trim();
+        if(!fn){ err.textContent='Name the new family (or pick one above).'; return; }
+        const same=fams.find(f=>f.name.toLowerCase()===fn.toLowerCase());   // typed an existing name → that family's next chapter
+        family=same?{name:same.name,seq:same.next,firstLevel:same.firstLevel}:{name:fn,seq:1,firstLevel:1};
+      }else{ const f=fams[+sel]; family={name:f.name,seq:f.next,firstLevel:f.firstLevel}; }
+      if(!name){ err.textContent='Name the bundle.'; return; }
+      done({family,name});
+    };
+    setTimeout(()=>q(fams.length?'#fam-bname':'#fam-new').focus(),0);
+  });
 }
 
 // Open a user bundle → list its level-0NN.json files + a ＋ Add-level tile.
