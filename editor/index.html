@@ -2979,22 +2979,48 @@ function cloudSyncLine(){
 // row shows ✓ afterwards. The folder itself is left untouched.
 const diskKey=d=>(bundleRoot?bundleRoot.name:'')+'/'+d.id;
 const importedAlready=d=>USER_BUNDLES.some(b=>b.importedFrom===diskKey(d));
+// The bundles page carries ONE line for this (Jed 2026-11-16: the list crowded the
+// Landscape / Portrait columns down to 1–2 cards); the list itself lives in a dialog.
 function importSectionHtml(){
-  if(!window.showDirectoryPicker) return '';
-  let h='<div class="pmsg" style="font-size:12px;margin:8px 0 0;">⇪ <a href="#" onclick="importBundlesFromFolder();return false;">'
-    +(bundleRoot?'Import from a different folder':'Import bundles from a folder')+'</a> (bundles built on disk, or your AI\'s level files)</div>';
-  if(!DISK_BUNDLES.length) return h;
+  if(!window.showDirectoryPicker) return '';               // tablets: no folders to import from
+  const waiting=DISK_BUNDLES.filter(d=>!importedAlready(d)).length;
+  return '<div class="pmsg" style="font-size:12px;margin:6px 0 0;">⇪ <a href="#" onclick="openImportDialog();return false;">Import bundles from this computer</a>'
+    +(waiting?' · '+waiting+' not imported yet':'')+'</div>';
+}
+// The Import dialog (reuses the #submit-gate modal): which folder, Import all, and a
+// SCROLLING list of every folder bundle found there with its own ⇪ Import / ✓.
+let importPrevGate=null;
+function openImportDialog(){
+  const gate=document.getElementById('submit-gate');
+  if(!gate.classList.contains('open')){ importPrevGate=gate.onclick; gate.onclick=e=>{ if(e.target===gate) closeImportDialog(); }; }
+  renderImportDialog(); gate.classList.add('open');
+}
+function closeImportDialog(){ const gate=document.getElementById('submit-gate'); gate.classList.remove('open'); gate.onclick=importPrevGate; importPrevGate=null;
+  document.getElementById('submit-gate-box').style.maxWidth=''; }
+function renderImportDialog(){
+  const box=document.getElementById('submit-gate-box'); box.style.maxWidth='520px';
   const waiting=DISK_BUNDLES.filter(d=>!importedAlready(d));
-  h+='<div class="pmsg" style="font-size:12px;margin:12px 0 4px;">On this computer · <b>'+escHtml(bundleRoot?bundleRoot.name:'')+'</b>'
-    +(waiting.length>1?' · <a href="#" onclick="importAllDiskBundles();return false;">Import all '+waiting.length+'</a>':'')+'</div>';
-  h+='<div style="display:flex;flex-direction:column;gap:4px;font-size:12px;max-width:440px;margin:0 auto;">';
-  DISK_BUNDLES.forEach(d=>{
-    h+='<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;color:#c8b8e0;">'
-      +'<span>'+escHtml(d.name)+' <span style="color:#887a9a">· '+escHtml(d.orient||'unsorted')+'</span></span>'
-      +(importedAlready(d)?'<span style="color:#4caf7a">✓ in your account</span>'
-        :'<a href="#" style="color:#c8a8ff" onclick="importDiskBundle('+jsArg(d.id)+');return false;">⇪ Import</a>')+'</div>';
-  });
-  return h+'</div>';
+  let h='<h3>Import bundles</h3>'
+    +'<p>Copies a bundle folder on this computer (one you built on disk, or your AI\'s level files) into your account. Approvals come along; the folder is left as it is.</p>'
+    +'<p style="font-size:12px;">Folder: <b>'+escHtml(bundleRoot?bundleRoot.name:'none chosen')+'</b> · <a href="#" style="color:#c8a8ff" onclick="importBundlesFromFolder();return false;">'+(bundleRoot?'choose a different folder':'choose a folder')+'</a>'
+    +(waiting.length>1?' · <a href="#" style="color:#c8a8ff" onclick="importAllDiskBundles();return false;">Import all '+waiting.length+'</a>':'')+'</p>';
+  if(DISK_BUNDLES.length){
+    h+='<div style="display:flex;flex-direction:column;gap:6px;max-height:min(50vh,420px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#3d2060 transparent;margin:0 0 12px;padding:8px 10px;border:0.5px solid #3d2060;border-radius:8px;">';
+    DISK_BUNDLES.forEach(d=>{
+      h+='<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">'
+        +'<span>'+escHtml(d.name)+' <span style="color:#887a9a">· '+escHtml(d.orient||'unsorted')+'</span></span>'
+        +(importedAlready(d)?'<span style="color:#4caf7a;white-space:nowrap">✓ in your account</span>'
+          :'<a href="#" style="color:#c8a8ff;white-space:nowrap" onclick="importDiskBundle('+jsArg(d.id)+');return false;">⇪ Import</a>')+'</div>';
+    });
+    h+='</div>';
+  }else if(bundleRoot) h+='<p style="color:#887a9a">No bundles found in that folder. Pick one that holds bundle.json, or Landscape/ and Portrait/ folders of bundles.</p>';
+  h+='<button onclick="closeImportDialog()">Close</button>';
+  box.innerHTML=h;
+}
+// After an import: the bundle columns behind the dialog and the dialog itself both refresh.
+function afterImport(){
+  renderProductsList();
+  if(document.getElementById('submit-gate').classList.contains('open')) renderImportDialog();
 }
 // Pick a folder (a click): a bundles home (Landscape/ + Portrait/ inside) or one bundle folder.
 async function importBundlesFromFolder(){
@@ -3004,9 +3030,9 @@ async function importBundlesFromFolder(){
     try{ const j=JSON.parse(await (await (await bundleRoot.getFileHandle('bundle.json')).getFile()).text());
       const o=/^portrait$/i.test(j.orientation||'')?'Portrait':/^landscape$/i.test(j.orientation||'')?'Landscape':'';
       DISK_BUNDLES=[{id:bundleRoot.name,name:j.name||bundleRoot.name,dir:bundleRoot,orient:o,subs:j.submissions||[],family:null,status:'draft'}];
-    }catch(e){ alert('No bundles in that folder. Pick a folder that holds bundle.json, or Landscape/ and Portrait/ folders of bundles.'); }
+    }catch(e){}
   }
-  renderProductsList();
+  afterImport(); openImportDialog();
 }
 // Copy one folder bundle into a new cloud draft. `quiet` = part of Import all (one repaint at the end).
 async function importDiskBundle(id,quiet){
@@ -3022,13 +3048,13 @@ async function importDiskBundle(id,quiet){
     files['bundle.json']=JSON.stringify(m,null,2)+'\n';
     await CloudDrafts.create(orient,files);
   }catch(e){ alert('Import failed for '+d.name+': '+e.message); return false; }
-  if(!quiet){ await loadCloudBundles(); renderProductsList(); }
+  if(!quiet){ await loadCloudBundles(); afterImport(); }
   return true;
 }
 async function importAllDiskBundles(){
   if(!(await ensureBundleRoot())) return;
   let n=0; for(const d of DISK_BUNDLES.filter(x=>!importedAlready(x))) if(await importDiskBundle(d.id,true)) n++;
-  await loadCloudBundles(); renderProductsList();
+  await loadCloudBundles(); afterImport();
   const sb=document.getElementById('sb3'); if(sb) sb.textContent='Imported '+n+' bundle'+(n===1?'':'s')+' into your account';
 }
 
