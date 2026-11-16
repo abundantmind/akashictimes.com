@@ -16,7 +16,7 @@
 --     bundle.json (name, family, approvals, submissions) + level-0NN.json. Keeping the
 --     FILES (not a re-modelled schema) means the editor's save / approve / submit code
 --     is unchanged, approvals (SHA-256 of a file's text) survive the move byte-for-byte,
---     and Export writes back the same folder an AI or the SDK would produce.
+--     and Export writes back the same folder an AI or the Bundle Dev Kit (BDK) would produce.
 --   · The editor saves every edit on the device FIRST (IndexedDB), then sends it here
 --     when there's a connection. Offline on a plane = keep building; it syncs on landing.
 --   · drafts.id is a UUID made ON THE DEVICE, so a draft can be born offline.

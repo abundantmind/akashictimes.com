@@ -8,7 +8,7 @@
 //
 //   · A draft = a set of named text files, exactly what the folder held: bundle.json +
 //     level-0NN.json. Same names, same bytes, so approvals (a SHA-256 of a file's text)
-//     carry over and Export writes back the same folder an AI or the SDK would produce.
+//     carry over and Export writes back the same folder an AI or the Bundle Dev Kit (BDK) would produce.
 //   · DEVICE FIRST. Every write lands in IndexedDB at once and is marked dirty; a sync
 //     sends dirty files to Supabase (db/016) whenever there's a connection and a
 //     signed-in user. Offline on a plane = keep building; it syncs on landing.
