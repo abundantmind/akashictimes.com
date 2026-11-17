@@ -80,7 +80,11 @@ const AUTH_I18N = {
     auth_send:          'Send link',
     auth_cancel:        'Not now',
     auth_sending:       'Sending…',
-    auth_sent:          e => 'Link sent to ' + e + '. Check your inbox and tap it to finish.',
+    auth_sent:          e => 'Sent to ' + e + '. Tap the link in the email — or, if your email is on another device, type the code from it here.',
+    auth_code_ph:       'Code from the email',
+    auth_verify:        'Sign in',
+    auth_verifying:     'Checking…',
+    auth_code_bad:      'That code didn\'t work. Check it, or send a new one.',
     auth_bad_email:     'That doesn\'t look like an email address.',
     auth_err:           'Couldn\'t send the link. Try again in a moment.',
     auth_merged:        'Signed in — your stars are now saved to the cloud. ☁',
@@ -96,7 +100,11 @@ const AUTH_I18N = {
     auth_send:          '링크 보내기',
     auth_cancel:        '다음에요',
     auth_sending:       '보내는 중…',
-    auth_sent:          e => e + ' 으로 링크를 보냈습니다. 받은편지함에서 눌러 완료하세요.',
+    auth_sent:          e => e + ' 으로 보냈습니다. 이메일의 링크를 누르거나, 이메일이 다른 기기에 있다면 이메일 속 코드를 여기에 입력하세요.',
+    auth_code_ph:       '이메일 속 코드',
+    auth_verify:        '로그인',
+    auth_verifying:     '확인 중…',
+    auth_code_bad:      '코드가 맞지 않습니다. 다시 확인하거나 새로 보내 주세요.',
     auth_bad_email:     '이메일 주소 형식이 아닌 것 같습니다.',
     auth_err:           '링크를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
     auth_merged:        '로그인 완료 — 별이 이제 클라우드에 저장됩니다. ☁',
@@ -112,7 +120,11 @@ const AUTH_I18N = {
     auth_send:          'Enviar enlace',
     auth_cancel:        'Ahora no',
     auth_sending:       'Enviando…',
-    auth_sent:          e => 'Enlace enviado a ' + e + '. Revisa tu bandeja de entrada y tócalo para terminar.',
+    auth_sent:          e => 'Enviado a ' + e + '. Toca el enlace del correo — o, si tu correo está en otro dispositivo, escribe aquí el código que trae.',
+    auth_code_ph:       'Código del correo',
+    auth_verify:        'Entrar',
+    auth_verifying:     'Comprobando…',
+    auth_code_bad:      'Ese código no funcionó. Revísalo o envía uno nuevo.',
     auth_bad_email:     'Eso no parece una dirección de correo.',
     auth_err:           'No se pudo enviar el enlace. Inténtalo de nuevo en un momento.',
     auth_merged:        'Sesión iniciada — tus estrellas ahora están guardadas en la nube. ☁',
@@ -257,6 +269,28 @@ const AkashicAuth = {
     // Show Supabase's reason with the failure (e.g. "email rate limit exceeded") so a
     // stuck sign-in explains itself on screen — no console needed.
     status.textContent = error ? TXT('auth_err') + ' (' + error.message + ')' : TXT('auth_sent')(email);
+    // The same email carries a code (Supabase template {{ .Token }}). Show the code
+    // row so an Architect whose email lives on their PHONE can sign in on a tablet
+    // that has no mail app signed in — the link only signs in the device that opens it.
+    if(!error){
+      const row = document.getElementById('auth-code-row');
+      if(row){ row.style.display = 'flex'; setTimeout(() => { const c = document.getElementById('auth-code'); if(c) c.focus(); }, 30); }
+    }
+  },
+
+  // Sign in with the code from the email instead of the link (Jed 2026-11-17: his
+  // Fire Tablet doesn't know his Gmail password, so a link in Gmail can't reach it).
+  // Success fires onAuthStateChange exactly as the link does, so stars merge, drafts
+  // sync, and the page repaints through the same path.
+  async verifyCode(){
+    const email = (document.getElementById('auth-email').value || '').trim();
+    const code = (document.getElementById('auth-code').value || '').replace(/\D/g, '');  // digits only; pasted spaces are fine
+    const status = document.getElementById('auth-status');
+    if(code.length < 6){ status.textContent = TXT('auth_code_bad'); return; }
+    status.textContent = TXT('auth_verifying');
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
+    if(error){ status.textContent = TXT('auth_code_bad') + ' (' + error.message + ')'; return; }
+    this.close();
   },
 
   async signOut(){
@@ -513,6 +547,12 @@ function buildModal(){
     + '<p class="wmsg" id="auth-copy">' + TXT('auth_msg') + '</p>'
     + '<input id="auth-email" type="email" autocomplete="email" inputmode="email" placeholder="' + TXT('auth_email_ph') + '">'
     + '<div class="auth-status" id="auth-status"></div>'
+    // Code row: hidden until a link is sent (see sendLink). one-time-code lets phones
+    // offer the code from a text/mail notification; numeric keypad on tablets.
+    + '<div id="auth-code-row" style="display:none;gap:8px;margin:8px 0;">'
+    +   '<input id="auth-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="' + TXT('auth_code_ph') + '" style="flex:1;min-width:0;">'
+    +   '<button class="auth-send" onclick="AkashicAuth.verifyCode()">' + TXT('auth_verify') + '</button>'
+    + '</div>'
     + '<div class="auth-btns">'
     +   '<button class="auth-send" onclick="AkashicAuth.sendLink()">' + TXT('auth_send') + '</button>'
     +   '<button class="auth-no" onclick="AkashicAuth.close()">' + TXT('auth_cancel') + '</button>'
@@ -521,6 +561,10 @@ function buildModal(){
   // Enter submits from the email field
   wrap.querySelector('#auth-email').addEventListener('keydown', e => {
     if(e.key === 'Enter'){ e.preventDefault(); AkashicAuth.sendLink(); }
+  });
+  // Enter submits from the code field too
+  wrap.querySelector('#auth-code').addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); AkashicAuth.verifyCode(); }
   });
 }
 

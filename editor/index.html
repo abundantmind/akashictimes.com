@@ -853,9 +853,9 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 #authbox .wbox{background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:32px 40px;text-align:center;max-width:400px;width:calc(100% - 48px);}
 #authbox h2{font-size:var(--fz-xl);color:#c792ea;margin-bottom:10px;font-weight:500;}
 #authbox .wmsg{color:#d8cce8;font-size:var(--fz-base);line-height:1.5;margin-bottom:18px;}
-#auth-email{width:100%;background:#0d0a14;border:0.5px solid #3d2060;border-radius:6px;color:#e0d0f0;padding:11px 14px;font-size:var(--fz-base);font-family:var(--font-sans);text-align:center;letter-spacing:.02em;}
-#auth-email:focus{outline:none;border-color:#c792ea;}
-#auth-email::placeholder{color:#554470;}
+#auth-email,#auth-code{width:100%;background:#0d0a14;border:0.5px solid #3d2060;border-radius:6px;color:#e0d0f0;padding:11px 14px;font-size:var(--fz-base);font-family:var(--font-sans);text-align:center;letter-spacing:.02em;}
+#auth-email:focus,#auth-code:focus{outline:none;border-color:#c792ea;}
+#auth-email::placeholder,#auth-code::placeholder{color:#554470;}
 .auth-status{min-height:18px;margin:12px 0 4px;font-size:var(--fz-sm);color:#a78bcf;line-height:1.4;}
 .auth-btns{display:flex;gap:14px;justify-content:center;margin-top:12px;}
 .auth-send{background:#3d2d6e;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:10px 28px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-base);font-weight:500;cursor:pointer;}
