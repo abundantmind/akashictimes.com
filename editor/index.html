@@ -3651,7 +3651,14 @@ async function nextBundleLevelNum(b){
 
 // Save the current board INTO the target bundle as a real level-0NN.json file.
 async function saveBoardToBundle(){
-  if(designSnap){ alert('⏹ Stop the run first — the board on screen has been played.'); return; }
+  // A run exists = the board on screen has been PLAYED. On a touch screen the dimmed
+  // button and its hover tip were invisible, so Save looked broken (Jed's Fire Tablet,
+  // 2026-11-17: a level opens in sticky ▶ Play). Offer the Stop right here instead:
+  // ⏹ Stop puts the DESIGNED board back, and that's what gets saved.
+  if(designSnap){
+    if(!confirm('This board has been played.\n\nStop the run (the board goes back to your design) and save?')) return;
+    stopRun();
+  }
   { const wp=windowProblems(); if(wp.length){ alert('Fix the windows before saving:\n\n• '+wp.join('\n• ')); return; } }
   if(!fixBareEggs())return;
   const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); if(!b){ alert('No target bundle set — open a bundle and ＋ Add level.'); return; }
@@ -3672,6 +3679,8 @@ async function saveBoardToBundle(){
 }
 function updateBundleSaveBtn(){ const btn=document.getElementById('btn-save-bundle'); if(!btn)return;
   const b=USER_BUNDLES.find(x=>x.id===saveTargetBundle); btn.style.display=b?'':'none';
+  // No folder API (tablets) → the classic ▽ Save can't work at all; don't offer it.
+  const disk=document.getElementById('btn-save-disk'); if(disk&&!window.showDirectoryPicker) disk.style.display='none';
   const n=bundleEditNum!=null?bundleEditNum:bundleNewNum;              // the slot this Save writes — never a surprise
   if(b)btn.textContent='▽ Save '+(n!=null?'level '+n+' ':'')+'to '+b.name;
   updateApproveBtn(); }
@@ -3735,7 +3744,7 @@ function updRunBtns(){
   updateUndoBtn(); // the editor's ↶ Undo shows only while ▶ Play is running
   if(sb) sb.style.display=designSnap?'':'none';
   ['btn-save-disk','btn-save-bundle'].forEach(id=>{ const b=document.getElementById(id); if(!b)return;
-    b.disabled=!!designSnap; b.style.opacity=designSnap?.45:'';
+    b.disabled=id==='btn-save-disk'&&!!designSnap; b.style.opacity=designSnap?.45:'';  // bundle Save stays tappable: it offers ⏹ Stop + save
     b.dataset.tip=b.dataset.tip||b.title; b.title=designSnap?'⏹ Stop the run first — the board on screen has been played.':b.dataset.tip; });
 }
 function stopRun(){
