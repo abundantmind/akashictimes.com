@@ -590,6 +590,24 @@ body.player-playing #eframe{display:contents;background:none;}
 .paletteswatch:hover{opacity:.8;}
 .paletteswatch.on:hover{opacity:1;}
 .objempty{font-size:var(--fz-sm);color:#5a4a7a;font-style:italic;margin:3px 0;}
+/* ── TABLET EDITOR LAYOUT (Jed 2026-11-17, Fire Tablet) ────────────────────────
+   Touch screens only — the desktop's centered play-frame (2026-08-06) is unchanged.
+   On a tablet the top bar wraps to 2–3 lines, the page grew taller than the screen
+   and scrolled, and the bar with ▶ Play / ⏹ Stop slid out of sight. Now, while the
+   editor is open (body.editor-open, set by watchEditorTopbar):
+     · the page is locked to the screen height — nothing scrolls away;
+     · the top bar stays at the top;
+     · the play-frame pins just BELOW the bar instead of centering vertically;
+     · both palettes stretch to the bottom of the screen and scroll inside, so they
+       show as much as the screen allows instead of only the grid's height. */
+@media (pointer:coarse){
+  body.editor-open{height:100vh;height:100dvh;min-height:0;overflow:hidden;}
+  body.editor-open #shell{min-height:0;}
+  body.editor-open #editor{min-height:0;}
+  body.editor-open #etopbar{flex-shrink:0;}
+  body.editor-open #emid{align-items:flex-start;overflow:hidden;}
+  body.editor-open #lpanel,body.editor-open #rpanel{height:auto;align-self:stretch;}
+}
 #sbar{padding:3px 10px;font-size:var(--fz-sm);color:#5a4a7a;background:#0d0a14;border-top:0.5px solid #1a1530;display:flex;gap:12px;flex-shrink:0;}
 .mbadge{padding:2px 7px;font-size:var(--fz-sm);border-radius:4px;background:#1a3a1a;color:#4a9a4a;}
 /* PUBLISHED = READ-ONLY (Jed 2026-10-01): a published bundle's level opens to view and
@@ -10161,13 +10179,32 @@ function fitPlayBoard(){
 function fitEditorBoard(){
   const vw=window.innerWidth, vh=window.innerHeight;
   const availW = vw - 120 /*paint rail*/ - 148 /*config rail*/ - 132 /*ehud*/ - 108 /*eboost*/ - 96 /*edge gaps + breathing*/;
-  const availH = vh - 40 /*toolbar*/ - 26 /*status bar*/ - 44 /*eframe padding + margin*/;
+  // The top bar's REAL height: one line (~40px) on a desktop, 2–3 lines on a tablet.
+  // A fixed 40 sized the grid too tall there and pushed the page past the screen.
+  const tb=document.getElementById('etopbar'), tbH=(tb&&tb.offsetHeight)||40;
+  const availH = vh - tbH /*toolbar*/ - 26 /*status bar*/ - 44 /*eframe padding + margin*/;
   const byW=Math.floor((availW-(C-1)*CELL_GAP)/C);
   const byH=Math.floor((availH-(R-1)*CELL_GAP)/R);
   // min(byW,byH) already fits both dimensions; the 118 ceiling only keeps cells
   // from getting cartoonish on very large monitors while still filling the frame.
   CELL_SIZE=Math.max(26,Math.min(118,Math.min(byW,byH)));
 }
+
+// Watch the editor's top bar (Jed 2026-11-17). Its size changes when the editor opens
+// or closes (0 ↔ its height) and when it wraps onto more lines. Each change: set
+// body.editor-open (the tablet layout's switch — see TABLET EDITOR LAYOUT in the CSS)
+// and, on touch screens, refit the grid to the space actually left under the bar.
+(function watchEditorTopbar(){
+  const tb=document.getElementById('etopbar'); if(!tb||!window.ResizeObserver) return;
+  let lastH=-1, t=null;
+  new ResizeObserver(()=>{
+    const h=tb.offsetHeight; if(h===lastH) return; lastH=h;
+    document.body.classList.toggle('editor-open', h>0);
+    if(h>0&&window.matchMedia('(pointer:coarse)').matches){
+      clearTimeout(t); t=setTimeout(()=>{ fitEditorBoard(); render(); updEditorFrame(); },60);
+    }
+  }).observe(tb);
+})();
 
 // Refit on viewport changes (fullscreen entry, device rotation, window resize) —
 // debounced past the ~300ms animation window so a mid-fall redraw is unlikely.
