@@ -10398,8 +10398,17 @@ function endShowNow(){
 }
 // Called wherever a goal can tick. Cheap, idempotent, and it must never fire in the
 // editor's paint mode — only in a live session with goals to meet.
+//
+// ── REVERSED (Jed 2026-11-18): "Let's not start the victory display until the game
+// board cascades have completely finished." The win now waits for the board to come
+// fully to rest: boardQuiet() → checkPlayerEnd() is the ONLY place a level ends, so
+// the player watches the whole cascade their winning move set off. winNow() stays
+// wired at every goal tick but stands down while this is true; set it false to go
+// back to the 2026-08-30 cut-the-show behaviour above.
+const WIN_WAITS_FOR_REST=true;
 let _ending=false;
 function winNow(){
+  if(WIN_WAITS_FOR_REST)return false;          // the settled board decides (boardQuiet → checkPlayerEnd)
   if(_ending||!playing||!playerMode)return false;
   if(!playerGoals.length||!playerGoals.every(goalDone))return false;
   _ending=true;

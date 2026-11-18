@@ -1552,7 +1552,11 @@ window.runInvariants = async function(){
       choosingRainbow=null; choosingGrasshopper=null; Motion.releaseAll(); playing=false;
     }
 
-    // ═══ 11q. A WON LEVEL STOPS THE SHOW ══════════════════════════════════════
+    // ═══ 11q. A WON LEVEL PLAYS OUT, THEN CELEBRATES ══════════════════════════
+    // REVERSED 2026-11-18 (Jed: "Let's not start the victory display until the game
+    // board cascades have completely finished."). The win now waits for the board to
+    // come fully to rest — every power-up the winning move launched plays out, THEN
+    // the victory display opens. History of the old rule, kept for the record —
     // Jed, 2026-08-30, from Township: all but one gem collected, the player fires a
     // Ball+Grasshopper as his last move — "the animation ends once the FIRST
     // Grasshopper clears it. There is no reason to continue showing 18 more
@@ -1574,8 +1578,8 @@ window.runInvariants = async function(){
           applyEffects([],2,2,q);
           for(let i=0;i<120&&playing;i++) await wait(50);
         } finally { SFX.play=_sfx; }
-        ok('won · the level ends the moment the goal is met', playing===false, {playing,fired});
-        ok('won · the remaining power-ups are NOT played out', fired<queued, fired+' of '+queued+' detonations played');
+        ok('won · the level ends once the board is at rest', playing===false, {playing,fired});
+        ok('won · every power-up the winning move launched plays out', fired>=queued, fired+' of '+queued+' detonations played');
         ok('won · nothing is left claimed or in the air',
            Motion.tags().every(t=>t==='overlay')&&(document.getElementById('fly-layer')||{children:[]}).children.length===0,
            {claims:Motion.tags()});
