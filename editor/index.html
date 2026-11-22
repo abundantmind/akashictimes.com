@@ -5874,6 +5874,14 @@ function grasshopperOrthCells(r,c){
 //   key          → nearest key
 // Falls back to the nearest gem of any color when nothing advances the goal
 // (or the level has no goals). Excludes self + already-cleared (excludeSet) cells.
+// SPREAD OUT (Jed 2026-11-22: "whenever I combine 2 Grasshoppers… they all target the
+// same cell, even if there are multiple goal-target cells left"). Hoppers fired in one
+// event take off ~100ms apart, long before the first one lands — so the board still
+// looks identical to each of them and they all picked the same "best" cell. Each pick
+// now CLAIMS its cell on the event's phase set (excludeSet.hopperClaims); later hoppers
+// in the same event skip claimed cells. Only when every goal cell is claimed does a
+// hopper double up on one (a crate/tire with HP left can still use the extra hit)
+// before falling back to the nearest gem.
 function autoGrasshopperTarget(r,c,excludeSet){
   // Goals drive targeting in BOTH game mode (playerGoals, with live progress) and
   // EDITOR test-play (editorObjectives — the live-edited Goals panel; progress
@@ -5916,11 +5924,14 @@ function autoGrasshopperTarget(r,c,excludeSet){
     // than pretend otherwise.
     return cd.gem!==null;
   };
-  const nearest=(pred)=>{
+  // this event's claimed landing cells (see SPREAD OUT above); null when no phase set
+  const claims=excludeSet?(excludeSet.hopperClaims||(excludeSet.hopperClaims=new Set())):null;
+  const nearest=(pred,honorClaims=true)=>{
     let best=null,bestDist=Infinity;
     for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
       if(nr===r&&nc===c)continue;
       if(excludeSet&&excludeSet.has(nr+','+nc))continue;
+      if(honorClaims&&claims&&claims.has(nr+','+nc))continue; // another hopper is already headed there
       if(!board[nr][nc].active||!pred(nr,nc))continue;
       const d=Math.abs(nr-r)+Math.abs(nc-c);
       if(d<bestDist){bestDist=d;best=[nr,nc];}
@@ -5929,9 +5940,13 @@ function autoGrasshopperTarget(r,c,excludeSet){
   };
   // KEYS: a hopper landing ON a key does nothing (a blast never moves a key). What gets
   // a key out is clearing what sits in its way — so aim down its path (below).
-  if(goal&&goal.kind==='key'){ const t=keyPathTarget(r,c,excludeSet); if(t)return t; }
-  // advance the chosen goal; fall back to nearest gem of any color
-  return nearest(advances)||nearest((nr,nc)=>board[nr][nc].gem!==null);
+  let t=(goal&&goal.kind==='key')?keyPathTarget(r,c,excludeSet):null;
+  // advance the chosen goal (an unclaimed cell first, then double up on a claimed one);
+  // fall back to the nearest gem of any color, unclaimed first
+  const anyGem=(nr,nc)=>board[nr][nc].gem!==null;
+  t=t||nearest(advances)||nearest(advances,false)||nearest(anyGem)||nearest(anyGem,false);
+  if(t&&claims)claims.add(t[0]+','+t[1]);   // claim it so the next hopper in this event goes elsewhere
+  return t;
 }
 
 // KEY-PATH TARGETING (Jed 2026-10-12, Akashic Window L6: keys on top, rows of tires
@@ -5946,7 +5961,8 @@ function autoGrasshopperTarget(r,c,excludeSet){
 function keyPathTarget(hr,hc,excludeSet){
   const pairs=windowPairs();
   const hit=excludeSet&&excludeSet.tireHits;               // tires this event already dented — a 2nd landing would be absorbed
-  const ok=(r,c)=>!(r===hr&&c===hc)&&!(excludeSet&&excludeSet.has(r+','+c))&&!(hit&&hit.has(r+','+c))&&board[r][c].active;
+  const claimed=excludeSet&&excludeSet.hopperClaims;        // cells another hopper in this event is already headed for
+  const ok=(r,c)=>!(r===hr&&c===hc)&&!(excludeSet&&excludeSet.has(r+','+c))&&!(hit&&hit.has(r+','+c))&&!(claimed&&claimed.has(r+','+c))&&board[r][c].active;
   const paths=[];
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     if(!board[r][c].active||board[r][c].item!=='key'||!inPlayWindow(r,c))continue;

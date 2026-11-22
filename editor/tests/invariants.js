@@ -943,6 +943,27 @@ window.runInvariants = async function(){
     ok('hopper · either Dragonfly half satisfies a rocket goal',
        !!_t3&&_t3[0]===_mid[0]&&_t3[1]===_mid[1], {target:_t3, rocket:_mid});
     board[_mid[0]][_mid[1]].pu=null;
+    // ── THE SWARM SPREADS OUT (Jed 2026-11-22) ──
+    // Hopper×Hopper: three jumps take off ~100ms apart, all before the first lands, so
+    // each saw the same board and they all picked the same "best" cell. Each pick now
+    // claims its cell on the event's phase set; the next hopper goes elsewhere.
+    { const _goalCells=[_cells[3],_cells[Math.floor(_cells.length/2)],_far];
+      _goalCells.forEach(([r,c])=>{board[r][c].gem=4;});            // three goal gems; every other cell is gem 1
+      playerMode=true; playerGoals=[{kind:'collect',gemIdx:4,need:3,have:0}];
+      const _ph=new Set();                                          // ONE event = one phase set
+      const _picks=[0,1,2].map(()=>autoGrasshopperTarget(_from[0],_from[1],_ph));
+      const _keys=new Set(_picks.map(t=>t&&t.join(',')));
+      ok('hopper · three Grasshoppers in one event land on three DIFFERENT goal cells',
+         _keys.size===3&&_picks.every(t=>t&&board[t[0]][t[1]].gem===4), _picks);
+      _goalCells.slice(1).forEach(([r,c])=>{board[r][c].gem=1;});    // now only ONE goal cell left
+      const _ph2=new Set();
+      const _a=autoGrasshopperTarget(_from[0],_from[1],_ph2), _b=autoGrasshopperTarget(_from[0],_from[1],_ph2);
+      ok('hopper · with one goal cell left, the second Grasshopper doubles up on it (not a random gem)',
+         _a&&_b&&_a.join(',')===_b.join(',')&&board[_a[0]][_a[1]].gem===4, {a:_a,b:_b});
+      const _c1=autoGrasshopperTarget(_from[0],_from[1],new Set()), _c2=autoGrasshopperTarget(_from[0],_from[1],new Set());
+      ok('hopper · claims last one event only — a new event starts fresh',
+         _c1&&_c2&&_c1.join(',')===_c2.join(','), {c1:_c1,c2:_c2});
+      board[_goalCells[0][0]][_goalCells[0][1]].gem=1; }
     playerGoals=_savedGoals; editorObjectives=_savedObjs; playerMode=_savedMode;
     await startPlayerLevel(1,false); await wait(45); playing=false;
 
