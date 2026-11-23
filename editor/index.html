@@ -1274,6 +1274,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="tb" onclick="addObjective('egg')">+ Egg</button>
           <button class="tb" onclick="addObjective('crate')">+ Crate</button>
           <button class="tb" onclick="addObjective('tire')">+ Tire</button>
+          <button class="tb" onclick="addObjective('shedeh')">+ Shedeh</button>
           <button class="tb" onclick="addObjective('pu')">+ Power-up</button>
         </div>
         <div class="objbtns">
@@ -1623,6 +1624,8 @@ en:{
     text:'Easter eggs are hidden under leaves — any color counts. Match right next to a leaf (or hit it with a power-up blast) to tear it away — the last hit frees the egg and collects it. Leaves without eggs hold gems hostage the same way.'}),
   keyHelp:n=>({title:'Collect '+n+' Keys',
     text:'Keys drop straight down. Clear the gems beneath a key so it falls, and the moment it reaches the bottom it exits and is collected. Open a clean path to the bottom for each key.'}),
+  shedehHelp:n=>({title:'Collect '+n+' Shedeh',
+    text:'Shedeh is the pharaohs\' pomegranate drink, kept cold in a clay Zeer. The first match beside a Zeer opens its doors. After that, every matched gem touching it — and every Zeer cell a power-up hits — takes out a jar. Grasshoppers fly to the Zeers. Empty a Zeer and gems flow into its space.'}),
   tireHelp:n=>({title:'Clear '+n+' Tires',
     text:'Tires roll down with the gems but never match. Swap one aside, match right next to it, or hit it with a power-up — each hit knocks off one layer of white. A Dragonfly stops at the first tire it hits. Clear them all!'}),
   crateHelp:n=>({title:'Clear '+n+' Crates',
@@ -1741,6 +1744,8 @@ ko:{
     text:'열쇠는 아래로 떨어집니다. 열쇠 아래의 젬을 없애 길을 터 주면 열쇠가 떨어지고, 맨 아래에 닿는 순간 빠져나가 수집됩니다. 각 열쇠마다 바닥까지 길을 열어 주세요.'}),
   eggHelp:n=>({title:'부활절 달걀 '+n+'개 찾기',
     text:'부활절 달걀은 나뭇잎 아래에 숨어 있습니다 — 색깔은 상관없습니다. 나뭇잎 바로 옆에서 매치하거나 파워업 폭발로 맞추면 잎이 벗겨지고, 마지막 타격이 달걀을 꺼내 수집합니다. 달걀이 없는 잎도 같은 방식으로 보석을 붙잡고 있습니다.'}),
+  shedehHelp:n=>({title:'셰데 '+n+'병 모으기',
+    text:'셰데는 파라오의 석류 음료로, 진흙 냉장고 지르(Zeer)에 차갑게 보관됩니다. 지르 옆에서 처음 매치하면 문이 열립니다. 그다음부터는 지르에 닿은 매치 보석 하나마다, 그리고 파워업이 맞힌 지르 칸 하나마다 병이 하나씩 나옵니다. 메뚜기는 지르로 날아갑니다. 지르를 비우면 그 자리로 보석이 흘러 들어옵니다.'}),
   tireHelp:n=>({title:'타이어 '+n+'개 없애기',
     text:'타이어는 보석과 함께 굴러 내려오지만 매치되지 않습니다. 옆으로 밀어내거나, 바로 옆에서 매치하거나, 파워업으로 맞추세요 — 한 번 맞을 때마다 흰 층이 하나씩 벗겨집니다. 잠자리는 처음 맞는 타이어에서 멈춥니다. 모두 없애세요!'}),
   crateHelp:n=>({title:'상자 '+n+'개 부수기',
@@ -1865,6 +1870,8 @@ es:{
     text:'Las llaves caen en línea recta. Despeja las gemas bajo una llave para que caiga, y en cuanto llega al fondo sale y se recoge. Abre un camino limpio hasta el fondo para cada llave.'}),
   eggHelp:n=>({title:'Encuentra '+n+' huevos de Pascua',
     text:'Los huevos de Pascua están escondidos bajo hojas — cualquier color cuenta. Combina justo al lado de una hoja (o golpéala con la explosión de un potenciador) para arrancarla — el último golpe libera el huevo y lo recoge. Las hojas sin huevo retienen gemas de la misma forma.'}),
+  shedehHelp:n=>({title:'Recoge '+n+' Shedeh',
+    text:'El Shedeh es la bebida de granada de los faraones, guardada fría en un Zeer de barro. La primera combinación junto a un Zeer abre sus puertas. Después, cada gema combinada que lo toque — y cada casilla del Zeer que golpee un potenciador — saca una jarra. Los Saltamontes vuelan a los Zeer. Vacía un Zeer y las gemas fluyen a su espacio.'}),
   tireHelp:n=>({title:'Quita '+n+' llantas',
     text:'Las llantas ruedan con las gemas pero nunca combinan. Muévela a un lado, combina justo al lado o golpéala con un potenciador — cada golpe le quita una capa blanca. La Libélula se detiene en la primera llanta que toca. ¡Quítalas todas!'}),
   crateHelp:n=>({title:'Rompe '+n+' cajas',
@@ -4312,6 +4319,7 @@ function objKind(o){
   if(o.type==='clear'&&o.obstacle==='crate')return 'crate'; // clear-N-crates goal
   if(o.type==='collect'&&o.item==='key')return 'key';
   if(o.type==='collect'&&o.item==='egg')return 'egg';
+  if(o.type==='collect'&&o.item==='shedeh')return 'shedeh';  // collect-N-Shedeh goal (Jed 2026-11-23)
   if(o.type==='detonate'||o.type==='create')return 'pu';    // "Use/Make N {power-up}" goal
   return 'gem';
 }
@@ -4355,7 +4363,7 @@ function renderPalette(){
 //           — the bare ground clover can still spread onto (Jed's formula).
 //  key / egg = items currently on the board.
 function boardCounts(){
-  let clover=0,key=0,egg=0,crate=0,tire=0;
+  let clover=0,key=0,egg=0,crate=0,tire=0,shedeh=0;
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     const cd=board[r][c]; if(!cd||!cd.active)continue;
     if(!isSolid(r,c)&&cd.sub!=='clover')clover++;
@@ -4363,8 +4371,9 @@ function boardCounts(){
     if(cd.item==='egg')egg++;
     if(isCrate(r,c))crate++;                       // any-HP crate cell = one to clear
     if(isTire(r,c))tire++;                         // any-HP tire = one to clear
+    if(cd.zeer)shedeh+=cd.zeer.jars;              // every jar in every Zeer (anchor cell holds the count)
   }
-  return {clover,key,egg,crate,tire};
+  return {clover,key,egg,crate,tire,shedeh};
 }
 // Render the objectives list into #objlist.
 function renderObjectives(){
@@ -4381,7 +4390,7 @@ function renderObjectives(){
     const row=document.createElement('div');row.className='objrow';
     // icon
     const ic=document.createElement('span');ic.className='oicon';
-    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='egg'?eggIconSVG(20):k==='tire'?tireIconSVG(20):k==='crate'?crateIconSVG(20):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),20):gemSVG(GEMMAP[o.gem]??3,20);
+    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='egg'?eggIconSVG(20):k==='tire'?tireIconSVG(20):k==='shedeh'?shedehJarSVG(20):k==='crate'?crateIconSVG(20):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),20):gemSVG(GEMMAP[o.gem]??3,20);
     row.appendChild(ic);
     // label, or a selector for goals with a variant (gem color / which power-up)
     if(k==='gem'){
@@ -4403,7 +4412,7 @@ function renderObjectives(){
       row.appendChild(sel);
     }else{
       const lb=document.createElement('span');lb.className='olabel';
-      lb.textContent = k==='clover'?'Plant clover':k==='key'?'Collect keys':k==='crate'?'Clear crates':k==='tire'?'Clear tires':'Free eggs';
+      lb.textContent = k==='clover'?'Plant clover':k==='key'?'Collect keys':k==='crate'?'Clear crates':k==='tire'?'Clear tires':k==='shedeh'?'Collect Shedeh':'Free eggs';
       row.appendChild(lb);
     }
     // count (manual override — always editable)
@@ -4411,7 +4420,7 @@ function renderObjectives(){
     cnt.onchange=()=>{o.count=Math.max(1,parseInt(cnt.value)||1);};
     row.appendChild(cnt);
     // board-derived auto count (clover/key/egg only) — click to accept
-    const auto = k==='clover'?bc.clover:k==='key'?bc.key:k==='egg'?bc.egg:k==='crate'?bc.crate:k==='tire'?bc.tire:null;
+    const auto = k==='clover'?bc.clover:k==='key'?bc.key:k==='egg'?bc.egg:k==='crate'?bc.crate:k==='tire'?bc.tire:k==='shedeh'?bc.shedeh:null;
     if(auto!=null){
       const a=document.createElement('span');a.className='oauto';a.textContent='auto '+auto;a.title='Click to set the count from the board';
       a.onclick=()=>{o.count=auto;renderObjectives();};
@@ -4440,6 +4449,7 @@ function addObjective(kind){
   else if(kind==='egg') editorObjectives.push({type:'collect',item:'egg',count:bc.egg||1});
   else if(kind==='crate') editorObjectives.push({type:'clear',obstacle:'crate',count:bc.crate||1});
   else if(kind==='tire')  editorObjectives.push({type:'clear',obstacle:'tire',count:bc.tire||1});
+  else if(kind==='shedeh')editorObjectives.push({type:'collect',item:'shedeh',count:bc.shedeh||8});
   else if(kind==='pu')    editorObjectives.push({type:'detonate',pu:'helicopter',count:2});
   renderObjectives();
 }
@@ -4453,6 +4463,7 @@ function recommendObjectives(){
   if(bc.egg>0) ensure(o=>o.type==='collect'&&o.item==='egg', ()=>({type:'collect',item:'egg',count:bc.egg}));
   if(bc.crate>0) ensure(o=>o.type==='clear'&&o.obstacle==='crate', ()=>({type:'clear',obstacle:'crate',count:bc.crate}));
   if(bc.tire>0)  ensure(o=>o.type==='clear'&&o.obstacle==='tire',  ()=>({type:'clear',obstacle:'tire',count:bc.tire}));
+  if(bc.shedeh>0)ensure(o=>o.type==='collect'&&o.item==='shedeh', ()=>({type:'collect',item:'shedeh',count:bc.shedeh}));
   renderObjectives();
 }
 // (Removed: serializeObjectives() + copyObjectivesJSON() — the old "Copy JSON"
@@ -4691,7 +4702,7 @@ const OBS_TYPES=[
   // SHEDEH ZEER (Jed 2026-11-22) — a 2×2 Block: Egypt's clay cooler holding 8 jars of Shedeh.
   // All FOUR cells carry obs:'zeer'; the TOP-LEFT (anchor) also carries zeer:{jars}, the
   // other three carry zeerOf:[anchorR,anchorC]. Painted with a 2×2 brush (paintZeer).
-  {id:'zeer',    label:'ZR',  color:'#8a3a18', desc:'Shedeh Zeer — 2×2 clay cooler, 8 jars of Shedeh (click = its top-left cell)', layer:'obs', solid:true},
+  {id:'zeer',    label:'ZR',  color:'#8a3a18', desc:'Shedeh Zeer — 2×2 clay cooler, 8 jars of Shedeh (click = its top-left cell)', layer:'obs', solid:true, stageResident:true},
 ];
 // ── STAGE RESIDENTS — the gate for multi-stage (flyover) levels ──────────────
 // A "resident" is a board object REMOVED when its goal is met — a crate breaks, a
@@ -4715,6 +4726,7 @@ function residentKind(id){
   if(id==='key'||id==='egg')return id;
   if(id.startsWith('crate'))return 'crate';
   if(isTireId(id))return 'tire';
+  if(id==='zeer')return 'shedeh';      // a Zeer holds its stage while a Shedeh goal is open
   return null;
 }
 function holdsStage(r,c){
@@ -5583,6 +5595,7 @@ function togglePlay(sandbox=true){
         if(o.type==='collect'&&o.item==='key') return {kind:'key',need:o.count,have:0,name:'key'};
         if(o.type==='clear'&&o.obstacle==='crate') return {kind:'crate',need:o.count,have:0,name:'crate'};
         if(o.type==='clear'&&o.obstacle==='tire') return {kind:'tire',need:o.count,have:0,name:'tire'};
+        if(o.type==='collect'&&o.item==='shedeh') return {kind:'shedeh',need:o.count,have:0,name:'shedeh'};
         if(o.type==='plant') return {kind:'plant',need:o.count,have:0,name:'clover'};
         if(o.type==='detonate'&&o.pu) return {kind:'detonate',pu:o.pu,need:o.count,have:0,name:o.pu};
         if(o.type==='create'&&o.pu) return {kind:'create',pu:o.pu,need:o.count,have:0,name:o.pu};
@@ -5712,6 +5725,24 @@ function removeZeer(r,c){
     cd.obs=null; delete cd.zeer; delete cd.zeerOf; cd.gem=null;
   });
   return true;
+}
+// A HIT ON A ZEER (Jed 2026-11-22/23, the SPLASH RULE). `pts` = how many of its cells a
+// blast covered, or how many matched gems touched it. Shut doors: the FIRST point opens
+// them, the rest take jars (a match with two gems touching = open + 1 jar — every power-up
+// the same). Each jar out ticks the Shedeh goal. The last jar out OPENS THE 2×2: the Zeer
+// is gone and its four cells are ordinary empty cells that gravity fills.
+function zeerHit(ar,ac,pts){
+  const z=board[ar]&&board[ar][ac]&&board[ar][ac].zeer; if(!z||pts<=0)return 0;
+  if(!z.open){ z.open=true; pts--; }
+  const take=Math.min(pts,z.jars);
+  z.jars-=take;
+  for(let i=0;i<take;i++) if(window.spawnFragments)spawnFragments(ar+(i%2),ac+((i>>1)%2),0,'#a0102e'); // pomegranate splash off the cooler
+  if(take&&playerMode){
+    playerGoals.forEach(g=>{if(g.kind==='shedeh')g.have=Math.min(g.need,g.have+take);});
+    updatePlayerHUD();
+  }
+  if(z.jars<=0)removeZeer(ar,ac);   // empty → four open cells; the refill pours gems in
+  return take;
 }
 // TIRES — an item that steps DOWN one id per detonation hit; null = gone (cell cleared).
 const TIRE_DOWN={tire3:'tire2',tire2:'tire1',tire1:null};
@@ -5849,6 +5880,10 @@ function clearCell(r,c,phaseSet){
   if(!inPlayWindow(r,c)) return; // flyover HARD RULE: no clear outside the camera
                                  // window — a blast/beam stops dead at the boundary
   if(isGen(r,c)) return;         // a generator is permanent — blasts pass over it untouched
+  // ZEER: each of its cells a blast covers is ONE point on that Zeer (the splash rule). The
+  // cell is NOT marked cleared — a Zeer cell holds no gem — so every detonation that covers
+  // it counts (a Hopper×Hopper's 3×3 and then its jumps landing there all score).
+  if(isZeer(r,c)){ const a=zeerAnchor(r,c); if(a)zeerHit(a[0],a[1],1); return; }
   // CHAIN ABSORB: one hit per phase; the gem is untouched and NOT counted cleared
   if(isChained(r,c)){
     phaseSet.chainHits=phaseSet.chainHits||new Set();
@@ -6013,6 +6048,7 @@ function autoGrasshopperTarget(r,c,excludeSet){
     : o.gem!=null      ? {kind:'collect',gemIdx:GEMMAP[o.gem],need:o.count,have:0}
     : o.item==='egg' ? {kind:'egg',need:o.count,have:0}
     : o.item==='key'   ? {kind:'key',need:o.count,have:0}
+    : o.item==='shedeh'? {kind:'shedeh',need:o.count,have:0}
     : o.type==='clear' ? {kind:o.obstacle==='tire'?'tire':'crate',need:o.count,have:0}
     : o.type==='detonate'? {kind:'detonate',pu:o.pu,need:o.count,have:0}
     : o.type==='create' ? {kind:'create',pu:o.pu,need:o.count,have:0}
@@ -6027,6 +6063,7 @@ function autoGrasshopperTarget(r,c,excludeSet){
     if(goal.kind==='plant')  return cd.sub!=='clover'&&!shielded(nr,nc); // unclovered plantable ground
     if(goal.kind==='egg')  return cd.item==='egg'||isLeafy(nr,nc);
     if(goal.kind==='key')    return cd.item==='key';
+    if(goal.kind==='shedeh') return cd.obs==='zeer';                   // any Zeer cell (a Zeer exists only while it holds jars); claims spread a swarm over its cells
     if(goal.kind==='crate')  return isCrate(nr,nc);                  // hunt the nearest crate (lands → clearCell → damageChain cracks it)
     if(goal.kind==='tire')   return isTire(nr,nc)&&!(excludeSet&&excludeSet.tireHits&&excludeSet.tireHits.has(nr+','+nc)); // nearest tire this event hasn't dented yet
     // "Use N <power-up>" — hunt that power-up ON THE BOARD. A hopper landing on a
@@ -7955,6 +7992,20 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
       else if(board[nr][nc].active&&isTire(nr,nc)){splashed.add(k);damageTire(nr,nc);} // tires too, same as crates (Jed 2026-10-12)
     }
   }));
+  // ZEER SPLASH (Jed 2026-11-23): one point per MATCHED GEM touching the Zeer — not once per
+  // event like a crate. A gem counted once even if two of the chosen patterns share it; never
+  // across a barrier. Applied after the scan so the doors open before jars are taken.
+  const zeerTouch=new Map();                         // anchor 'r,c' → Set of matched-gem keys touching it
+  chosen.forEach(p=>p.cells.forEach(([r,c])=>{
+    for(const [nr,nc] of [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]){
+      if(nr<0||nr>=R||nc<0||nc>=C||!isZeer(nr,nc)||wallBetween(r,c,nr,nc))continue;
+      const a=zeerAnchor(nr,nc); if(!a)continue;
+      const ak=a[0]+','+a[1];
+      if(!zeerTouch.has(ak))zeerTouch.set(ak,new Set());
+      zeerTouch.get(ak).add(r+','+c);
+    }
+  }));
+  zeerTouch.forEach((gems,ak)=>{ const [ar,ac]=ak.split(',').map(Number); zeerHit(ar,ac,gems.size); });
   if(playerMode) updatePlayerHUD();
   render(null);
   phase.forEach(k=>{const[r,c]=k.split(',').map(Number);const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(el)el.classList.add('popping');});
@@ -9212,7 +9263,7 @@ function updEditorFrame(){
       // done, from the same playerGoals the real game ticks (goalDone()).
       g.innerHTML=playerGoals.map(pg=>{
         const done=goalDone(pg);
-        const icon=pg.kind==='plant'?cloverIconSVG(44):pg.kind==='egg'?eggIconSVG(44):pg.kind==='key'?keyIconSVG(44):pg.kind==='tire'?tireIconSVG(44):pg.kind==='crate'?crateIconSVG(44):(pg.kind==='detonate'||pg.kind==='create')?puSVG(goalPuIcon(pg.pu||'helicopter'),44):gemSVG(pg.gemIdx??3,44);
+        const icon=pg.kind==='plant'?cloverIconSVG(44):pg.kind==='egg'?eggIconSVG(44):pg.kind==='key'?keyIconSVG(44):pg.kind==='tire'?tireIconSVG(44):pg.kind==='shedeh'?shedehJarSVG(44):pg.kind==='crate'?crateIconSVG(44):(pg.kind==='detonate'||pg.kind==='create')?puSVG(goalPuIcon(pg.pu||'helicopter'),44):gemSVG(pg.gemIdx??3,44);
         const remaining=Math.max(0,pg.need-pg.have);
         return '<div class="ehud-goalrow'+(done?' done':'')+'"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(done?'✓':remaining)+'</div></div>';
       }).join('');
@@ -9220,7 +9271,7 @@ function updEditorFrame(){
       // Static preview — editing, not testing: shows the AUTHORED target count.
       g.innerHTML=(editorObjectives||[]).map(o=>{
         const k=objKind(o);
-        const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='egg'?eggIconSVG(44):k==='tire'?tireIconSVG(44):k==='crate'?crateIconSVG(44):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),44):gemSVG(GEMMAP[o.gem]??3,44);
+        const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='egg'?eggIconSVG(44):k==='tire'?tireIconSVG(44):k==='shedeh'?shedehJarSVG(44):k==='crate'?crateIconSVG(44):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),44):gemSVG(GEMMAP[o.gem]??3,44);
         return '<div class="ehud-goalrow"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(o.count||0)+'</div></div>';
       }).join('');
     }
@@ -9871,6 +9922,8 @@ function loadLevelData(json,num){
         return {kind:'crate',need:o.count,have:0,name:'crate'};
       if(o.type==='clear'&&o.obstacle==='tire')
         return {kind:'tire',need:o.count,have:0,name:'tire'};
+      if(o.type==='collect'&&o.item==='shedeh')
+        return {kind:'shedeh',need:o.count,have:0,name:'shedeh'};
       if(o.type==='plant')
         return {kind:'plant',need:o.count,have:0,name:'clover'};
       if(o.type==='detonate'&&o.pu)
@@ -10481,25 +10534,25 @@ function updatePlayerHUD(){
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
   if(!playerGoals.length){goalEl.innerHTML='';return;}
-  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='egg'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate'||playerGoals[0].kind==='tire'||playerGoals[0].kind==='detonate'||playerGoals[0].kind==='create')){
+  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='egg'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate'||playerGoals[0].kind==='tire'||playerGoals[0].kind==='shedeh'||playerGoals[0].kind==='detonate'||playerGoals[0].kind==='create')){
     // Single collect/plant/egg/key/crate/detonate/create goal — classic big-icon layout. Counts DOWN, 0 = done.
     const g=playerGoals[0];
     const remaining=Math.max(0,g.need-g.have);
     const isPu=g.kind==='detonate'||g.kind==='create';
-    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='egg'?eggIconSVG(48):g.kind==='key'?keyIconSVG(48):g.kind==='tire'?tireIconSVG(48):g.kind==='crate'?crateIconSVG(48):isPu?puSVG(goalPuIcon(g.pu),48):gemSVG(g.gemIdx,48);
-    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'||g.kind==='key'?TXT('cap_collect'):g.kind==='egg'?TXT('cap_free'):(g.kind==='crate'||g.kind==='tire')?TXT('cap_clear'):g.kind==='detonate'?TXT('verb_fire'):g.kind==='create'?TXT('verb_make'):TXT('cap_plant'))+'</div>'+
+    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='egg'?eggIconSVG(48):g.kind==='key'?keyIconSVG(48):g.kind==='tire'?tireIconSVG(48):g.kind==='shedeh'?shedehJarSVG(48):g.kind==='crate'?crateIconSVG(48):isPu?puSVG(goalPuIcon(g.pu),48):gemSVG(g.gemIdx,48);
+    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'||g.kind==='key'||g.kind==='shedeh'?TXT('cap_collect'):g.kind==='egg'?TXT('cap_free'):(g.kind==='crate'||g.kind==='tire')?TXT('cap_clear'):g.kind==='detonate'?TXT('verb_fire'):g.kind==='create'?TXT('verb_make'):TXT('cap_plant'))+'</div>'+
       '<div class="phud-icon">'+icon+'</div>'+
       '<div class="phud-gcount">'+remaining+'</div>';
     return;
   }
   // Multi-goal (entrance) — one row per goal: verb, icon, remaining/✓, and a "?" help button.
   // Two-stage 'pu' goals show "Make" until the power-up exists, then flip to "Fire".
-  const VERBS={collect:TXT('verb_get'),create:TXT('verb_make'),detonate:TXT('verb_fire'),plant:TXT('verb_plant'),egg:TXT('verb_free'),key:TXT('verb_get'),crate:TXT('verb_clear')};
+  const VERBS={collect:TXT('verb_get'),create:TXT('verb_make'),detonate:TXT('verb_fire'),plant:TXT('verb_plant'),egg:TXT('verb_free'),key:TXT('verb_get'),crate:TXT('verb_clear'),tire:TXT('verb_clear'),shedeh:TXT('verb_get')};
   let html='<div class="phud-cap">'+TXT('goals_cap')+'</div>';
   playerGoals.forEach((g,i)=>{
     const done=goalDone(g);
     const verb=g.kind==='pu'?(g.made?TXT('verb_fire'):TXT('verb_make')):(VERBS[g.kind]||'');
-    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):g.kind==='egg'?eggIconSVG(30):g.kind==='key'?keyIconSVG(30):g.kind==='tire'?tireIconSVG(30):g.kind==='crate'?crateIconSVG(30):puSVG(goalPuIcon(g.pu),30);
+    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):g.kind==='egg'?eggIconSVG(30):g.kind==='key'?keyIconSVG(30):g.kind==='tire'?tireIconSVG(30):g.kind==='shedeh'?shedehJarSVG(30):g.kind==='crate'?crateIconSVG(30):puSVG(goalPuIcon(g.pu),30);
     const status=done?'<span class="goal-done">✓</span>'
       :g.kind==='pu'?'<span class="goal-count"></span>'
       :'<span class="goal-count">'+Math.max(0,g.need-g.have)+'</span>';
@@ -10607,6 +10660,7 @@ function showGoalHelp(i){
   else if(g.kind==='key'){h=TXT('keyHelp')(g.need);}
   else if(g.kind==='crate'){h=TXT('crateHelp')(g.need);}
   else if(g.kind==='tire'){h=TXT('tireHelp')(g.need);}
+  else if(g.kind==='shedeh'){h=TXT('shedehHelp')(g.need);}
   else if(g.kind==='detonate'){h=TXT('det')[g.pu];}
   else if(g.kind==='pu'){ // help matches the current stage: make → fire
     h=g.made?TXT('det')[g.pu]:TXT('gh')[g.pu];

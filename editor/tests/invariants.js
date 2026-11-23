@@ -468,6 +468,47 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);
 
+    // ═══ SHEDEH ZEER IN PLAY (Jed 2026-11-22/23) ═══════════════════════════════
+    // The splash rule: every hit takes one point per Zeer cell a blast covers, or per
+    // matched gem touching it. Shut doors: the first point opens them, the rest take jars.
+    // The last jar out opens the 2×2 to gems. Each jar ticks the Shedeh goal.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    {
+      const reset=()=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.active=true; cd.obs=null; delete cd.zeer; delete cd.zeerOf; cd.item=null; cd.pu=null; cd.wallE=null; cd.wallS=null; cd.source=null; cd.win=null; cd.gen=null; cd.startEmpty=false; cd.sub=null; cd.gem=(r+2*c)%4; } flow.forEach(row=>row.fill('down')); };
+      const z=()=>board[2][2].zeer;
+      const pm=playerMode, pg=playerGoals; playerMode=true;
+      reset(); placeZeer(2,2); playerGoals=[{kind:'shedeh',need:8,have:0,name:'shedeh'}];
+      await fireDet('bomb',2,1);                                   // 3×3 beside it covers 2 of its cells
+      ok('zeer · Scarab beside a shut Zeer: doors open + 1 jar (2 cells covered)', z()&&z().open&&z().jars===7, z());
+      ok('zeer · each jar out ticks the Shedeh goal', playerGoals[0].have===1, playerGoals[0].have);
+      await fireDet('rocket_h',2,5);                               // a row beam runs through 2 of its cells
+      ok('zeer · Dragonfly crossing it: −2', z()&&z().jars===5, z());
+      await fireDet('bomb',2,4,{rad:2});                           // Scarab×Scarab 5×5 covers all four
+      ok('zeer · Scarab×Scarab 5×5 covering it: −4', z()&&z().jars===1, z());
+      await fireDet('bomb',2,1);
+      ok('zeer · the last jar out opens the 2×2 — no Zeer left on any of its cells', ![[2,2],[2,3],[3,2],[3,3]].some(([r,c])=>isZeer(r,c)), z());
+      ok('zeer · ...and the goal is met', playerGoals[0].have===8&&goalDone(playerGoals[0]), playerGoals[0].have);
+      reset(); placeZeer(2,2); playerGoals=[{kind:'shedeh',need:8,have:0,name:'shedeh'}];
+      await fireDet('bomb',4,4);                                   // 3×3 touches it only at its corner cell
+      ok('zeer · a Scarab touching only its corner (1 cell) just opens the doors', z()&&z().open&&z().jars===8, z());
+      reset(); placeZeer(2,2); playerGoals=[{kind:'shedeh',need:8,have:0,name:'shedeh'}];
+      board[1][2].gem=board[1][3].gem=board[1][4].gem=4;          // a row-1 match: 2 of its gems sit on the Zeer's top edge
+      resolve(findPatterns(1,3,1,3),1,3,JSON.parse(JSON.stringify(board)),1,3,Motion.newChain('test'));
+      ok('zeer · a match with 2 gems touching a shut Zeer: open + 1 jar', z()&&z().open&&z().jars===7, z());
+      await wait(1500);
+      await startPlayerLevel(1,false); await wait(45); playing=false; playerMode=true;
+      reset(); placeZeer(2,2); playerGoals=[{kind:'shedeh',need:8,have:0,name:'shedeh'}];
+      const _t=autoGrasshopperTarget(5,6,new Set());
+      ok('zeer · a Shedeh goal sends Grasshoppers to a Zeer cell', _t&&isZeer(_t[0],_t[1]), _t);
+      const _ph=new Set(), _picks=[0,1,2].map(()=>autoGrasshopperTarget(5,6,_ph));
+      ok('zeer · a swarm spreads over the Zeer\'s cells', new Set(_picks.map(t=>t&&t.join(','))).size===3&&_picks.every(t=>t&&isZeer(t[0],t[1])), _picks);
+      const _lp=new Set(); clearCellD(3,3,_lp,[]); clearCellD(3,3,new Set(),[]);
+      ok('zeer · a Grasshopper landing on a shut Zeer opens it; the next landing takes a jar', z()&&z().open&&z().jars===7, z());
+      ok('zeer · a Zeer holds its stage while the Shedeh goal is open', holdsStage(2,3));
+      playerMode=pm; playerGoals=pg;
+    }
+    await startPlayerLevel(1,false); await wait(45);
+
     // TIRES (Jed 2026-10-10/12): 1-3 HP items (tire1/2/3) that FLOW like gems, slide aside in a
     // swap like keys, never match; detonations AND adjacent matches (like crates) take one HP per
     // hit, gone at 0 (cell cleared).
