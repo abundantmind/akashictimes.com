@@ -456,6 +456,9 @@ body.font-lg{--base-font:20px;}
 /* Border layer (Jed 2026-10-08): you aim at SEAMS, not cells — no cell hover ring; the
    seam under the pointer is previewed by #seam-hover instead (see seamAt / showSeamHover). */
 body.border-mode #board .cell:hover{box-shadow:none;}
+#zeer-hover{position:absolute;pointer-events:none;z-index:7;border-radius:8px;display:none;}
+#zeer-hover.ok{box-shadow:0 0 0 3px #c8a8ff,0 0 12px rgba(200,168,255,.7);background:rgba(200,168,255,.18);}
+#zeer-hover.bad{box-shadow:0 0 0 3px #ff4d4d,0 0 10px rgba(255,77,77,.8);background:rgba(220,50,50,.22);}
 #seam-hover{position:absolute;pointer-events:none;z-index:7;border-radius:4px;display:none;opacity:.85;
   box-shadow:0 0 0 2px #fff,0 0 10px rgba(242,194,48,.9);}
 /* the preview WEARS the loaded brush, so you see what a click will lay down */
@@ -1499,6 +1502,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
      before the game script so AkashicID is ready; shared same-origin with landing. -->
 <script src="/identity.js"></script>
 <script src="./cloud-drafts.js"></script>
+<script src="./zeer-art.js"></script>   <!-- Shedeh Zeer art (zeerSVG / shedehJarSVG) -->
 <script>
 // ── i18n — English + 한국어 ────────────────────────────────────────────────────
 // Player-facing strings only; the editor tooling (palette, toolbar, status bar)
@@ -4087,7 +4091,25 @@ function render(dropping){
   bd.style.gridTemplateColumns=`repeat(${C},${CELL_SIZE}px)`;
   bd.innerHTML='';
   for(let r=0;r<R;r++) for(let c=0;c<C;c++) bd.appendChild(buildCellEl(r,c,dropping));
+  drawZeers(bd);
   drawBarriers(bd);
+}
+// ZEERS drawn as ONE picture over their 2×2 (not four quarters), laid over the grid
+// inside #board so they pan with the flyover camera. Appended AFTER the cells, so
+// renderCell's index-based replace (bd.children[r*C+c]) is untouched. Clicks pass
+// through to the cells beneath (pointer-events:none). Hidden on the Flow view, where
+// the arrows under it are the point.
+function drawZeers(bd){
+  if(layer==='flow'&&!playing)return;
+  const S=CELL_SIZE, G=CELL_GAP, step=S+G, W=2*S+G;
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const cd=board[r][c]; if(!cd.active||!cd.zeer)continue;
+    const z=document.createElement('div');
+    z.className='zeer-layer';
+    z.style.cssText=`position:absolute;left:${c*step}px;top:${r*step}px;width:${W}px;height:${W}px;pointer-events:none;z-index:5;`;
+    z.innerHTML=zeerSVG({doors:cd.zeer.open?'open':'shut',jars:cd.zeer.jars},W);
+    bd.appendChild(z);
+  }
 }
 // BARRIERS drawn ON the seams: YELLOW = breakable, BLACK/YELLOW CANDY STRIPE = unbreakable
 // (Jed 2026-10-07), each with a dark rim so it reads against the sand cells. One SVG laid
@@ -4146,7 +4168,7 @@ function buildCellEl(r,c,dropping){
     else if(cd.gem!==null){inner.innerHTML=gemSVG(cd.gem,gemSize());}
     else if(!cd.sub&&!cd.obs&&!cd.gen){el.classList.add('empty-hint');}
     // Top layer: overlay obstacle (chain/leaf) — renders over gem, semi-transparent
-    if(cd.obs){
+    if(cd.obs&&cd.obs!=='zeer'){            // a Zeer is drawn whole by drawZeers, not per cell
       const ov=document.createElement('div');
       ov.style.cssText='position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;';
       ov.innerHTML=overlaySVG(cd.obs,CELL_SIZE);
@@ -4467,6 +4489,10 @@ function serializeLevel(){
       if(!cd.active)return '.';
       if(cd.gen){cprops['R'+r+'C'+c]={gen:{emit:cd.gen.emit,every:cd.gen.every}};return 'G';} // generator: settings ride in props (the drop counter is runtime, not saved)
       if(isCrate(r,c)){const hp=+cd.obs.replace('crate','')||1;if(hp>1)cprops['R'+r+'C'+c]={hp};return 'x';}
+      if(isZeer(r,c)){                                         // Shedeh Zeer: 'Z' top-left (jars in props when not 8), 'z' its other three cells
+        if(cd.zeer){ if(cd.zeer.jars!==ZEER_JARS)cprops['R'+r+'C'+c]={jars:cd.zeer.jars}; return 'Z'; }
+        return 'z';
+      }
       if(cd.pu)return PU_CH[cd.pu]||'?';
       if(cd.item==='key')return 'k';
       if(cd.item==='egg')return 'a';
@@ -4662,6 +4688,10 @@ const OBS_TYPES=[
   {id:'tire1',   label:'TR1', color:'#1b1b1f', desc:'Tire 1HP',           layer:'item', hp:1, tire:true, stageResident:true},
   {id:'tire2',   label:'TR2', color:'#1b1b1f', desc:'Tire 2HP',           layer:'item', hp:2, tire:true, stageResident:true},
   {id:'tire3',   label:'TR3', color:'#f2f2f2', desc:'Tire 3HP',           layer:'item', hp:3, tire:true, stageResident:true},
+  // SHEDEH ZEER (Jed 2026-11-22) — a 2×2 Block: Egypt's clay cooler holding 8 jars of Shedeh.
+  // All FOUR cells carry obs:'zeer'; the TOP-LEFT (anchor) also carries zeer:{jars}, the
+  // other three carry zeerOf:[anchorR,anchorC]. Painted with a 2×2 brush (paintZeer).
+  {id:'zeer',    label:'ZR',  color:'#8a3a18', desc:'Shedeh Zeer — 2×2 clay cooler, 8 jars of Shedeh (click = its top-left cell)', layer:'obs', solid:true},
 ];
 // ── STAGE RESIDENTS — the gate for multi-stage (flyover) levels ──────────────
 // A "resident" is a board object REMOVED when its goal is met — a crate breaks, a
@@ -4752,6 +4782,7 @@ function overlaySVG(obsId,size){
     if(hp>=3) paths+=`<polygon points="${s},${0} ${s},${s*.75} ${s*.75},${s*.75} ${s*.75},${0}" fill="${col}"/>`;
     return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
   }
+  if(obsId==='zeer')return zeerSVG({doors:'shut',jars:8},size);   // palette swatch: the whole 2×2 Zeer, shrunk
   if(obsId==='crate1'||obsId==='crate2'||obsId==='crate3'){
     // Solid wooden crate — more planks/crossbars for higher HP
     const hp=obsId==='crate3'?3:obsId==='crate2'?2:1;
@@ -5130,13 +5161,55 @@ document.addEventListener('pointermove',e=>{
   }
   showSeamHover(sm);
 });
+// THE 2×2 HOVER GHOST — with the Zeer brush loaded, the footprint under the pointer
+// (pointer cell = top-left) glows lilac where it fits and red where it can't go, so the
+// author sees all four cells before clicking. Lives inside #board so it pans with it.
+document.addEventListener('pointermove',e=>{
+  const bd=document.getElementById('board'); if(!bd)return;
+  let h=document.getElementById('zeer-hover');
+  const armed=!playing&&!editorReadOnly&&(layer==='tile'||layer==='obstacle')&&tool==='paint'&&selBrush.type==='obs'&&selBrush.id==='zeer';
+  const cell=armed&&e.target&&e.target.closest&&e.target.closest('#board .cell');
+  if(!cell){ if(h)h.style.display='none'; return; }
+  if(!h||h.parentNode!==bd){ if(h)h.remove(); h=document.createElement('div'); h.id='zeer-hover'; bd.appendChild(h); } // render() rebuilds #board's children
+  const r=+cell.dataset.r, c=+cell.dataset.c, S=CELL_SIZE, G=CELL_GAP, step=S+G;
+  const fitsR=Math.min(2,R-r), fitsC=Math.min(2,C-c);         // clip the ghost at the board edge
+  h.style.left=(c*step)+'px'; h.style.top=(r*step)+'px';
+  h.style.width=(fitsC*S+(fitsC-1)*G)+'px'; h.style.height=(fitsR*S+(fitsR-1)*G)+'px';
+  const za=zeerAnchor(r,c);
+  h.className=(za&&za[0]===r&&za[1]===c)||!zeerBlocked(r,c)?'ok':'bad';
+  h.style.display='block';
+});
 document.addEventListener('pointerup',()=>{ if(borderStroke){ const n=borderStroke.done.size; borderStroke=null;
   if(n>1){ const sb=document.getElementById('sb3'); if(sb)sb.textContent=n+' seams painted (one Undo step)'; } } });
 
 function paintCell(r,c){
   if(editorReadOnly){ const sb=document.getElementById('sb3'); if(sb)sb.textContent='🔒 Published level — read-only. ▶ Play to test it.'; return; }
   const cd=board[r][c];
-  if(layer==='base'){save();cd.active=(selBase==='active'); // SET to the chosen brush, not toggle
+  // A ZEER IS ONE OBJECT: a Hole painted into any of its four cells lifts the whole Zeer
+  // (done inside the Base branch, after its Undo snapshot — one Undo step).
+  const zeerHole=layer==='base'&&selBase!=='active'&&isZeer(r,c);
+  // THE 2×2 BRUSH — the clicked cell is the Zeer's top-left (the hover ghost shows the footprint)
+  if((layer==='tile'||layer==='obstacle')&&tool==='paint'&&selBrush.type==='obs'&&selBrush.id==='zeer'){
+    const sb=document.getElementById('sb3');
+    const za=zeerAnchor(r,c);
+    if(za&&za[0]===r&&za[1]===c)return;                         // a Zeer already sits exactly here
+    const why=zeerBlocked(r,c);
+    if(why){ if(sb)sb.textContent=why; return; }
+    save(); placeZeer(r,c);
+    if(sb)sb.textContent='Shedeh Zeer placed (8 jars) — Erase any of its cells to lift it';
+    render(); markLevelBrushes(); return;
+  }
+  // Anything that rewrites a Zeer cell's CONTENTS (Erase, the Blocks/Overlay clear, a gem,
+  // power-up, item, Empty, generator, crate, chain, leaf) lifts the WHOLE Zeer first — never
+  // a three-quarter Zeer. Ground (clover), sources, windows and the other clears leave it.
+  let liftZeer=false;
+  if((layer==='tile'||layer==='obstacle')&&cd.active&&isZeer(r,c)){
+    const b=selBrush, sub=b.type==='obs'&&OBS_BYID[b.id]&&OBS_BYID[b.id].layer==='sub';
+    liftZeer=!(tool==='paint'&&(b.type==='source'||b.type==='window'||sub||(b.type==='clear'&&b.id!=='_clear_obs')));
+  }
+  // The Undo snapshot, then the lift — so lifting the Zeer and the paint that replaced it are ONE Undo step.
+  const snap=()=>{ save(); if(liftZeer)removeZeer(r,c); };
+  if(layer==='base'){save();if(zeerHole)removeZeer(r,c);cd.active=(selBase==='active'); // SET to the chosen brush, not toggle
     // A HOLE HOLDS NOTHING (Jed 2026-11-07, Akashic Window L21). Painting Hole used to keep
     // the cell's contents hidden underneath — so re-painting it Active brought back the
     // crate + clover + Empty he had just "deleted" with the row. The save never writes a
@@ -5157,9 +5230,9 @@ function paintCell(r,c){
     // painted gem colour is never serialized — so each was a tool that edited data
     // the save discards, on the one brush type where that is true. Erase stays: it
     // clears every layer of a cell, which IS saved.
-    if(tool==='erase'){save();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;cd.gen=null;cd.startEmpty=false;} // …and un-Empties it: Erase missed field.empty, so a cell painted Empty could never be made ordinary again (Jed 2026-11-07)
+    if(tool==='erase'){snap();cd.gem=null;cd.pu=null;cd.obs=null;cd.sub=null;cd.item=null;cd.gen=null;cd.startEmpty=false;} // …and un-Empties it: Erase missed field.empty, so a cell painted Empty could never be made ordinary again (Jed 2026-11-07)
     else if(tool==='paint'){
-      save();
+      snap();
       if(b.type==='clear'){                                             // clear-brush: null one layer, leave the rest
         if(b.id==='_clear_sub')cd.sub=null;
         else if(b.id==='_clear_obs')cd.obs=null;
@@ -5212,7 +5285,8 @@ function paintCell(r,c){
   // Incremental repaint: only the touched cell redraws, so painting no longer
   // thrashes the whole board (the flicker fix). Every remaining tool is one cell
   // per click — Fill was the only one that ever touched more.
-  renderCell(r,c);
+  if(zeerHole||liftZeer)render();   // a lifted Zeer changed three other cells too
+  else renderCell(r,c);
   markLevelBrushes(); // keep the level-presence rings current as the board changes
 }
 
@@ -5593,6 +5667,52 @@ const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2',
 function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
 function isLeafy(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('leaf'));}
 function isCrate(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('crate'));}
+// ── SHEDEH ZEER — the first 2×2 object (Jed 2026-11-22) ──────────────────────
+// Four cells, one object. obs:'zeer' on all four (so every existing "is this cell a
+// wall?" check sees it); the anchor (top-left) holds zeer:{jars}, the others point at it.
+const ZEER_JARS=8;
+function isZeer(r,c){return !!(board[r]&&board[r][c]&&board[r][c].obs==='zeer');}
+// The anchor [r,c] of the Zeer covering this cell, or null.
+function zeerAnchor(r,c){
+  if(!isZeer(r,c))return null;
+  const cd=board[r][c];
+  if(cd.zeer)return [r,c];
+  return cd.zeerOf?[cd.zeerOf[0],cd.zeerOf[1]]:null;
+}
+// The four cells of a 2×2 whose top-left is (r,c), reading order.
+function zeerCells(r,c){return [[r,c],[r,c+1],[r+1,c],[r+1,c+1]];}
+// Can a Zeer go down with its top-left at (r,c)? Returns null if yes, else the reason.
+function zeerBlocked(r,c){
+  if(r+1>=R||c+1>=C)return 'A Zeer is 2×2 — it needs a column to the right and a row below';
+  for(const [rr,cc] of zeerCells(r,c)){
+    const cd=board[rr][cc];
+    if(!cd.active)return 'A Zeer needs four ACTIVE cells — one of them is a hole';
+    if(cd.gen)return 'A generator is in the way';
+    if(isZeer(rr,cc))return 'It would overlap another Zeer';
+  }
+  return null;
+}
+// Lay a Zeer down: it REPLACES whatever its four cells held (gem, power-up, item,
+// crate, chain, leaf, Empty). Ground underneath (clover), flow and sources stay.
+function placeZeer(r,c,jars){
+  zeerCells(r,c).forEach(([rr,cc],i)=>{
+    const cd=board[rr][cc];
+    cd.gem=null;cd.pu=null;cd.item=null;cd.gen=null;cd.startEmpty=false;
+    cd.obs='zeer'; delete cd.zeer; delete cd.zeerOf;
+    if(i===0)cd.zeer={jars:jars==null?ZEER_JARS:jars};
+    else cd.zeerOf=[r,c];
+  });
+}
+// Lift the WHOLE Zeer that covers (r,c) — any of its four cells will do. Its cells are
+// left empty (the editor's blank cell); returns true if there was one.
+function removeZeer(r,c){
+  const a=zeerAnchor(r,c); if(!a)return false;
+  zeerCells(a[0],a[1]).forEach(([rr,cc])=>{
+    const cd=board[rr]&&board[rr][cc]; if(!cd||cd.obs!=='zeer')return;
+    cd.obs=null; delete cd.zeer; delete cd.zeerOf; cd.gem=null;
+  });
+  return true;
+}
 // TIRES — an item that steps DOWN one id per detonation hit; null = gone (cell cleared).
 const TIRE_DOWN={tire3:'tire2',tire2:'tire1',tire1:null};
 function isTireId(id){return !!id&&TIRE_DOWN.hasOwnProperty(id);}
@@ -5617,7 +5737,7 @@ function damageTire(r,c){
 // n, k}: `every` = N (the ceiling), `n` = drops this cycle, `k` = this cycle's rolled
 // special drop. n/k are runtime only — not saved; undo (a board snapshot) rewinds them.
 function isGen(r,c){return !!board[r][c].gen;}
-function isSolid(r,c){return isCrate(r,c)||isGen(r,c);} // "a wall" for gravity, swaps, fills
+function isSolid(r,c){return isCrate(r,c)||isGen(r,c)||isZeer(r,c);} // "a wall" for gravity, swaps, fills
 // ═══ BARRIERS (Layer 7 seams; Jed 2026-10-07/08) ══════════════════════════════
 // A barrier sits on the SEAM between two cells, stored on the cell to its left/above:
 // cd.wallE = the seam on a cell's RIGHT, cd.wallS = the seam BELOW it, each
@@ -6520,6 +6640,7 @@ window.freezeReport=function(){
   const ch=(r,c)=>{const cd=board[r][c];
     if(!cd.active)return ' ';
     if(cd.obs&&/crate/.test(cd.obs))return 'X';
+    if(cd.obs==='zeer')return 'Z';
     if(cd.obs&&/bind/.test(cd.obs))return 'B';
     if(cd.obs&&/leaf/.test(cd.obs))return 'L';
     if(cd.pu)return PU_CH[cd.pu]||'?';
@@ -8158,7 +8279,7 @@ function gravityWithMap(){
         // a crate BEFORE the window test: a crate cell holds no gem, so a crated Re-entry
         // looked "empty" and the walk waited on its window — L17's R0C4/R0C6 crates sit
         // right on the mouths, and the heart beside them never slipped (Jed 2026-11-07)
-        if(isCrate(br,bc)){blockedForever=true;break;} // solid box: gems route around it like a hole
+        if(isCrate(br,bc)||isZeer(br,bc)){blockedForever=true;break;} // solid box (crate, or a Shedeh Zeer still holding jars): gems route around it like a hole
         if(winIn.has(br+','+bc)&&!occ(br,bc)){         // an empty Re-entry upstream: follow its window back to the Exit
           if(thruWin.has(br+','+bc))break;             // walked round a loop of windows: assume the feed is live (old behaviour)
           thruWin.add(br+','+bc);
@@ -9620,6 +9741,8 @@ function loadCanonicalLayers(json){
         if(sb==='c')cell.sub='clover'; else if(sb==='o')cell.sub='oil';
         const ct=at(L.contents,r,c);                          // L5 Contents
         if(ct==='x'){const hp=(cprops['R'+r+'C'+c]||{}).hp||1;cell.obs='crate'+hp;} // solid box
+        else if(ct==='Z'){cell.obs='zeer';cell.zeer={jars:(cprops['R'+r+'C'+c]||{}).jars||ZEER_JARS};} // Zeer top-left
+        else if(ct==='z'){cell.obs='zeer';}                    // a Zeer's other cell — linked to its anchor below
         else if(ct==='G'){                                     // generator — permanent fixture
           const g=(cprops['R'+r+'C'+c]||{}).gen||{};
           cell.gen={emit:GEN_NAMES[g.emit]?g.emit:'helicopter',every:Math.min(30,Math.max(2,Math.round(+g.every)||5)),n:0,k:0};
@@ -9639,6 +9762,11 @@ function loadCanonicalLayers(json){
       board[r].push(cell);
     }
   }
+  // ZEER LINKS: each 'Z' claims the three 'z' cells of its 2×2. A 'z' no anchor claims
+  // (a hand-edited file) is dropped rather than left as a wall nobody can clear.
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; if(!cd.zeer)continue;
+    zeerCells(r,c).slice(1).forEach(([rr,cc])=>{ const p=board[rr]&&board[rr][cc]; if(p&&p.obs==='zeer'&&!p.zeer)p.zeerOf=[r,c]; }); }
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; if(cd.obs==='zeer'&&!cd.zeer&&!cd.zeerOf)cd.obs=null; }
   // L7 BORDERS → cell walls. seam "v:R#C#" = the seam on that cell's RIGHT, "h:R#C#" = BELOW it.
   (json.borders||[]).forEach(b=>{
     const m=/^([hv]):R(\d+)C(\d+)$/.exec((b&&b.seam)||''); if(!m)return;

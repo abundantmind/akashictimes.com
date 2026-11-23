@@ -943,6 +943,39 @@ window.runInvariants = async function(){
     ok('hopper · either Dragonfly half satisfies a rocket goal',
        !!_t3&&_t3[0]===_mid[0]&&_t3[1]===_mid[1], {target:_t3, rocket:_mid});
     board[_mid[0]][_mid[1]].pu=null;
+    // ── SHEDEH ZEER: THE FIRST 2×2 OBJECT (Jed 2026-11-22) ──
+    // One click with the Zeer brush paints a whole 2×2 (clicked cell = top-left); it must
+    // fit on four active cells and never overlap; anything that rewrites one of its cells
+    // lifts all four; it saves as Z + three z and loads back identically; and it is a wall.
+    { const _R=R,_C=C,_b=JSON.stringify(board),_f=JSON.stringify(flow),_sel=selBrush,_tool=tool,_lay=layer;
+      R=6;C=6; board=[];flow=[];
+      for(let r=0;r<R;r++){board.push([]);flow.push([]);for(let c=0;c<C;c++){board[r].push({gem:1,active:true,obs:null,pu:null,sub:null,item:null});flow[r].push('down');}}
+      layer='tile'; tool='paint'; selBrush={type:'obs',id:'zeer'};
+      paintCell(1,1);
+      ok('zeer · one click paints all four cells, anchor top-left, gems gone',
+         [[1,1],[1,2],[2,1],[2,2]].every(([r,c])=>isZeer(r,c)&&board[r][c].gem===null)&&board[1][1].zeer&&board[1][1].zeer.jars===8&&String(board[2][2].zeerOf)==='1,1');
+      paintCell(2,2);
+      ok('zeer · a second Zeer may not overlap the first', !board[2][2].zeer&&!isZeer(3,3));
+      paintCell(5,0);
+      ok('zeer · no room for a 2×2 at the bottom edge', !isZeer(5,0));
+      board[4][4].active=false; paintCell(3,3);
+      ok('zeer · a hole in the footprint blocks it', !isZeer(3,3)); board[4][4].active=true;
+      paintCell(3,3);
+      ok('zeer · it is a wall for gravity and swaps (isSolid)', isSolid(4,4)&&isSolid(1,1));
+      const _ser=serializeLevel();
+      ok('zeer · saves as Z top-left + z on its other three cells',
+         _ser.layers.contents[1].slice(1,3)==='Zz'&&_ser.layers.contents[2].slice(1,3)==='zz'&&_ser.layers.contents[3].slice(3,5)==='Zz');
+      loadCanonicalLayers(_ser);
+      ok('zeer · loads back identically (serialize → load → serialize)', JSON.stringify(serializeLevel())===JSON.stringify(_ser));
+      tool='erase'; paintCell(2,1);
+      ok('zeer · erasing ANY of its cells lifts the whole Zeer', ![[1,1],[1,2],[2,1],[2,2]].some(([r,c])=>isZeer(r,c))&&isZeer(3,3));
+      doUndo();
+      ok('zeer · one Undo brings the whole Zeer back', [[1,1],[1,2],[2,1],[2,2]].every(([r,c])=>isZeer(r,c)));
+      tool='paint'; selBrush={type:'obs',id:'clover'}; paintCell(1,2);
+      ok('zeer · clover painted under a Zeer keeps the Zeer', isZeer(1,1)&&board[1][2].sub==='clover');
+      selBrush={type:'gem',id:3}; paintCell(4,4);
+      ok('zeer · a gem painted on a Zeer cell replaces the whole Zeer', !isZeer(3,3)&&!isZeer(4,4)&&board[4][4].gem===3);
+      board=JSON.parse(_b); flow=JSON.parse(_f); R=_R; C=_C; selBrush=_sel; tool=_tool; layer=_lay; undoQ.length=0; render(); }
     // ── THE SWARM SPREADS OUT (Jed 2026-11-22) ──
     // Hopper×Hopper: three jumps take off ~100ms apart, all before the first lands, so
     // each saw the same board and they all picked the same "best" cell. Each pick now

@@ -49,7 +49,7 @@ Each grid is `rows` strings of `cols` characters, row-major.
 | 2 | `flow`      | `v` down · `^` up · `<` left · `>` right · `.` hole |
 | 3 | `source`    | `I` inlet · `D` drain · `E` window Exit · `R` window Re-entry · `.` none/hole |
 | 4 | `substrate` | `c` clover · `o` oil · `.` none/hole |
-| 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` egg · `t` tire · `x` crate · `G` generator · `S H V A W` power-ups · `.` hole |
+| 5 | `contents`  | `g` gem · `e` empty (starts gem-free) · `k` key · `a` egg · `t` tire · `x` crate · `Z`/`z` Shedeh Zeer · `G` generator · `S H V A W` power-ups · `.` hole |
 | 6 | `overlay`   | `B` chain (bind) · `L` leaf · `.` none/hole |
 
 **`.` convention:** *hole* in `board`; *hole-or-none* in flow/source/substrate/overlay
@@ -73,6 +73,8 @@ and exact-dup detection work.
   cell its own `flow` arrow points at whenever that cell is empty: gems, plus one `emit`
   per cycle on a random drop from the 2nd to the Nth (always by the Nth). Permanent — never damaged, never counted as a crate. The drop counter is
   runtime-only (every play starts at 0). Added 2026-09-29 for Township 26–50.
+- `props.contents` — Shedeh Zeer jars (written only when not 8), e.g. `{"R1C1":{jars:6}}`. A Zeer is a **2×2** Block:
+  `Z` marks its top-left cell and `z` its other three (right, below, below-right). A `z` that no `Z` claims is dropped on load.
 - `props.overlay`  — chain/leaf HP, e.g. `{"R1C1":{hp:1}}`
 - `props.source`   — window pair numbers (written only when the level has windows), e.g.
   `{"R8C2":{"pair":3},"R0C8":{"pair":3}}`. WINDOWS are always 1:1: a piece resting in the
