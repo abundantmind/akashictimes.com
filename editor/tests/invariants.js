@@ -509,6 +509,71 @@ window.runInvariants = async function(){
     }
     await startPlayerLevel(1,false); await wait(45);
 
+    // ═══ DESERT FOG (Jed 2026-11-23) ═══════════════════════════════════════════
+    // A solid 1-hit cell (no gem), lifted by an adjacent match or any blast. Once per move,
+    // every fog REGION that lost no cell creeps into ONE neighbouring plain-gem cell, and the
+    // fog goal's target rises by one. Fog never takes a power-up/key/tire cell, never crosses
+    // a barrier, and leaves clover underneath alone.
+    await startPlayerLevel(1,false); await wait(45); playing=false;
+    {
+      const reset=()=>{ for(let r=0;r<R;r++)for(let c=0;c<C;c++){ const cd=board[r][c]; cd.active=true; cd.obs=null; delete cd.zeer; delete cd.zeerOf; cd.item=null; cd.pu=null; cd.wallE=null; cd.wallS=null; cd.source=null; cd.win=null; cd.gen=null; cd.startEmpty=false; cd.sub=null; cd.gem=(r+2*c)%4; } flow.forEach(row=>row.fill('down')); fogHits.clear(); };
+      const fog=(r,c)=>{ board[r][c].gem=null; board[r][c].obs='fog'; };
+      const fogs=()=>{ const o=[]; for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(isFog(r,c))o.push(r+','+c); return o; };
+      // one fog turn = one new move, then the turn (playing must be on for fogTurn)
+      const turn=()=>{ const pl=playing; playing=true; fogMoveSeen=moves; moves++; const n=fogTurn(); playing=pl; return n; };
+      const pm=playerMode, pg=playerGoals; playerMode=true;
+      reset(); fog(3,3); playerGoals=[{kind:'fog',need:1,have:0,name:'fog'}];
+      ok('fog · a fog cell is solid (gems route round it, it can\'t be swapped)', isSolid(3,3));
+      await fireDet('bomb',3,2);
+      ok('fog · a Scarab blast covering it lifts it', !isFog(3,3), board[3][3].obs);
+      ok('fog · ...and ticks the fog goal', playerGoals[0].have===1, playerGoals[0].have);
+      await startPlayerLevel(1,false); await wait(45); playing=false; playerMode=true;
+      reset(); for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+      board[3][0].gem=board[3][1].gem=board[3][2].gem=4; fog(4,1);
+      resolve(findPatterns(3,1,3,1),3,1,JSON.parse(JSON.stringify(board)),3,1,Motion.newChain('test'));
+      ok('fog · a match right beside it lifts it (1 hit)', !isFog(4,1), board[4][1].obs);
+      await wait(1500);
+      await startPlayerLevel(1,false); await wait(45); playing=false; playerMode=true;
+      // THE CREEP
+      reset(); fog(3,3); playerGoals=[{kind:'fog',need:1,have:0,name:'fog'}];
+      const n1=turn();
+      ok('fog · an untouched patch creeps into exactly one neighbouring cell', n1===1&&fogs().length===2, fogs());
+      ok('fog · ...the new cell touches the old one', fogs().some(k=>['2,3','4,3','3,2','3,4'].includes(k)), fogs());
+      ok('fog · ...and the fog goal\'s count goes UP by one', playerGoals[0].need===2, playerGoals[0].need);
+      reset(); fog(1,1); fog(1,2); fog(5,5); fogHits.add('1,0');      // the left patch lost a cell this move
+      turn();
+      ok('fog · a patch that lost a cell this move holds still; the untouched patch creeps', isFog(1,1)&&isFog(1,2)&&fogs().length===4&&fogs().filter(k=>!['1,1','1,2','5,5'].includes(k)).every(k=>{const [r,c]=k.split(',').map(Number);return Math.abs(r-5)+Math.abs(c-5)===1;}), fogs());
+      reset(); fog(3,3); fogMoveSeen=moves; { const pl=playing; playing=true; fogTurn(); playing=pl; }
+      ok('fog · no new move, no creep', fogs().length===1, fogs());
+      reset(); fog(3,3); board[2][3].pu='bomb'; board[4][3].item='key'; board[4][3].gem=null; board[3][2].item='tire1'; board[3][2].gem=null;
+      turn();
+      ok('fog · it creeps only onto a plain gem — never a power-up, key or tire', isFog(3,4)&&fogs().length===2, fogs());
+      reset(); fog(3,3); [[2,3],[4,3],[3,2],[3,4]].forEach(([r,c])=>{board[r][c].obs='crate1';board[r][c].gem=null;});
+      ok('fog · boxed in by crates: nowhere to creep', turn()===0&&fogs().length===1, fogs());
+      reset(); fog(3,3); board[3][3].wallS='unbreakable'; board[3][3].wallE='breakable'; board[2][3].wallS='breakable'; board[3][2].wallE='breakable';
+      ok('fog · it never creeps across a barrier', turn()===0, fogs());
+      reset(); fog(3,3); for(const [r,c] of [[2,3],[4,3],[3,2]]){ board[r][c].obs='crate1'; board[r][c].gem=null; } board[3][4].sub='clover';
+      turn();
+      ok('fog · creeping onto a clovered cell keeps the clover under it', isFog(3,4)&&board[3][4].sub==='clover', board[3][4]);
+      // goals, Grasshoppers, stages, save/load
+      reset(); fog(1,1); fog(1,2); fog(2,1); playerGoals=[{kind:'fog',need:3,have:0,name:'fog'}];
+      const _t=autoGrasshopperTarget(5,5,new Set());
+      ok('fog · a fog goal sends Grasshoppers to the fog', _t&&isFog(_t[0],_t[1]), _t);
+      const _ph=new Set(), _picks=[0,1,2].map(()=>autoGrasshopperTarget(5,5,_ph));
+      ok('fog · a swarm spreads over different fog cells', new Set(_picks.map(t=>t&&t.join(','))).size===3, _picks);
+      ok('fog · fog holds its stage while the fog goal is open', holdsStage(1,1));
+      { const eo=editorObjectives; editorObjectives=[]; addObjective('fog');
+        ok('fog goal · + Fog seeds its count from the board', editorObjectives[0].type==='clear'&&editorObjectives[0].obstacle==='fog'&&editorObjectives[0].count===3, editorObjectives[0]);
+        const ser=serializeLevel();
+        ok('fog · saves as contents "f"', ser.layers.contents[1][1]==='f'&&ser.layers.contents[2][1]==='f', ser.layers.contents.slice(0,3));
+        reset(); loadLevelData(JSON.parse(JSON.stringify(ser)),1);
+        ok('fog · loads back as fog', isFog(1,1)&&isFog(1,2)&&isFog(2,1)&&board[1][1].gem===null, fogs());
+        ok('fog · serialize→load→serialize is a fixed point', JSON.stringify(serializeLevel())===JSON.stringify(ser), 'diverged');
+        editorObjectives=eo; }
+      playerMode=pm; playerGoals=pg;
+    }
+    await startPlayerLevel(1,false); await wait(45);
+
     // TIRES (Jed 2026-10-10/12): 1-3 HP items (tire1/2/3) that FLOW like gems, slide aside in a
     // swap like keys, never match; detonations AND adjacent matches (like crates) take one HP per
     // hit, gone at 0 (cell cleared).

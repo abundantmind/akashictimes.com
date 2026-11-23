@@ -487,6 +487,8 @@ body.player-playing #board-wrap{overflow:hidden;}
   filter:drop-shadow(0 0 3px rgba(255,59,48,.7));
 }
 @keyframes rainbow-pulse{0%,100%{filter:brightness(1);transform:scale(1);}50%{filter:brightness(1.5) drop-shadow(0 0 4px #fff);transform:scale(1.08);}}
+@keyframes fog-born{0%{opacity:0;transform:scale(.35);}70%{opacity:1;transform:scale(1.08);}100%{transform:scale(1);}}
+.fog-born>div{animation:fog-born .55s ease-out;}   /* Desert Fog creeping into a cell */
 @keyframes throb{0%,100%{transform:scale(1);}50%{transform:scale(1.12);filter:brightness(1.3);}}
 .cell.bounce-back{animation:bounce-back 280ms ease-out;}
 @keyframes bounce-back{0%{transform:translateX(0);}30%{transform:translateX(var(--bx,0)) translateY(var(--by,0));}100%{transform:translateX(0) translateY(0);}}
@@ -1275,6 +1277,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
           <button class="tb" onclick="addObjective('crate')">+ Crate</button>
           <button class="tb" onclick="addObjective('tire')">+ Tire</button>
           <button class="tb" onclick="addObjective('shedeh')">+ Shedeh</button>
+          <button class="tb" onclick="addObjective('fog')">+ Fog</button>
           <button class="tb" onclick="addObjective('pu')">+ Power-up</button>
         </div>
         <div class="objbtns">
@@ -1504,6 +1507,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 <script src="/identity.js"></script>
 <script src="./cloud-drafts.js"></script>
 <script src="./zeer-art.js"></script>   <!-- Shedeh Zeer art (zeerSVG / shedehJarSVG) -->
+<script src="./fog-art.js"></script>    <!-- Desert Fog art (fogSVG / fogIconSVG) -->
 <script>
 // ── i18n — English + 한국어 ────────────────────────────────────────────────────
 // Player-facing strings only; the editor tooling (palette, toolbar, status bar)
@@ -1626,6 +1630,8 @@ en:{
     text:'Keys drop straight down. Clear the gems beneath a key so it falls, and the moment it reaches the bottom it exits and is collected. Open a clean path to the bottom for each key.'}),
   shedehHelp:n=>({title:'Collect '+n+' Shedeh',
     text:'Shedeh is the pharaohs\' pomegranate drink, kept cold in a clay Zeer. The first match beside a Zeer opens its doors. After that, every matched gem touching it — and every Zeer cell a power-up hits — takes out a jar. Grasshoppers fly to the Zeers. Empty a Zeer and gems flow into its space.'}),
+  fogHelp:n=>({title:'Clear '+n+' Desert Fog',
+    text:'Desert Fog is solid — no gem inside. Match right beside it or hit it with a power-up and it lifts. But it creeps: after every move that leaves a patch of fog untouched, that patch rolls into one more gem cell, and the count goes up. Keep hitting every patch. Grasshoppers fly to the fog.'}),
   tireHelp:n=>({title:'Clear '+n+' Tires',
     text:'Tires roll down with the gems but never match. Swap one aside, match right next to it, or hit it with a power-up — each hit knocks off one layer of white. A Dragonfly stops at the first tire it hits. Clear them all!'}),
   crateHelp:n=>({title:'Clear '+n+' Crates',
@@ -1746,6 +1752,8 @@ ko:{
     text:'부활절 달걀은 나뭇잎 아래에 숨어 있습니다 — 색깔은 상관없습니다. 나뭇잎 바로 옆에서 매치하거나 파워업 폭발로 맞추면 잎이 벗겨지고, 마지막 타격이 달걀을 꺼내 수집합니다. 달걀이 없는 잎도 같은 방식으로 보석을 붙잡고 있습니다.'}),
   shedehHelp:n=>({title:'셰데 '+n+'병 모으기',
     text:'셰데는 파라오의 석류 음료로, 진흙 냉장고 지르(Zeer)에 차갑게 보관됩니다. 지르 옆에서 처음 매치하면 문이 열립니다. 그다음부터는 지르에 닿은 매치 보석 하나마다, 그리고 파워업이 맞힌 지르 칸 하나마다 병이 하나씩 나옵니다. 메뚜기는 지르로 날아갑니다. 지르를 비우면 그 자리로 보석이 흘러 들어옵니다.'}),
+  fogHelp:n=>({title:'사막 안개 '+n+'칸 걷어내기',
+    text:'사막 안개는 단단해서 안에 보석이 없습니다. 바로 옆에서 매치하거나 파워업으로 맞히면 걷힙니다. 하지만 안개는 번집니다. 어떤 안개 덩어리를 건드리지 않고 한 수를 두면, 그 덩어리가 보석 칸 하나로 더 퍼지고 목표 숫자가 늘어납니다. 모든 덩어리를 계속 공격하세요. 메뚜기는 안개로 날아갑니다.'}),
   tireHelp:n=>({title:'타이어 '+n+'개 없애기',
     text:'타이어는 보석과 함께 굴러 내려오지만 매치되지 않습니다. 옆으로 밀어내거나, 바로 옆에서 매치하거나, 파워업으로 맞추세요 — 한 번 맞을 때마다 흰 층이 하나씩 벗겨집니다. 잠자리는 처음 맞는 타이어에서 멈춥니다. 모두 없애세요!'}),
   crateHelp:n=>({title:'상자 '+n+'개 부수기',
@@ -1872,6 +1880,8 @@ es:{
     text:'Los huevos de Pascua están escondidos bajo hojas — cualquier color cuenta. Combina justo al lado de una hoja (o golpéala con la explosión de un potenciador) para arrancarla — el último golpe libera el huevo y lo recoge. Las hojas sin huevo retienen gemas de la misma forma.'}),
   shedehHelp:n=>({title:'Recoge '+n+' Shedeh',
     text:'El Shedeh es la bebida de granada de los faraones, guardada fría en un Zeer de barro. La primera combinación junto a un Zeer abre sus puertas. Después, cada gema combinada que lo toque — y cada casilla del Zeer que golpee un potenciador — saca una jarra. Los Saltamontes vuelan a los Zeer. Vacía un Zeer y las gemas fluyen a su espacio.'}),
+  fogHelp:n=>({title:'Despeja '+n+' de Niebla del Desierto',
+    text:'La Niebla del Desierto es sólida: no tiene gema dentro. Combina justo a su lado o golpéala con un potenciador y se disipa. Pero avanza: después de cada movimiento que deja una mancha de niebla sin tocar, esa mancha se extiende a una casilla de gema más, y el número sube. Sigue golpeando cada mancha. Los Saltamontes vuelan a la niebla.'}),
   tireHelp:n=>({title:'Quita '+n+' llantas',
     text:'Las llantas ruedan con las gemas pero nunca combinan. Muévela a un lado, combina justo al lado o golpéala con un potenciador — cada golpe le quita una capa blanca. La Libélula se detiene en la primera llanta que toca. ¡Quítalas todas!'}),
   crateHelp:n=>({title:'Rompe '+n+' cajas',
@@ -4316,6 +4326,7 @@ const GEM_JSON=['red','blue','green','yellow','purple','white'];
 function objKind(o){
   if(o.type==='plant')return 'clover';
   if(o.type==='clear'&&o.obstacle==='tire')return 'tire';   // clear-N-tires goal (Jed 2026-10-12)
+  if(o.type==='clear'&&o.obstacle==='fog')return 'fog';     // clear-the-Desert-Fog goal (Jed 2026-11-23)
   if(o.type==='clear'&&o.obstacle==='crate')return 'crate'; // clear-N-crates goal
   if(o.type==='collect'&&o.item==='key')return 'key';
   if(o.type==='collect'&&o.item==='egg')return 'egg';
@@ -4363,7 +4374,7 @@ function renderPalette(){
 //           — the bare ground clover can still spread onto (Jed's formula).
 //  key / egg = items currently on the board.
 function boardCounts(){
-  let clover=0,key=0,egg=0,crate=0,tire=0,shedeh=0;
+  let clover=0,key=0,egg=0,crate=0,tire=0,shedeh=0,fog=0;
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
     const cd=board[r][c]; if(!cd||!cd.active)continue;
     if(!isSolid(r,c)&&cd.sub!=='clover')clover++;
@@ -4372,8 +4383,9 @@ function boardCounts(){
     if(isCrate(r,c))crate++;                       // any-HP crate cell = one to clear
     if(isTire(r,c))tire++;                         // any-HP tire = one to clear
     if(cd.zeer)shedeh+=cd.zeer.jars;              // every jar in every Zeer (anchor cell holds the count)
+    if(isFog(r,c))fog++;                           // every fog cell painted at the start
   }
-  return {clover,key,egg,crate,tire,shedeh};
+  return {clover,key,egg,crate,tire,shedeh,fog};
 }
 // Render the objectives list into #objlist.
 function renderObjectives(){
@@ -4390,7 +4402,7 @@ function renderObjectives(){
     const row=document.createElement('div');row.className='objrow';
     // icon
     const ic=document.createElement('span');ic.className='oicon';
-    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='egg'?eggIconSVG(20):k==='tire'?tireIconSVG(20):k==='shedeh'?shedehJarSVG(20):k==='crate'?crateIconSVG(20):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),20):gemSVG(GEMMAP[o.gem]??3,20);
+    ic.innerHTML = k==='clover'?cloverIconSVG(20):k==='key'?keyIconSVG(20):k==='egg'?eggIconSVG(20):k==='tire'?tireIconSVG(20):k==='shedeh'?shedehJarSVG(20):k==='fog'?fogIconSVG(20):k==='crate'?crateIconSVG(20):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),20):gemSVG(GEMMAP[o.gem]??3,20);
     row.appendChild(ic);
     // label, or a selector for goals with a variant (gem color / which power-up)
     if(k==='gem'){
@@ -4412,7 +4424,7 @@ function renderObjectives(){
       row.appendChild(sel);
     }else{
       const lb=document.createElement('span');lb.className='olabel';
-      lb.textContent = k==='clover'?'Plant clover':k==='key'?'Collect keys':k==='crate'?'Clear crates':k==='tire'?'Clear tires':k==='shedeh'?'Collect Shedeh':'Free eggs';
+      lb.textContent = k==='clover'?'Plant clover':k==='key'?'Collect keys':k==='crate'?'Clear crates':k==='tire'?'Clear tires':k==='shedeh'?'Collect Shedeh':k==='fog'?'Clear Desert Fog':'Free eggs';
       row.appendChild(lb);
     }
     // count (manual override — always editable)
@@ -4420,7 +4432,7 @@ function renderObjectives(){
     cnt.onchange=()=>{o.count=Math.max(1,parseInt(cnt.value)||1);};
     row.appendChild(cnt);
     // board-derived auto count (clover/key/egg only) — click to accept
-    const auto = k==='clover'?bc.clover:k==='key'?bc.key:k==='egg'?bc.egg:k==='crate'?bc.crate:k==='tire'?bc.tire:k==='shedeh'?bc.shedeh:null;
+    const auto = k==='clover'?bc.clover:k==='key'?bc.key:k==='egg'?bc.egg:k==='crate'?bc.crate:k==='tire'?bc.tire:k==='shedeh'?bc.shedeh:k==='fog'?bc.fog:null;
     if(auto!=null){
       const a=document.createElement('span');a.className='oauto';a.textContent='auto '+auto;a.title='Click to set the count from the board';
       a.onclick=()=>{o.count=auto;renderObjectives();};
@@ -4450,6 +4462,7 @@ function addObjective(kind){
   else if(kind==='crate') editorObjectives.push({type:'clear',obstacle:'crate',count:bc.crate||1});
   else if(kind==='tire')  editorObjectives.push({type:'clear',obstacle:'tire',count:bc.tire||1});
   else if(kind==='shedeh')editorObjectives.push({type:'collect',item:'shedeh',count:bc.shedeh||8});
+  else if(kind==='fog')   editorObjectives.push({type:'clear',obstacle:'fog',count:bc.fog||1});
   else if(kind==='pu')    editorObjectives.push({type:'detonate',pu:'helicopter',count:2});
   renderObjectives();
 }
@@ -4464,6 +4477,7 @@ function recommendObjectives(){
   if(bc.crate>0) ensure(o=>o.type==='clear'&&o.obstacle==='crate', ()=>({type:'clear',obstacle:'crate',count:bc.crate}));
   if(bc.tire>0)  ensure(o=>o.type==='clear'&&o.obstacle==='tire',  ()=>({type:'clear',obstacle:'tire',count:bc.tire}));
   if(bc.shedeh>0)ensure(o=>o.type==='collect'&&o.item==='shedeh', ()=>({type:'collect',item:'shedeh',count:bc.shedeh}));
+  if(bc.fog>0)   ensure(o=>o.type==='clear'&&o.obstacle==='fog',   ()=>({type:'clear',obstacle:'fog',count:bc.fog}));
   renderObjectives();
 }
 // (Removed: serializeObjectives() + copyObjectivesJSON() — the old "Copy JSON"
@@ -4504,6 +4518,7 @@ function serializeLevel(){
         if(cd.zeer){ if(cd.zeer.jars!==ZEER_JARS)cprops['R'+r+'C'+c]={jars:cd.zeer.jars}; return 'Z'; }
         return 'z';
       }
+      if(isFog(r,c))return 'f';                               // Desert Fog: a solid cell, no gem
       if(cd.pu)return PU_CH[cd.pu]||'?';
       if(cd.item==='key')return 'k';
       if(cd.item==='egg')return 'a';
@@ -4703,6 +4718,10 @@ const OBS_TYPES=[
   // All FOUR cells carry obs:'zeer'; the TOP-LEFT (anchor) also carries zeer:{jars}, the
   // other three carry zeerOf:[anchorR,anchorC]. Painted with a 2×2 brush (paintZeer).
   {id:'zeer',    label:'ZR',  color:'#8a3a18', desc:'Shedeh Zeer — 2×2 clay cooler, 8 jars of Shedeh (click = its top-left cell)', layer:'obs', solid:true, stageResident:true},
+  // DESERT FOG (Jed 2026-11-23) — a solid 1-hit cell like a crate (no gem inside), cleared by
+  // an adjacent match or any blast. It SPREADS: after each move, every fog REGION (a connected
+  // patch) that lost no cell creeps into one neighbouring plain-gem cell (fogTurn).
+  {id:'fog',     label:'FOG', color:'#b9a988', desc:'Desert Fog — solid, 1 hit; on any move that leaves its patch untouched it creeps into one more gem cell', layer:'obs', solid:true, hp:1, stageResident:true},
 ];
 // ── STAGE RESIDENTS — the gate for multi-stage (flyover) levels ──────────────
 // A "resident" is a board object REMOVED when its goal is met — a crate breaks, a
@@ -4727,6 +4746,7 @@ function residentKind(id){
   if(id.startsWith('crate'))return 'crate';
   if(isTireId(id))return 'tire';
   if(id==='zeer')return 'shedeh';      // a Zeer holds its stage while a Shedeh goal is open
+  if(id==='fog')return 'fog';          // fog holds its stage while a fog goal is open
   return null;
 }
 function holdsStage(r,c){
@@ -4795,6 +4815,7 @@ function overlaySVG(obsId,size){
     return`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
   }
   if(obsId==='zeer')return zeerSVG({doors:'shut',jars:8},size);   // palette swatch: the whole 2×2 Zeer, shrunk
+  if(obsId==='fog')return fogSVG(size);                            // Desert Fog fills its cell
   if(obsId==='crate1'||obsId==='crate2'||obsId==='crate3'){
     // Solid wooden crate — more planks/crossbars for higher HP
     const hp=obsId==='crate3'?3:obsId==='crate2'?2:1;
@@ -5596,6 +5617,7 @@ function togglePlay(sandbox=true){
         if(o.type==='clear'&&o.obstacle==='crate') return {kind:'crate',need:o.count,have:0,name:'crate'};
         if(o.type==='clear'&&o.obstacle==='tire') return {kind:'tire',need:o.count,have:0,name:'tire'};
         if(o.type==='collect'&&o.item==='shedeh') return {kind:'shedeh',need:o.count,have:0,name:'shedeh'};
+        if(o.type==='clear'&&o.obstacle==='fog') return {kind:'fog',need:o.count,have:0,name:'fog'};
         if(o.type==='plant') return {kind:'plant',need:o.count,have:0,name:'clover'};
         if(o.type==='detonate'&&o.pu) return {kind:'detonate',pu:o.pu,need:o.count,have:0,name:o.pu};
         if(o.type==='create'&&o.pu) return {kind:'create',pu:o.pu,need:o.count,have:0,name:o.pu};
@@ -5676,10 +5698,13 @@ const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2',
                   // blocking machinery as chains (proven by L25's dams) — an adjacent
                   // match walks the HP down; at crate1->null the box is gone and the
                   // now-empty cell refills via flow.
-                  crate1:null,crate2:'crate1',crate3:'crate2'};
+                  crate1:null,crate2:'crate1',crate3:'crate2',
+                  // Desert Fog: one hit and it lifts (same absorb path as a 1-HP crate)
+                  fog:null};
 function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
 function isLeafy(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('leaf'));}
 function isCrate(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('crate'));}
+function isFog(r,c){return !!(board[r]&&board[r][c]&&board[r][c].obs==='fog');}
 // ── SHEDEH ZEER — the first 2×2 object (Jed 2026-11-22) ──────────────────────
 // Four cells, one object. obs:'zeer' on all four (so every existing "is this cell a
 // wall?" check sees it); the anchor (top-left) holds zeer:{jars}, the others point at it.
@@ -5768,7 +5793,7 @@ function damageTire(r,c){
 // n, k}: `every` = N (the ceiling), `n` = drops this cycle, `k` = this cycle's rolled
 // special drop. n/k are runtime only — not saved; undo (a board snapshot) rewinds them.
 function isGen(r,c){return !!board[r][c].gen;}
-function isSolid(r,c){return isCrate(r,c)||isGen(r,c)||isZeer(r,c);} // "a wall" for gravity, swaps, fills
+function isSolid(r,c){return isCrate(r,c)||isGen(r,c)||isZeer(r,c)||isFog(r,c);} // "a wall" for gravity, swaps, fills
 // ═══ BARRIERS (Layer 7 seams; Jed 2026-10-07/08) ══════════════════════════════
 // A barrier sits on the SEAM between two cells, stored on the cell to its left/above:
 // cd.wallE = the seam on a cell's RIGHT, cd.wallS = the seam BELOW it, each
@@ -5850,9 +5875,18 @@ function windowProblems(){
 function damageChain(r,c){
   const wasLeaf=isLeafy(r,c);
   const wasCrate=isCrate(r,c); // capture BEFORE obs is walked down — the crate-goal tick fires on its full break
+  const wasFog=isFog(r,c);
   const left=CHAIN_DOWN[board[r][c].obs];
   board[r][c].obs=left;
   if(left)return;
+  // DESERT FOG lifted: dusty puff, one off the fog goal, and its patch is marked HIT for
+  // this move so it won't creep at the next fogTurn (Jed's region rule).
+  if(wasFog){
+    if(window.spawnFragments)spawnFragments(r,c,0,'#cdbf9f');
+    fogHits.add(r+','+c);
+    if(playerMode){ playerGoals.forEach(g=>{if(g.kind==='fog')g.have=Math.min(g.need,g.have+1);}); updatePlayerHUD(); }
+    return;
+  }
   // BREAK: shattered bits rain off — gold links for chains, green for leaves, brown planks for crates
   if(window.spawnFragments)spawnFragments(r,c,0,wasLeaf?'#4a8a3a':wasCrate?'#8a6a3a':'#e8c060');
   // A fully-broken crate ticks the 'clear crates' goal (parallel to egg-on-leaf-break).
@@ -6049,7 +6083,7 @@ function autoGrasshopperTarget(r,c,excludeSet){
     : o.item==='egg' ? {kind:'egg',need:o.count,have:0}
     : o.item==='key'   ? {kind:'key',need:o.count,have:0}
     : o.item==='shedeh'? {kind:'shedeh',need:o.count,have:0}
-    : o.type==='clear' ? {kind:o.obstacle==='tire'?'tire':'crate',need:o.count,have:0}
+    : o.type==='clear' ? {kind:o.obstacle==='tire'?'tire':o.obstacle==='fog'?'fog':'crate',need:o.count,have:0}
     : o.type==='detonate'? {kind:'detonate',pu:o.pu,need:o.count,have:0}
     : o.type==='create' ? {kind:'create',pu:o.pu,need:o.count,have:0}
     :                    {kind:'collect',gemIdx:0,need:o.count,have:0});
@@ -6064,6 +6098,7 @@ function autoGrasshopperTarget(r,c,excludeSet){
     if(goal.kind==='egg')  return cd.item==='egg'||isLeafy(nr,nc);
     if(goal.kind==='key')    return cd.item==='key';
     if(goal.kind==='shedeh') return cd.obs==='zeer';                   // any Zeer cell (a Zeer exists only while it holds jars); claims spread a swarm over its cells
+    if(goal.kind==='fog')    return isFog(nr,nc);                    // any fog cell; claims spread a swarm over the patch
     if(goal.kind==='crate')  return isCrate(nr,nc);                  // hunt the nearest crate (lands → clearCell → damageChain cracks it)
     if(goal.kind==='tire')   return isTire(nr,nc)&&!(excludeSet&&excludeSet.tireHits&&excludeSet.tireHits.has(nr+','+nc)); // nearest tire this event hasn't dented yet
     // "Use N <power-up>" — hunt that power-up ON THE BOARD. A hopper landing on a
@@ -6632,6 +6667,77 @@ function fillableGap(){
 // so it cannot be skipped by any path, present or future.
 let _sweptThisEpisode=false;   // reset by Motion.newChain on any real activity
 let _inQuiet=false;
+// ═══ DESERT FOG — THE CREEP (Jed 2026-11-23) ═══════════════════════════════════
+// Fog lives in REGIONS: orthogonally connected patches. Once per move, when the board comes
+// to rest, every region that lost NO cell during that move creeps into ONE neighbouring
+// plain-gem cell (Jed: "ANY cell that is matched or detonated to remove a suds cell prevents
+// that region from spawning"). Rules locked by Jed:
+//  - fog spreads ONLY onto gems: never a power-up, key, egg, tire, crate, Zeer or generator;
+//  - clover under the gem stays (fog never clears clover; it shows again when the fog lifts);
+//  - no loss state — boosters keep it in check ("only a fool would let that happen").
+// Each new cell raises the fog goal's target by one, so the count on the HUD is always "fog
+// left to clear", as in the source game. Fog never creeps across a barrier or off-camera.
+// fogHits = fog cells lifted since the last turn (filled by damageChain). A region is HIT if
+// a lifted cell touched it: that lifted cell was part of it a moment ago.
+const fogHits=new Set();
+let fogMoveSeen=0;                                   // the move count at the last fog turn
+// Randomness has ONE door so a seeded generator can replace it when proof-of-win replays
+// moves (ARCHITECT-ROADMAP #8); gem refills use Math.random today, so fog matches them.
+function fogRand(n){ return Math.floor(Math.random()*n); }
+function fogRegions(){
+  const seen=new Set(), regions=[];
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const k0=r+','+c;
+    if(seen.has(k0)||!isFog(r,c)||!inPlayWindow(r,c))continue;
+    const cells=[], stack=[[r,c]]; seen.add(k0);
+    while(stack.length){
+      const [cr,cc]=stack.pop(); cells.push([cr,cc]);
+      for(const [nr,nc] of [[cr-1,cc],[cr+1,cc],[cr,cc-1],[cr,cc+1]]){
+        const k=nr+','+nc;
+        if(nr<0||nr>=R||nc<0||nc>=C||seen.has(k)||!isFog(nr,nc)||!inPlayWindow(nr,nc))continue;
+        seen.add(k); stack.push([nr,nc]);
+      }
+    }
+    regions.push(cells);
+  }
+  return regions;
+}
+// A cell fog may creep onto: an active, on-camera, plain gem — nothing else on it.
+function fogCanTake(r,c){
+  if(r<0||r>=R||c<0||c>=C)return false;
+  const cd=board[r][c];
+  return !!(cd.active&&inPlayWindow(r,c)&&cd.gem!==null&&!cd.pu&&!cd.item&&!cd.obs&&!cd.gen);
+}
+function fogTurn(){
+  if(!playing)return 0;
+  if(moves<=fogMoveSeen){ fogMoveSeen=moves; fogHits.clear(); return 0; } // no new move (or Undo / a fresh start): resync only
+  fogMoveSeen=moves;
+  const born=[];
+  fogRegions().forEach(cells=>{
+    const hit=cells.some(([r,c])=>[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc])=>fogHits.has(nr+','+nc)));
+    if(hit)return;                                   // touched this move: this patch holds still
+    const opts=[], dup=new Set();
+    cells.forEach(([r,c])=>[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc])=>{
+      const k=nr+','+nc;
+      if(dup.has(k)||!fogCanTake(nr,nc)||wallBetween(r,c,nr,nc))return;
+      dup.add(k); opts.push([nr,nc]);
+    }));
+    if(!opts.length)return;                          // boxed in: nowhere to creep
+    const [tr,tc]=opts[fogRand(opts.length)];
+    board[tr][tc].gem=null; board[tr][tc].obs='fog'; // clover (cd.sub) underneath is left alone
+    born.push([tr,tc]);
+  });
+  fogHits.clear();
+  if(!born.length)return 0;
+  if(playerMode) playerGoals.forEach(g=>{ if(g.kind==='fog') g.need+=born.length; }); // the count goes UP
+  render();
+  born.forEach(([r,c])=>{                            // roll it in, so the player sees where it crept
+    const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+    if(el)el.classList.add('fog-born');
+  });
+  return born.length;
+}
+
 function boardQuiet(){
   if(_inQuiet||!playing)return;                      // re-entrancy: the sweep claims immediately
   if(choosingRainbow||choosingGrasshopper)return;    // waiting on the PLAYER is not "done"
@@ -6659,6 +6765,7 @@ function boardQuiet(){
       }
     }
     window._moveOverlapped=false;
+    fogTurn();                                       // Desert Fog creeps (no-op on a board without fog)
     if(playerMode){ updatePlayerHUD(); checkPlayerEnd(); maybeShuffle(); }
   } finally { _inQuiet=false; }
 }
@@ -6678,6 +6785,7 @@ window.freezeReport=function(){
     if(!cd.active)return ' ';
     if(cd.obs&&/crate/.test(cd.obs))return 'X';
     if(cd.obs==='zeer')return 'Z';
+    if(cd.obs==='fog')return 'F';
     if(cd.obs&&/bind/.test(cd.obs))return 'B';
     if(cd.obs&&/leaf/.test(cd.obs))return 'L';
     if(cd.pu)return PU_CH[cd.pu]||'?';
@@ -7988,7 +8096,7 @@ function resolve(pats,dr,dc,snap,sr,sc,chain){
       const k=nr+','+nc;
       if(nr<0||nr>=R||nc<0||nc>=C||splashed.has(k))continue;
       if(wallBetween(r,c,nr,nc))continue;            // a match's splash never crosses a barrier
-      if(board[nr][nc].active&&(isLeafy(nr,nc)||isCrate(nr,nc))){splashed.add(k);damageChain(nr,nc);}
+      if(board[nr][nc].active&&(isLeafy(nr,nc)||isCrate(nr,nc)||isFog(nr,nc))){splashed.add(k);damageChain(nr,nc);}
       else if(board[nr][nc].active&&isTire(nr,nc)){splashed.add(k);damageTire(nr,nc);} // tires too, same as crates (Jed 2026-10-12)
     }
   }));
@@ -8330,7 +8438,7 @@ function gravityWithMap(){
         // a crate BEFORE the window test: a crate cell holds no gem, so a crated Re-entry
         // looked "empty" and the walk waited on its window — L17's R0C4/R0C6 crates sit
         // right on the mouths, and the heart beside them never slipped (Jed 2026-11-07)
-        if(isCrate(br,bc)||isZeer(br,bc)){blockedForever=true;break;} // solid box (crate, or a Shedeh Zeer still holding jars): gems route around it like a hole
+        if(isCrate(br,bc)||isZeer(br,bc)||isFog(br,bc)){blockedForever=true;break;} // solid box (crate, or a Shedeh Zeer still holding jars): gems route around it like a hole
         if(winIn.has(br+','+bc)&&!occ(br,bc)){         // an empty Re-entry upstream: follow its window back to the Exit
           if(thruWin.has(br+','+bc))break;             // walked round a loop of windows: assume the feed is live (old behaviour)
           thruWin.add(br+','+bc);
@@ -9263,7 +9371,7 @@ function updEditorFrame(){
       // done, from the same playerGoals the real game ticks (goalDone()).
       g.innerHTML=playerGoals.map(pg=>{
         const done=goalDone(pg);
-        const icon=pg.kind==='plant'?cloverIconSVG(44):pg.kind==='egg'?eggIconSVG(44):pg.kind==='key'?keyIconSVG(44):pg.kind==='tire'?tireIconSVG(44):pg.kind==='shedeh'?shedehJarSVG(44):pg.kind==='crate'?crateIconSVG(44):(pg.kind==='detonate'||pg.kind==='create')?puSVG(goalPuIcon(pg.pu||'helicopter'),44):gemSVG(pg.gemIdx??3,44);
+        const icon=pg.kind==='plant'?cloverIconSVG(44):pg.kind==='egg'?eggIconSVG(44):pg.kind==='key'?keyIconSVG(44):pg.kind==='tire'?tireIconSVG(44):pg.kind==='shedeh'?shedehJarSVG(44):pg.kind==='fog'?fogIconSVG(44):pg.kind==='crate'?crateIconSVG(44):(pg.kind==='detonate'||pg.kind==='create')?puSVG(goalPuIcon(pg.pu||'helicopter'),44):gemSVG(pg.gemIdx??3,44);
         const remaining=Math.max(0,pg.need-pg.have);
         return '<div class="ehud-goalrow'+(done?' done':'')+'"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(done?'✓':remaining)+'</div></div>';
       }).join('');
@@ -9271,7 +9379,7 @@ function updEditorFrame(){
       // Static preview — editing, not testing: shows the AUTHORED target count.
       g.innerHTML=(editorObjectives||[]).map(o=>{
         const k=objKind(o);
-        const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='egg'?eggIconSVG(44):k==='tire'?tireIconSVG(44):k==='shedeh'?shedehJarSVG(44):k==='crate'?crateIconSVG(44):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),44):gemSVG(GEMMAP[o.gem]??3,44);
+        const icon=k==='clover'?cloverIconSVG(44):k==='key'?keyIconSVG(44):k==='egg'?eggIconSVG(44):k==='tire'?tireIconSVG(44):k==='shedeh'?shedehJarSVG(44):k==='fog'?fogIconSVG(44):k==='crate'?crateIconSVG(44):k==='pu'?puSVG(goalPuIcon(o.pu||'helicopter'),44):gemSVG(GEMMAP[o.gem]??3,44);
         return '<div class="ehud-goalrow"><div class="phud-icon">'+icon+'</div><div class="phud-gcount">'+(o.count||0)+'</div></div>';
       }).join('');
     }
@@ -9793,7 +9901,8 @@ function loadCanonicalLayers(json){
         const ct=at(L.contents,r,c);                          // L5 Contents
         if(ct==='x'){const hp=(cprops['R'+r+'C'+c]||{}).hp||1;cell.obs='crate'+hp;} // solid box
         else if(ct==='Z'){cell.obs='zeer';cell.zeer={jars:(cprops['R'+r+'C'+c]||{}).jars||ZEER_JARS};} // Zeer top-left
-        else if(ct==='z'){cell.obs='zeer';}                    // a Zeer's other cell — linked to its anchor below
+        else if(ct==='z'){cell.obs='zeer';}
+        else if(ct==='f'){cell.obs='fog';}                     // Desert Fog — solid, no gem                    // a Zeer's other cell — linked to its anchor below
         else if(ct==='G'){                                     // generator — permanent fixture
           const g=(cprops['R'+r+'C'+c]||{}).gen||{};
           cell.gen={emit:GEN_NAMES[g.emit]?g.emit:'helicopter',every:Math.min(30,Math.max(2,Math.round(+g.every)||5)),n:0,k:0};
@@ -9924,6 +10033,8 @@ function loadLevelData(json,num){
         return {kind:'tire',need:o.count,have:0,name:'tire'};
       if(o.type==='collect'&&o.item==='shedeh')
         return {kind:'shedeh',need:o.count,have:0,name:'shedeh'};
+      if(o.type==='clear'&&o.obstacle==='fog')
+        return {kind:'fog',need:o.count,have:0,name:'fog'};
       if(o.type==='plant')
         return {kind:'plant',need:o.count,have:0,name:'clover'};
       if(o.type==='detonate'&&o.pu)
@@ -10534,25 +10645,25 @@ function updatePlayerHUD(){
   document.getElementById('phud-moves').textContent=moves;
   const goalEl=document.getElementById('phud-goal');
   if(!playerGoals.length){goalEl.innerHTML='';return;}
-  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='egg'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate'||playerGoals[0].kind==='tire'||playerGoals[0].kind==='shedeh'||playerGoals[0].kind==='detonate'||playerGoals[0].kind==='create')){
+  if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='egg'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate'||playerGoals[0].kind==='tire'||playerGoals[0].kind==='shedeh'||playerGoals[0].kind==='fog'||playerGoals[0].kind==='detonate'||playerGoals[0].kind==='create')){
     // Single collect/plant/egg/key/crate/detonate/create goal — classic big-icon layout. Counts DOWN, 0 = done.
     const g=playerGoals[0];
     const remaining=Math.max(0,g.need-g.have);
     const isPu=g.kind==='detonate'||g.kind==='create';
-    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='egg'?eggIconSVG(48):g.kind==='key'?keyIconSVG(48):g.kind==='tire'?tireIconSVG(48):g.kind==='shedeh'?shedehJarSVG(48):g.kind==='crate'?crateIconSVG(48):isPu?puSVG(goalPuIcon(g.pu),48):gemSVG(g.gemIdx,48);
-    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'||g.kind==='key'||g.kind==='shedeh'?TXT('cap_collect'):g.kind==='egg'?TXT('cap_free'):(g.kind==='crate'||g.kind==='tire')?TXT('cap_clear'):g.kind==='detonate'?TXT('verb_fire'):g.kind==='create'?TXT('verb_make'):TXT('cap_plant'))+'</div>'+
+    const icon=g.kind==='plant'?cloverIconSVG(48):g.kind==='egg'?eggIconSVG(48):g.kind==='key'?keyIconSVG(48):g.kind==='tire'?tireIconSVG(48):g.kind==='shedeh'?shedehJarSVG(48):g.kind==='fog'?fogIconSVG(48):g.kind==='crate'?crateIconSVG(48):isPu?puSVG(goalPuIcon(g.pu),48):gemSVG(g.gemIdx,48);
+    goalEl.innerHTML='<div class="phud-cap">'+(g.kind==='collect'||g.kind==='key'||g.kind==='shedeh'?TXT('cap_collect'):g.kind==='egg'?TXT('cap_free'):(g.kind==='crate'||g.kind==='tire'||g.kind==='fog')?TXT('cap_clear'):g.kind==='detonate'?TXT('verb_fire'):g.kind==='create'?TXT('verb_make'):TXT('cap_plant'))+'</div>'+
       '<div class="phud-icon">'+icon+'</div>'+
       '<div class="phud-gcount">'+remaining+'</div>';
     return;
   }
   // Multi-goal (entrance) — one row per goal: verb, icon, remaining/✓, and a "?" help button.
   // Two-stage 'pu' goals show "Make" until the power-up exists, then flip to "Fire".
-  const VERBS={collect:TXT('verb_get'),create:TXT('verb_make'),detonate:TXT('verb_fire'),plant:TXT('verb_plant'),egg:TXT('verb_free'),key:TXT('verb_get'),crate:TXT('verb_clear'),tire:TXT('verb_clear'),shedeh:TXT('verb_get')};
+  const VERBS={collect:TXT('verb_get'),create:TXT('verb_make'),detonate:TXT('verb_fire'),plant:TXT('verb_plant'),egg:TXT('verb_free'),key:TXT('verb_get'),crate:TXT('verb_clear'),tire:TXT('verb_clear'),shedeh:TXT('verb_get'),fog:TXT('verb_clear')};
   let html='<div class="phud-cap">'+TXT('goals_cap')+'</div>';
   playerGoals.forEach((g,i)=>{
     const done=goalDone(g);
     const verb=g.kind==='pu'?(g.made?TXT('verb_fire'):TXT('verb_make')):(VERBS[g.kind]||'');
-    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):g.kind==='egg'?eggIconSVG(30):g.kind==='key'?keyIconSVG(30):g.kind==='tire'?tireIconSVG(30):g.kind==='shedeh'?shedehJarSVG(30):g.kind==='crate'?crateIconSVG(30):puSVG(goalPuIcon(g.pu),30);
+    const icon=g.kind==='collect'?gemSVG(g.gemIdx,30):g.kind==='plant'?cloverIconSVG(30):g.kind==='egg'?eggIconSVG(30):g.kind==='key'?keyIconSVG(30):g.kind==='tire'?tireIconSVG(30):g.kind==='shedeh'?shedehJarSVG(30):g.kind==='fog'?fogIconSVG(30):g.kind==='crate'?crateIconSVG(30):puSVG(goalPuIcon(g.pu),30);
     const status=done?'<span class="goal-done">✓</span>'
       :g.kind==='pu'?'<span class="goal-count"></span>'
       :'<span class="goal-count">'+Math.max(0,g.need-g.have)+'</span>';
@@ -10661,6 +10772,7 @@ function showGoalHelp(i){
   else if(g.kind==='crate'){h=TXT('crateHelp')(g.need);}
   else if(g.kind==='tire'){h=TXT('tireHelp')(g.need);}
   else if(g.kind==='shedeh'){h=TXT('shedehHelp')(g.need);}
+  else if(g.kind==='fog'){h=TXT('fogHelp')(g.need);}
   else if(g.kind==='detonate'){h=TXT('det')[g.pu];}
   else if(g.kind==='pu'){ // help matches the current stage: make → fire
     h=g.made?TXT('det')[g.pu]:TXT('gh')[g.pu];
