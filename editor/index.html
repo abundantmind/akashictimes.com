@@ -6702,11 +6702,14 @@ function fogRegions(){
   }
   return regions;
 }
-// A cell fog may creep onto: an active, on-camera, plain gem — nothing else on it.
+// A cell fog may creep onto: an active, on-camera gem OR power-up — nothing else on it.
+// POWER-UPS TOO (Jed 2026-11-24): "Fog CAN cover Power Ups" — and the PU is lost. A
+// player who lets fog swallow a power-up only does it once; it's an easy thing to avoid.
+// Keys and tires stay off-limits.
 function fogCanTake(r,c){
   if(r<0||r>=R||c<0||c>=C)return false;
   const cd=board[r][c];
-  return !!(cd.active&&inPlayWindow(r,c)&&cd.gem!==null&&!cd.pu&&!cd.item&&!cd.obs&&!cd.gen);
+  return !!(cd.active&&inPlayWindow(r,c)&&(cd.gem!==null||cd.pu)&&!cd.item&&!cd.obs&&!cd.gen);
 }
 function fogTurn(){
   if(!playing)return 0;
@@ -6724,7 +6727,7 @@ function fogTurn(){
     }));
     if(!opts.length)return;                          // boxed in: nowhere to creep
     const [tr,tc]=opts[fogRand(opts.length)];
-    board[tr][tc].gem=null; board[tr][tc].obs='fog'; // clover (cd.sub) underneath is left alone
+    board[tr][tc].gem=null; board[tr][tc].pu=null; board[tr][tc].puClover=false; board[tr][tc].obs='fog'; // a covered PU is lost; clover (cd.sub) underneath is left alone
     born.push([tr,tc]);
   });
   fogHits.clear();
