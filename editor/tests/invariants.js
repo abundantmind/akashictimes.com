@@ -1536,6 +1536,25 @@ window.runInvariants = async function(){
       ok('motion · a claimed cell refuses a play tap', JSON.stringify(board)===before, 'the board moved under a claim');
       Motion.releaseAll();
 
+      // AN INVALID SWAP IS NOT A MOVE (Jed's nephew, 2026-11-24). The bounce-back and its
+      // `return` sat inside a line comment from 2026-07-24, so a no-match swap snapped back
+      // AND counted a move. Find a real adjacent pair whose swap makes no match, play it.
+      await startPlayerLevel(1,false); await wait(45); selCell=null;
+      const plain=(r,c)=>board[r][c].active&&board[r][c].gem!==null&&!board[r][c].obs&&!board[r][c].pu&&!board[r][c].item&&!isChained(r,c);
+      let dud=null;
+      for(let r=0;r<R&&!dud;r++)for(let c=0;c+1<C&&!dud;c++){
+        if(!plain(r,c)||!plain(r,c+1)||board[r][c].gem===board[r][c+1].gem||wallBetween(r,c,r,c+1))continue;
+        const g=board[r][c].gem; board[r][c].gem=board[r][c+1].gem; board[r][c+1].gem=g;   // try it on paper
+        if(!findPatterns(r,c+1,r,c).length)dud=[r,c];
+        board[r][c+1].gem=board[r][c].gem; board[r][c].gem=g;                               // put it back
+      }
+      { const mv0=moves, b0=JSON.stringify(board.map(row=>row.map(cd=>cd.gem)));
+        if(dud){ playTap(dud[0],dud[1]); playTap(dud[0],dud[1]+1); }
+        for(let i=0;i<40&&Motion.busy();i++) await wait(50);
+        ok('swap · an invalid swap bounces back and does NOT count a move',
+           !!dud&&moves===mv0&&JSON.stringify(board.map(row=>row.map(cd=>cd.gem)))===b0&&!Motion.busy(), {dud,moves,mv0});
+      }
+
       // NO CLAIM MAY OUTLIVE ITS MOVE. A leaked claim is the new shape of the old
       // bug — a board that never accepts input again — so a real detonation is run
       // end to end and the registry must come back empty on its own.

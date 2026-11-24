@@ -7966,7 +7966,11 @@ function playTap(r,c){
       // Nothing happened — revert swap
       const t2=board[sr][sc].gem;board[sr][sc].gem=board[r][c].gem;board[r][c].gem=t2;
       const tp2=board[sr][sc].pu;board[sr][sc].pu=board[r][c].pu;board[r][c].pu=tp2;
-      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too      render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseChain(chain);render();});return;
+      const ti2=board[sr][sc].item;board[sr][sc].item=board[r][c].item;board[r][c].item=ti2; // revert a swapped key too
+      // An invalid swap bounces back and is NOT a move. (Jed's nephew 2026-11-24: this
+      // bounce + return sat INSIDE the line comment above since 2026-07-24, so every
+      // invalid swap fell through to moves++ — counted, and the board snapped back.)
+      render();animateBounceBack(r,c,sr,sc,()=>{Motion.releaseChain(chain);render();});return;
     }
     moves++;
     updatePlayerHUD();
