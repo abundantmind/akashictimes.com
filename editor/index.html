@@ -2349,6 +2349,27 @@ const SFX = {
     [1046.5, 1318.5, 1568.0].forEach(f => this._note(t + 0.11, f, 0.7, 0.09));          // "-DA!" C major chord
     this._note(t + 0.11, 130.81, 0.7, 0.16, 'sine');                                    // with a C3 floor under it
   },
+  // ── DESERT FOG CREEP (Jed 2026-11-24: "foamy sound effects whenever our fog expands") ──
+  // A real recording, not synthesis — Jed rejected three synth foams and picked a
+  // shaving-cream spray (Pixabay "cream spray" 67023, Pixabay Content License: free for
+  // commercial use, no attribution needed). sfx/fog-creep.mp3 is ONE burst cut from that
+  // clip (its short final spray, 18.58s +0.92s), mono, faded and loudness-normalised.
+  // The file's bytes are fetched once up front; they're decoded on the first creep
+  // (decoding needs the AudioContext, which only exists after a tap).
+  _fogBytes: fetch('./sfx/fog-creep.mp3').then(r => r.ok ? r.arrayBuffer() : null).catch(() => null),
+  _fogBuf: null,
+  FOG_GAIN: 0.8,
+  async fog() {
+    const ctx = this._live(); if (!ctx) return;
+    if (!this._fogBuf) {
+      const bytes = await this._fogBytes; if (!bytes) return;          // offline / missing: silent
+      try { this._fogBuf = await ctx.decodeAudioData(bytes.slice(0)); } // slice: decode detaches its input
+      catch (e) { return; }
+    }
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = this._fogBuf; g.gain.value = this.FOG_GAIN;
+    src.connect(g).connect(ctx.destination); src.start();
+  },
   toggleMute() {
     this.muted = !this.muted;
     localStorage.setItem('akashic-muted', this.muted ? '1' : '0');
@@ -6736,6 +6757,7 @@ function fogTurn(){
   if(!born.length)return 0;
   if(playerMode) playerGoals.forEach(g=>{ if(g.kind==='fog') g.need+=born.length; }); // the count goes UP
   render();
+  SFX.fog();                                         // the foamy creep sound — once per turn, however many patches crept
   born.forEach(([r,c])=>{                            // roll it in, so the player sees where it crept
     const el=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
     if(el)el.classList.add('fog-born');
