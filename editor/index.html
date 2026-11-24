@@ -5879,8 +5879,9 @@ function damageChain(r,c){
   const left=CHAIN_DOWN[board[r][c].obs];
   board[r][c].obs=left;
   if(left)return;
-  // DESERT FOG lifted: dusty puff, one off the fog goal, and its patch is marked HIT for
-  // this move so it won't creep at the next fogTurn (Jed's region rule).
+  // DESERT FOG lifted: dusty puff, one off the fog goal, and the move is marked as having
+  // lifted fog, so NO region creeps at the next fogTurn (Jed's rule). Any power-up the fog
+  // had covered stays gone — the empty cell is filled by flow, like any other cleared cell.
   if(wasFog){
     if(window.spawnFragments)spawnFragments(r,c,0,'#cdbf9f');
     fogHits.add(r+','+c);
@@ -6677,8 +6678,10 @@ let _inQuiet=false;
 //  - no loss state — boosters keep it in check ("only a fool would let that happen").
 // Each new cell raises the fog goal's target by one, so the count on the HUD is always "fog
 // left to clear", as in the source game. Fog never creeps across a barrier or off-camera.
-// fogHits = fog cells lifted since the last turn (filled by damageChain). A region is HIT if
-// a lifted cell touched it: that lifted cell was part of it a moment ago.
+// fogHits = fog cells lifted since the last turn (filled by damageChain). ONE LIFT FREEZES
+// ALL FOG (Jed 2026-11-24, his "12" level): if a move lifts ANY fog cell, NO region creeps
+// that turn — not just the region that was hit. Only a move that lifts no fog lets every
+// region creep.
 const fogHits=new Set();
 let fogMoveSeen=0;                                   // the move count at the last fog turn
 // Randomness has ONE door so a seeded generator can replace it when proof-of-win replays
@@ -6716,9 +6719,8 @@ function fogTurn(){
   if(moves<=fogMoveSeen){ fogMoveSeen=moves; fogHits.clear(); return 0; } // no new move (or Undo / a fresh start): resync only
   fogMoveSeen=moves;
   const born=[];
+  if(fogHits.size){ fogHits.clear(); return 0; }   // this move lifted fog somewhere: ALL fog holds still
   fogRegions().forEach(cells=>{
-    const hit=cells.some(([r,c])=>[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc])=>fogHits.has(nr+','+nc)));
-    if(hit)return;                                   // touched this move: this patch holds still
     const opts=[], dup=new Set();
     cells.forEach(([r,c])=>[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc])=>{
       const k=nr+','+nc;

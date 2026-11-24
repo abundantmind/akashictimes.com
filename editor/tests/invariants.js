@@ -542,12 +542,21 @@ window.runInvariants = async function(){
       ok('fog · ...and the fog goal\'s count goes UP by one', playerGoals[0].need===2, playerGoals[0].need);
       reset(); fog(1,1); fog(1,2); fog(5,5); fogHits.add('1,0');      // the left patch lost a cell this move
       turn();
-      ok('fog · a patch that lost a cell this move holds still; the untouched patch creeps', isFog(1,1)&&isFog(1,2)&&fogs().length===4&&fogs().filter(k=>!['1,1','1,2','5,5'].includes(k)).every(k=>{const [r,c]=k.split(',').map(Number);return Math.abs(r-5)+Math.abs(c-5)===1;}), fogs());
+      ok('fog · a move that lifts fog in ONE patch freezes EVERY patch (Jed\'s "12" level)', fogs().length===3&&isFog(1,1)&&isFog(1,2)&&isFog(5,5), fogs());
+      reset(); fog(1,1); fog(5,5);
+      turn();
+      ok('fog · a move that lifts no fog lets every patch creep', fogs().length===4, fogs());
       reset(); fog(3,3); fogMoveSeen=moves; { const pl=playing; playing=true; fogTurn(); playing=pl; }
       ok('fog · no new move, no creep', fogs().length===1, fogs());
       reset(); fog(3,3); board[2][3].pu='bomb'; board[2][3].gem=null; board[4][3].item='key'; board[4][3].gem=null; board[3][2].item='tire1'; board[3][2].gem=null; board[3][4].obs='crate1'; board[3][4].gem=null;
       turn();
       ok('fog · it never creeps onto a key or tire — but it DOES cover a power-up, and the PU is lost', isFog(2,3)&&!board[2][3].pu&&fogs().length===2&&board[4][3].item==='key'&&board[3][2].item==='tire1', fogs());
+      // ...and lifting that fog does NOT bring the PU back: the cell is filled by flow.
+      reset(); board[2][3].pu='rainbow'; board[2][3].gem=null; fog(3,3);
+      for(const k of ['4,3','3,2','3,4']){ const [r,c]=k.split(',').map(Number); board[r][c].obs='crate1'; board[r][c].gem=null; }
+      turn();
+      { const covered=isFog(2,3); await fireDet('bomb',1,3);
+        ok('fog · a covered power-up stays lost when the fog lifts — flow fills the cell', covered&&!isFog(2,3)&&board[2][3].pu!=='rainbow', {covered,cell:board[2][3]}); }
       reset(); fog(3,3); [[2,3],[4,3],[3,2],[3,4]].forEach(([r,c])=>{board[r][c].obs='crate1';board[r][c].gem=null;});
       ok('fog · boxed in by crates: nowhere to creep', turn()===0&&fogs().length===1, fogs());
       reset(); fog(3,3); board[3][3].wallS='unbreakable'; board[3][3].wallE='breakable'; board[2][3].wallS='breakable'; board[3][2].wallE='breakable';
