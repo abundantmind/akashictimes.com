@@ -5169,8 +5169,21 @@ function setGenCfg(){
   buildObsPal();                                            // the swatch shows the new special + N
   pickBrush('gen','gen',document.querySelector('[data-bid="gen:gen"]')); // changing the settings = you mean to paint one
 }
+// THE STOP HINT (Jed 2026-11-26, L52): a saved level opens in the Architect's sticky
+// ▶ Play mode, and painting is off during a run — so picking a brush did NOTHING, with
+// no word why (no hover outline, no placement). Now the status line says it.
+function paintBlockedHint(){
+  const sb=document.getElementById('sb3'), HINT='▶ A run is in progress — press ■ Stop to paint';
+  if(!playing){                                       // editing: painting works — wipe a stale hint, say nothing else
+    if(sb&&sb.textContent===HINT) sb.textContent='—';
+    return;                                           // (the palette only exists in the editor, so a run here IS the editor's ▶ Play)
+  }
+  if(sb) sb.textContent=HINT;
+  flashToast('■ Stop the run to paint');
+}
 function pickBrush(type,id,el){
   selBrush={type,id};
+  paintBlockedHint();
   // Grabbing a swatch engages a paint layer (mirrors setBase engaging Base). Tile
   // and Obstacle share one paint pass in paintCell, so a brush picked from the
   // Obstacle palette KEEPS that view — snapping to Tile would re-expand every
@@ -5252,6 +5265,7 @@ function setLayer(l){
 // layer — like grabbing a tool, you don't have to switch layers separately.
 function setBase(v){
   selBase=v;
+  paintBlockedHint();
   document.querySelectorAll('#base-pal .bbtn').forEach(b=>b.classList.remove('on'));
   document.getElementById(v==='active'?'b-active':'b-hole').classList.add('on');
   // Base is its own layer — drop the Tile-layer swatch highlights so only one
