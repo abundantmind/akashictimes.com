@@ -2502,6 +2502,14 @@ window.runInvariants = async function(){
         ok('voucher · ...but not once the 25 are gone', voucherOffer({slots_left:0,mine:'none'})===null);
         ok('voucher · already claimed or too late → nothing', voucherOffer({slots_left:5,mine:'claimed'})===null&&voucherOffer({slots_left:5,mine:'too_late'})===null);
         ok('voucher · an older database (no answer) → nothing', voucherOffer(null)===null);
+        // Create's bundle columns: Ground Zero first, then families A→Z, chapters in order, loose bundles last.
+        {
+          const F=(n,s)=>({name:n,seq:s,firstLevel:1});
+          const order=[{name:'Zed',family:null},{name:'Skylight',family:F('Wall of Sound',4)},{name:'Bev',family:F(NATIVE_FAMILY,3)},
+                       {name:'Opener',family:F('Wall of Sound',1)},{name:'Window',family:F(NATIVE_FAMILY,2)},{name:'Ankh',family:null}]
+            .sort(bundleFamilyOrder).map(b=>b.name).join(',');
+          ok('bundles · Create columns sort by family, then chapter', order==='Window,Bev,Opener,Skylight,Ankh,Zed', order);
+        }
         // Akashic Window's store sheet swaps Buy for the claim; another bundle's sheet doesn't.
         const _rows=communityRows, _vi=AkashicAuth.voucherInfo;
         const sheet=document.getElementById('bpreview'), body=document.getElementById('bpreview-body'), _body=body.innerHTML;

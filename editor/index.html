@@ -2932,6 +2932,25 @@ function openProducts(){
 }
 function closeProducts(){document.getElementById('products').classList.remove('open');}
 
+// THE COLUMN ORDER (Jed 2026-11-26): bundles group by FAMILY, then run in chapter
+// order inside it (1, 2, 3…), so a family reads top to bottom like the story it is.
+// Ground Zero (the native family — its chapter 1, Akashic Flow, is the built-in card
+// drawn above the list) leads; other families follow A→Z; bundles with no family
+// ("Your bundle") come last, A→Z by name. Was: whatever order the drafts arrived in.
+function bundleFamilyOrder(a,b){
+  const fa=a.family, fb=b.family;
+  if(!!fa!==!!fb) return fa?-1:1;                                 // family bundles before loose ones
+  if(fa&&fb){
+    if(fa.name!==fb.name){
+      if(fa.name===NATIVE_FAMILY) return -1;                       // Ground Zero first
+      if(fb.name===NATIVE_FAMILY) return 1;
+      return fa.name.localeCompare(fb.name);
+    }
+    if((fa.seq||0)!==(fb.seq||0)) return (fa.seq||0)-(fb.seq||0);   // chapter order
+  }
+  return (a.name||'').localeCompare(b.name||'');
+}
+
 // Step 1 — list the editor's bundles.
 function renderProductsList(){
   let html='<h2>'+escHtml(possBundles())+'</h2><div class="pmsg">'+TXT('products_msg')+'</div>';
@@ -2953,7 +2972,7 @@ function renderProductsList(){
           '<div class="pc-meta">'+NATIVE_FAMILY+' · chapter 1 · levels 1–'+bundleLevelCount(p)+'</div></div>'+
         '<div class="pc-arrow">→</div></div>';
     });
-    const group=USER_BUNDLES.filter(b=>b.orient===o);
+    const group=USER_BUNDLES.filter(b=>b.orient===o).sort(bundleFamilyOrder);
     group.forEach(b=>{ html+=card(b); });
     if(!group.length&&o!=='Landscape') html+='<div class="bempty">No '+o.toLowerCase()+' bundles yet</div>';
     html+='</div><button class="prod-close" style="background:#2a1d48;color:#c8a8ff;border-color:#6a4aaa;" onclick="createBundle(\''+o+'\')">+ New '+o+' bundle</button>';
