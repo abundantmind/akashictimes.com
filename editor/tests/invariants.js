@@ -2464,6 +2464,39 @@ window.runInvariants = async function(){
         await startPlayerLevel(1,false); await wait(45); // leave the board on a real level
       } finally { window.alert=_alert; }
     }
+    // ═══ MASTERY + BUNDLE PREVIEW (Jed 2026-11-26; mastery.js / preview.js) ═══════
+    {
+      const keys=['akashicswaps-mastered','akashicswaps-mastery-seen'], keep=keys.map(k=>localStorage.getItem(k));
+      const _arch=window.isArchitect, _confirm=window.confirm;
+      try{
+        // A picture of a real level, drawn without disturbing the board that's in play.
+        await startPlayerLevel(1,false); await wait(45);
+        const was=JSON.stringify({R,C,board});
+        const j=await (await fetch('levels/level-018.json',{cache:'no-cache'})).json();
+        const pic=levelPictureSVG(j);
+        ok('preview · a level draws to an SVG picture', !!pic&&pic.svg.startsWith('<svg')&&pic.w>0&&pic.h>0, pic&&[pic.w,pic.h]);
+        ok('preview · ...and the board in play is left exactly as it was', JSON.stringify({R,C,board})===was, 'board changed');
+        const url=await svgToImageURL(pic);
+        ok('preview · the picture becomes a compact image', /^data:image\/(webp|png)/.test(url)&&url.length<400000, url.slice(0,30)+' '+url.length);
+        ok('preview · a non-canonical level draws nothing (no crash)', levelPictureSVG({foo:1})===null);
+        // Mastery is permanent: an erased grid still holds the seat and keeps chapter 2 open.
+        localStorage.removeItem(keys[0]);
+        PlayerProgress.data[0]={}; for(let i=1;i<=NATIVE_LEVELS;i++) PlayerProgress.data[0][i]={s:3,rec:9,m:0};
+        ok('mastery · a full Akashic Flow grid counts as mastered', hasMastered()&&flowStars()===NATIVE_LEVELS*3);
+        window.confirm=()=>true;
+        ok('mastery · Erase Stars goes through', eraseFlowStars()===true);
+        ok('mastery · ...it empties Akashic Flow', flowStars()===0&&!PlayerProgress.unlocked(2), flowStars());
+        ok('mastery · ...but mastery stays', hasMastered()&&!!masteryInfo(), masteryInfo());
+        window.isArchitect=()=>false;
+        const gate=chapterGate({family_id:1,family_seq:2,family_name:NATIVE_FAMILY});
+        ok('mastery · ...and Akashic Window stays open', gate.open===true, gate);
+        localStorage.removeItem(keys[0]);
+        ok('mastery · with no record and an empty grid, Akashic Window is shut', chapterGate({family_id:1,family_seq:2,family_name:NATIVE_FAMILY}).open===false);
+      } finally {
+        window.isArchitect=_arch; window.confirm=_confirm;
+        keys.forEach((k,i)=>{ if(keep[i]===null) localStorage.removeItem(k); else localStorage.setItem(k,keep[i]); });
+      }
+    }
     } finally {
       PlayerProgress.set=_realSet;
       PlayerProgress.data=_savedData; PlayerProgress.save();

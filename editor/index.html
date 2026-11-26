@@ -827,6 +827,44 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 #pstar-cele .celewrap{position:relative;text-align:center;animation:celepop .55s cubic-bezier(.2,1.5,.4,1) both;}
 #pstar-cele .celestars{font-size:60px;letter-spacing:10px;color:#ffd76b;filter:drop-shadow(0 0 12px rgba(255,190,60,.85));margin-top:2px;}
 @keyframes celepop{0%{transform:scale(.3);opacity:0;}100%{transform:scale(1);opacity:1;}}
+/* ── Mastery splash (75/75 Akashic Flow, Jed 2026-11-26): over the win overlay, under the star fireworks ── */
+#mastery{position:fixed;inset:0;background:rgba(10,8,18,.93);display:none;align-items:center;justify-content:center;z-index:310;overflow:auto;padding:16px;}
+#mastery.open{display:flex;}
+#mastery #mastery-fw{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;}
+#mastery .mbox{position:relative;background:#13111a;border:0.5px solid #8a6ad0;border-radius:var(--border-radius-lg,12px);padding:10px 26px 22px;max-width:480px;width:100%;text-align:center;animation:celepop .55s cubic-bezier(.2,1.5,.4,1) both;}
+#mastery .ms-arc svg{width:100%;height:auto;margin-bottom:-36px;}
+#mastery .ms-stars{font-size:30px;color:#ffd76b;filter:drop-shadow(0 0 10px rgba(255,190,60,.7));letter-spacing:2px;}
+#mastery .ms-rank{min-height:1.4em;color:#c792ea;font-size:var(--fz-base);margin:4px 0 12px;}
+#mastery .ms-item{text-align:left;border-top:0.5px solid #2a2040;padding:12px 0;}
+#mastery .ms-item-h{color:#e8dcff;font-weight:600;font-size:var(--fz-base);margin-bottom:3px;}
+#mastery .ms-item-b{color:#a89ac0;font-size:var(--fz-sm);line-height:1.5;margin-bottom:8px;}
+#mastery .ms-btn{background:#2a2046;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:8px 18px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-sm);font-weight:500;cursor:pointer;}
+#mastery .ms-btn.go{background:#3d2d6e;color:#fff;}
+#mastery .ms-btn.quiet{background:transparent;color:#9a88b8;}
+#mastery .ms-close{margin-top:10px;background:transparent;border:none;color:#776a8a;font-family:var(--font-sans);font-size:var(--fz-sm);cursor:pointer;}
+/* ── Bundle preview store sheet (Jed 2026-11-26): pictures of every level + 10-move test ── */
+#bpreview{position:fixed;inset:0;background:rgba(13,10,20,.94);display:none;align-items:center;justify-content:center;z-index:233;padding:16px;}
+#bpreview.open{display:flex;}
+#bpreview .bpbox{position:relative;background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:18px 20px;max-width:760px;width:100%;max-height:calc(100vh - 32px);overflow:auto;}
+#bpreview .bp-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+#bpreview .bp-title{color:#c792ea;font-size:var(--fz-xl);font-weight:500;}
+#bpreview .bp-meta{color:#8a7aa8;font-size:var(--fz-sm);margin-top:2px;}
+#bpreview .bp-x{background:transparent;border:none;color:#8a7aa8;font-size:20px;cursor:pointer;line-height:1;}
+#bpreview .bp-ended{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:#221a38;color:#e8dcff;font-size:var(--fz-sm);line-height:1.5;}
+#bpreview .bp-actions{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0;}
+#bpreview .bp-btn{background:#2a2046;color:#c8a8ff;border:0.5px solid #6a4aaa;padding:9px 18px;border-radius:6px;font-family:var(--font-sans);font-size:var(--fz-sm);font-weight:500;cursor:pointer;}
+#bpreview .bp-btn.go{background:#3d2d6e;color:#fff;}
+#bpreview .bp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;}
+#bpreview .bp-cell{position:relative;cursor:zoom-in;background:#1a1426;border-radius:8px;padding:4px;}
+#bpreview .bp-cell img{display:block;width:100%;height:auto;border-radius:6px;}
+#bpreview .bp-cell span{position:absolute;top:6px;left:8px;font-size:var(--fz-xs);font-weight:700;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000;}
+#bpreview .bp-empty{grid-column:1/-1;color:#8a7aa8;font-size:var(--fz-sm);padding:12px 0;}
+#bpreview .bp-big{position:fixed;inset:0;z-index:2;background:rgba(13,10,20,.97);display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:zoom-out;padding:16px;}
+#bpreview .bp-big.open{display:flex;}
+#bpreview .bp-big img{width:min(100%,900px);max-height:calc(100vh - 70px);object-fit:contain;border-radius:8px;}
+#bpreview .bp-big span{color:#c8b8e0;font-size:var(--fz-sm);}
+.lb-master{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:9px;background:#3a2a10;color:#ffcb6b;font-size:var(--fz-xs);font-weight:600;white-space:nowrap;}
+.bmastered{color:#ffcb6b;}
 /* Flow preview pulse: fade in, hold at full, fade out. Each cell runs the same
    900ms animation offset by its distance from the source, which is what turns a
    row of identical fades into a wave travelling downstream. */
@@ -1496,6 +1534,12 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
   </div>
 </div>
 
+<!-- Mastery splash — 75/75 on Akashic Flow (mastery.js). Body built by showMasterySplash(). -->
+<div id="mastery"><canvas id="mastery-fw"></canvas><div class="mbox" id="mastery-body"></div></div>
+
+<!-- Bundle preview store sheet (preview.js). Body built by openBundlePreview(). -->
+<div id="bpreview" onclick="if(event.target===this)closeBundlePreview()"><div class="bpbox" id="bpreview-body"></div></div>
+
 <!-- Star-earned celebration — rainbow arc text + fireworks; tap or auto-dismiss -->
 <div id="pstar-cele" onclick="hideCelebration()">
   <canvas id="cele-fw"></canvas>
@@ -1508,6 +1552,8 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
 <script src="./cloud-drafts.js"></script>
 <script src="./zeer-art.js"></script>   <!-- Shedeh Zeer art (zeerSVG / shedehJarSVG) -->
 <script src="./fog-art.js"></script>    <!-- Desert Fog art (fogSVG / fogIconSVG) -->
+<script src="./mastery.js"></script>    <!-- 75/75 Akashic Flow mastery splash + Erase Stars -->
+<script src="./preview.js"></script>    <!-- paid-bundle preview: level pictures + 10-move test -->
 <script>
 // ── i18n — English + 한국어 ────────────────────────────────────────────────────
 // Player-facing strings only; the editor tooling (palette, toolbar, status bar)
@@ -1591,8 +1637,30 @@ en:{
   star_mastered_head:'Level Mastered',
   star_mastered_body:'All three stars earned. Replay any time to sharpen your record.',
   cele_head:(n)=>['','One Star','Two Stars','Three Stars'][n],cele_achieved:'Achieved',
-  reset_btn:'Reset all stars',
-  reset_confirm:'This wipes ALL stars and move records on this device.\nIt cannot be undone.\n\nReset everything?',
+  // ── Mastery splash + Erase Stars + bundle preview (Jed 2026-11-26; mastery.js / preview.js) ──
+  ms_head:'Akashic Flow Mastered',
+  ms_rank:n=>'You are Master #'+n+' of Ground Zero.',
+  ms_board_h:'The worldwide leaderboard is open',
+  ms_board_b:'Your 75 stars earn you a seat. Go public and see where you rank against every player.',
+  ms_board_btn:'Join the leaderboard',
+  ms_window_h:'Akashic Window is open',
+  ms_window_b:'Chapter 2 of Ground Zero: levels 26–50, with new elements to learn.',
+  ms_window_btn:'See Akashic Window',
+  ms_erase_h:'Akashic Flow is yours, free, forever',
+  ms_erase_b:'Want to play it again from the start? Erase Stars takes you back to Level 1. Your mastery, your leaderboard place and Akashic Window stay yours. You can also do it later from the Akashic Flow screen.',
+  ms_later:'Later',
+  erase_btn:'Erase Stars',
+  erase_confirm:'Erase every Akashic Flow star and move record?\nYou start over at Level 1. This cannot be undone.',
+  erase_confirm_m:'Erase your Akashic Flow stars and start over at Level 1?\n\nYour mastery, your leaderboard place and Akashic Window stay yours.',
+  erase_cloud_fail:'Stars erased here, but the cloud could not be reached — another device may still show them.',
+  board_master:n=>'Master #'+n,
+  bundle_mastered:'Mastered',
+  pv_try:(a,n)=>'Try level '+a+' — '+n+' free moves',
+  pv_loading:'Loading the level pictures…',
+  pv_none:'Pictures of every level are on the way.',
+  pv_fail:'The free test could not load. Try again in a moment.',
+  pv_over:(n,t)=>'That was your '+n+' free moves. Buy “'+t+'” to play every level, with stars.',
+  pv_won:t=>'You beat it inside the free moves! Buy “'+t+'” to play every level, with stars.',
   boosters_cap:'Boosters',booster_locked:'Locked',
   booster_jackhammer:'Akashic Target',booster_shuffle:'Akashic Shuffle',booster_hdrill:'Akashic Horizon',booster_vweight:'Akashic Ascension',
   booster_rdrill:'Akashic Righty',booster_ldrill:'Akashic Lefty',
@@ -1712,8 +1780,30 @@ ko:{
   star_mastered_head:'레벨 마스터',
   star_mastered_body:'세 개의 별을 모두 획득했습니다. 언제든 다시 플레이하여 기록을 단축하세요.',
   cele_head:(n)=>['','별 하나','별 둘','별 셋'][n],cele_achieved:'획득!',
-  reset_btn:'별 기록 초기화',
-  reset_confirm:'이 기기의 모든 별과 이동 기록이 삭제됩니다.\n되돌릴 수 없습니다.\n\n전부 초기화할까요?',
+  // ── 마스터 화면 + 별 지우기 + 번들 미리보기 (2026-11-26) ──
+  ms_head:'아카식 플로우 마스터',
+  ms_rank:n=>'그라운드 제로 마스터 #'+n+'입니다.',
+  ms_board_h:'전 세계 리더보드가 열렸습니다',
+  ms_board_b:'별 75개로 자리를 얻었습니다. 공개로 전환하고 모든 플레이어 중 내 순위를 확인하세요.',
+  ms_board_btn:'리더보드 참가',
+  ms_window_h:'아카식 윈도우가 열렸습니다',
+  ms_window_b:'그라운드 제로 2장: 새로운 요소를 배우는 레벨 26–50.',
+  ms_window_btn:'아카식 윈도우 보기',
+  ms_erase_h:'아카식 플로우는 영원히 무료입니다',
+  ms_erase_b:'처음부터 다시 플레이하고 싶나요? 별 지우기를 하면 레벨 1로 돌아갑니다. 마스터 기록, 리더보드 순위, 아카식 윈도우는 그대로 남습니다. 나중에 아카식 플로우 화면에서도 할 수 있습니다.',
+  ms_later:'나중에',
+  erase_btn:'별 지우기',
+  erase_confirm:'아카식 플로우의 모든 별과 이동 기록을 지울까요?\n레벨 1부터 다시 시작합니다. 되돌릴 수 없습니다.',
+  erase_confirm_m:'아카식 플로우의 별을 지우고 레벨 1부터 다시 시작할까요?\n\n마스터 기록, 리더보드 순위, 아카식 윈도우는 그대로 남습니다.',
+  erase_cloud_fail:'이 기기에서는 별이 지워졌지만 클라우드에 연결하지 못했습니다 — 다른 기기에는 아직 남아 있을 수 있습니다.',
+  board_master:n=>'마스터 #'+n,
+  bundle_mastered:'마스터',
+  pv_try:(a,n)=>'레벨 '+a+' 체험 — 무료 '+n+'수',
+  pv_loading:'레벨 사진을 불러오는 중…',
+  pv_none:'모든 레벨의 사진이 곧 준비됩니다.',
+  pv_fail:'무료 체험을 불러오지 못했습니다. 잠시 후 다시 시도하세요.',
+  pv_over:(n,t)=>'무료 '+n+'수를 모두 사용했습니다. “'+t+'”을(를) 구매하면 모든 레벨을 별과 함께 플레이할 수 있습니다.',
+  pv_won:t=>'무료 수 안에 클리어했습니다! “'+t+'”을(를) 구매하면 모든 레벨을 별과 함께 플레이할 수 있습니다.',
   boosters_cap:'부스터',booster_locked:'잠김',
   booster_jackhammer:'아카식 타깃',booster_shuffle:'아카식 셔플',booster_hdrill:'아카식 호라이즌',booster_vweight:'아카식 어센션',
   booster_rdrill:'아카식 라이티',booster_ldrill:'아카식 레프티',
@@ -1838,8 +1928,30 @@ es:{
   star_mastered_head:'Nivel dominado',
   star_mastered_body:'Has ganado las tres estrellas. Vuelve a jugar cuando quieras para mejorar tu récord.',
   cele_head:(n)=>['','Una estrella','Dos estrellas','Tres estrellas'][n],cele_achieved:'¡Logrado!',
-  reset_btn:'Reiniciar todas las estrellas',
-  reset_confirm:'Esto borra TODAS las estrellas y récords de movimientos en este dispositivo.\nNo se puede deshacer.\n\n¿Reiniciar todo?',
+  // ── Pantalla de maestría + Borrar estrellas + vista previa (2026-11-26) ──
+  ms_head:'Akashic Flow Dominado',
+  ms_rank:n=>'Eres Maestro #'+n+' de Ground Zero.',
+  ms_board_h:'La clasificación mundial está abierta',
+  ms_board_b:'Tus 75 estrellas te ganan un puesto. Hazte público y mira dónde quedas frente a todos los jugadores.',
+  ms_board_btn:'Unirme a la clasificación',
+  ms_window_h:'Akashic Window está abierto',
+  ms_window_b:'Capítulo 2 de Ground Zero: niveles 26–50, con nuevos elementos que aprender.',
+  ms_window_btn:'Ver Akashic Window',
+  ms_erase_h:'Akashic Flow es tuyo, gratis, para siempre',
+  ms_erase_b:'¿Quieres jugarlo otra vez desde el principio? Borrar estrellas te devuelve al Nivel 1. Tu maestría, tu puesto en la clasificación y Akashic Window siguen siendo tuyos. También puedes hacerlo más tarde desde la pantalla de Akashic Flow.',
+  ms_later:'Más tarde',
+  erase_btn:'Borrar estrellas',
+  erase_confirm:'¿Borrar todas las estrellas y récords de Akashic Flow?\nEmpiezas de nuevo en el Nivel 1. No se puede deshacer.',
+  erase_confirm_m:'¿Borrar tus estrellas de Akashic Flow y empezar de nuevo en el Nivel 1?\n\nTu maestría, tu puesto en la clasificación y Akashic Window siguen siendo tuyos.',
+  erase_cloud_fail:'Estrellas borradas aquí, pero no se pudo conectar con la nube — otro dispositivo aún podría mostrarlas.',
+  board_master:n=>'Maestro #'+n,
+  bundle_mastered:'Dominado',
+  pv_try:(a,n)=>'Prueba el nivel '+a+' — '+n+' movimientos gratis',
+  pv_loading:'Cargando las imágenes de los niveles…',
+  pv_none:'Las imágenes de cada nivel están en camino.',
+  pv_fail:'No se pudo cargar la prueba gratis. Inténtalo de nuevo en un momento.',
+  pv_over:(n,t)=>'Esos fueron tus '+n+' movimientos gratis. Compra “'+t+'” para jugar todos los niveles, con estrellas.',
+  pv_won:t=>'¡Lo superaste dentro de los movimientos gratis! Compra “'+t+'” para jugar todos los niveles, con estrellas.',
   boosters_cap:'Refuerzos',booster_locked:'Bloqueado',
   booster_jackhammer:'Akashic Objetivo',booster_shuffle:'Akashic Mezcla',booster_hdrill:'Akashic Horizonte',booster_vweight:'Akashic Ascensión',
   booster_rdrill:'Akashic Diestro',booster_ldrill:'Akashic Zurdo',
@@ -2005,7 +2117,8 @@ function renderLeaderboard(rows){
       if(you) onBoard=true;
       return '<tr class="'+(you?'lb-row-you':'')+'">'
         +'<td class="lb-rank">'+(i+1)+'</td>'
-        +'<td class="lb-name">'+escapeBoard(prettyBoardName(raw))+(you?'<span class="lb-you-tag">'+TXT('board_you')+'</span>':'')+'</td>'
+        +'<td class="lb-name">'+escapeBoard(prettyBoardName(raw))+(you?'<span class="lb-you-tag">'+TXT('board_you')+'</span>':'')
+        +(r.mastered_rank?'<span class="lb-master">'+TXT('board_master')(r.mastered_rank)+'</span>':'')+'</td>'
         +'<td class="lb-num lb-star">'+(r.total_stars||0)+' ★</td>'
         +'<td class="lb-num">L'+(r.reach||0)+'</td></tr>';
     }).join('');
@@ -2015,9 +2128,9 @@ function renderLeaderboard(rows){
       +'</tr></thead><tbody>'+tr+'</tbody></table>';
   }
   // footer: this player's gate status + a nudge into Settings if not yet showing
-  const t=(typeof bundleStarTotals==='function')?bundleStarTotals():{have:0,max:75};
+  const t={have:flowStars(),max:NATIVE_LEVELS*3};
   let foot;
-  if(t.have>=t.max){
+  if(hasMastered()){                 // mastery is permanent — Erase Stars doesn't take the seat away
     foot = onBoard ? TXT('board_on')
       : (TXT('board_optin')+' <button class="lb-cta" onclick="closeLeaderboard();openSettings();">'+TXT('board_optin_cta')+'</button>');
   } else {
@@ -2031,8 +2144,8 @@ function renderLeaderboard(rows){
 async function loadPublicToggle(){
   const cb=document.getElementById('settings-public'), hint=document.getElementById('settings-public-hint');
   if(!cb||!hint) return;
-  const t=(typeof bundleStarTotals==='function')?bundleStarTotals():{have:0,max:75};
-  const unlocked=t.have>=t.max;
+  const t={have:flowStars(),max:NATIVE_LEVELS*3};
+  const unlocked=hasMastered();      // permanent: still open after Erase Stars
   cb.disabled=!unlocked; cb.checked=false;
   if(!unlocked){ hint.textContent=TXT('settings_public_locked')(t.have,t.max); return; }
   hint.textContent=TXT('settings_public_hint');
@@ -3291,7 +3404,8 @@ function adminTab(t){ adminState.tab=t; renderAdmin(); if(t==='p')adminPayoutsLo
 async function adminRefresh(){
   document.getElementById('adm-body').innerHTML='<div class="adm-empty">Loading…</div>';
   if(!window.AkashicAuth||!AkashicAuth.user){ document.getElementById('adm-body').innerHTML='<div class="adm-err">Sign in first.</div>'; return; }
-  const [q,b]=await Promise.all([AkashicAuth.listReviewQueue(),AkashicAuth.listBugs()]);
+  const [q,b,pub]=await Promise.all([AkashicAuth.listReviewQueue(),AkashicAuth.listBugs(),AkashicAuth.listPublishedBundles()]);
+  adminState.pub=pub||[];   // published bundles, for the preview-pictures buttons
   adminState.queue=q.rows; adminState.qErr=q.ok?'':q.error;
   adminState.bugs=b.rows;  adminState.bErr=b.ok?'':b.error;
   renderAdmin();
@@ -3321,6 +3435,14 @@ function renderAdmin(){
         +'<button class="adm-btn go" onclick="adminPublish('+r.id+')">Publish</button>'
         +'<button class="adm-btn warn" onclick="adminReturn('+r.id+')">Send back…</button></div></div>';
     });
+    // PREVIEW PICTURES for paid bundles already published (approve draws them for new ones)
+    const paid=(st.pub||[]).filter(b=>b.price_cents>0);
+    if(paid.length){
+      h+='<div class="adm-meta" style="margin:18px 0 6px">Published · shoppers\' preview pictures</div>';
+      paid.forEach(b=>{ h+='<div class="adm-row"><div class="adm-head"><span class="adm-title">'+escHtml(b.title)+'</span>'
+        +'<span class="adm-meta">'+(b.levels||0)+' levels</span>'
+        +'<button class="adm-btn" onclick="adminMakePictures('+b.id+',this)">Make pictures</button></div></div>'; });
+    }
   }else if(st.tab==='p'){
     h+=renderAdminPayouts();
   }else{
@@ -3375,6 +3497,9 @@ async function adminPublish(id){
   if(!confirm('Publish “'+r.title+'”?\n\nIt appears in Explore for every player — and until checkout exists, they can play it free. A published bundle is final.'))return;
   const res=await AkashicAuth.publishBundle(id);
   if(!res.ok){ alert('Publish failed: '+res.error); return; }
+  // Shoppers' preview (preview.js, db/018): draw every level now, while the data is in hand.
+  const pics=await makePreviewPictures(id,r.data);
+  if(!pics.ok) alert('Published — but the preview pictures failed: '+pics.error+'\nUse "Make pictures" under Published to retry.');
   adminRefresh();
 }
 async function adminReturn(id){
@@ -6794,6 +6919,7 @@ function boardQuiet(){
     window._moveOverlapped=false;
     fogTurn();                                       // Desert Fog creeps (no-op on a board without fog)
     if(playerMode){ updatePlayerHUD(); checkPlayerEnd(); maybeShuffle(); }
+    if(previewMode&&playing&&moves>=PREVIEW_MOVES) previewFinish(false);   // the free moves are spent
   } finally { _inQuiet=false; }
 }
 Motion.onQuiet=boardQuiet;
@@ -7783,6 +7909,7 @@ function applyEffects(cellsToClear,pivotR,pivotC,initialQueue,chain){
 }
 
 function playTap(r,c){
+  if(previewMode&&moves>=PREVIEW_MOVES)return;   // a preview's 10 moves are spent: no 11th while the 10th settles
   hintDisarm(); // any player input cancels the hint cycle; it re-arms on the next settle
   // Undo: capture the pre-move state on a fresh tap from rest (not a target-pick
   // continuation); it's kept only if a move actually lands (_commitPendingUndo).
@@ -9220,6 +9347,8 @@ function celebrateStar(n){
 function hideCelebration(){
   document.getElementById('pstar-cele').classList.remove('open');
   stopFireworks();
+  // The 75th star's celebration hands straight on to the mastery splash (mastery.js).
+  if(window.__masteryPending){ window.__masteryPending=false; showMasterySplash(); }
 }
 
 // ── Fireworks — a lightweight canvas particle burst engine for the celebration.
@@ -9515,7 +9644,9 @@ function chapterGate(row){
   const prev=prevChapter(row);
   if(!prev) return {open:true};
   const max=prev.levels*3, have=bundleStars(prev.id,prev.levels);
-  return {open:isArchitect()||have>=max, prev, have, max};
+  // Akashic Flow mastery is permanent (Jed 2026-11-26): Erase Stars never re-locks Akashic Window.
+  const mastered=prev.id===0&&hasMastered();
+  return {open:isArchitect()||mastered||have>=max, prev, have, max};
 }
 // How far down Ground Zero this player has gotten: the highest FAMILY level they've
 // finished (same idea as the leaderboard's reach, db/013 standings()).
@@ -9549,7 +9680,7 @@ function renderBundles(){
         '<div class="fam-ch">'+TXT('fam_chapter')(1)+' · '+TXT('fam_levels')(1,NATIVE_LEVELS)+'</div>'+
         '<h2>'+TXT('bundle_title')+'</h2>'+
         '<div class="bsub">'+TXT('bundle_sub')+'</div>'+
-        '<div class="bcount">★ '+t.have+' / '+t.max+'</div>'+
+        '<div class="bcount">★ '+t.have+' / '+t.max+(hasMastered()?' · <span class="bmastered">'+TXT('bundle_mastered')+' ✓</span>':'')+'</div>'+
         '<div class="bplay">'+TXT('bundle_play')+'</div>'+
       '</div>'+
       '<div id="fam-native-more"></div>'+
@@ -9557,6 +9688,9 @@ function renderBundles(){
     '</div>'+
     '<div id="community-bundles"></div>';
   renderCommunityBundleList();
+  // Already at 75/75 before the mastery splash existed (or on a new device): show it once.
+  let seen=false; try{ seen=localStorage.getItem(MASTERY_SEEN_KEY)==='1'; }catch(e){}
+  if(!seen&&hasMastered()&&!isArchitect()) showMasterySplash();
 }
 
 // Community bundles ([[project_marketplace_pivot]]): published rows from
@@ -9618,7 +9752,7 @@ let communityRows=[]; // the last storefront() result: price + owned per bundle
 async function openCommunityBundle(id){
   if(!window.AkashicAuth||!AkashicAuth.getBundle) return;
   const meta=communityRows.find(r=>r.id===id);
-  if(meta&&meta.price_cents>0&&!meta.owned){ startBundlePurchase(id); return; }
+  if(meta&&meta.price_cents>0&&!meta.owned){ openBundlePreview(id); return; }   // pictures + 10-move test + Buy (preview.js)
   // Family rule (Jed 2026-11-12): owning a chapter isn't enough to PLAY it — every
   // level of the chapter before it needs 3 stars first.
   const g=chapterGate(meta);
@@ -9739,22 +9873,14 @@ function renderGrid(){
     else     html+='<div class="pcell shut"><span class="plock">&#128274;</span><span>'+i+'</span></div>'; // built but not yet unlocked (player)
   }
   html+='</div>';
-  // Star reset (Jed 2026-07-16) — wipes ALL attainments after an explicit
-  // cannot-be-undone warning. Muted styling: it's maintenance, not gameplay.
-  html+='<button onclick="resetAllStars()" style="margin:26px auto 0;display:block;background:transparent;'
+  // ERASE STARS (Jed 2026-11-26; was "Reset all stars", 2026-07-16) — Akashic Flow
+  // only, device AND cloud (mastery.js). Muted styling: it's maintenance, not gameplay.
+  html+='<button onclick="if(eraseFlowStars())renderGrid()" style="margin:26px auto 0;display:block;background:transparent;'
        +'border:0.5px solid #3d2060;border-radius:6px;color:#665580;padding:7px 16px;'
-       +'font-size:var(--fz-sm);cursor:pointer;font-family:var(--font-sans);">'+TXT('reset_btn')+'</button>';
+       +'font-size:var(--fz-sm);cursor:pointer;font-family:var(--font-sans);">'+TXT('erase_btn')+'</button>';
   document.getElementById('pbody').innerHTML=html;
 }
 
-// Wipe every star + move record on this device. confirm() is deliberate —
-// a native modal the player must acknowledge; there is no undo.
-function resetAllStars(){
-  if(!confirm(TXT('reset_confirm')))return;
-  PlayerProgress.data={};
-  PlayerProgress.save();
-  renderGrid(); // grid re-locks everything past L1 immediately
-}
 
 function playerBack(){clearChoosing();renderBundles();}
 
@@ -9780,7 +9906,7 @@ function goPlayerHome(){
 // FIRST and only navigates once nothing is covering the board. pchoice/qsurvey are
 // deliberately absent: dismissing the path-choice would strand a new player with
 // no route forward.
-const ESC_CLOSABLE=['submit-gate','ghelp','leaderboard','settings','products','setup-wrap','pstar-splash','authbox'];
+const ESC_CLOSABLE=['submit-gate','ghelp','leaderboard','settings','products','setup-wrap','pstar-splash','authbox','bpreview','mastery'];
 function closeTopOverlay(){
   // Admin trail overlays first — each Esc is ONE step (Jed 2026-10-24)
   const isOpen=id=>{ const el=document.getElementById(id); return !!(el&&el.classList.contains('open')); };
@@ -10673,7 +10799,7 @@ function updatePlayerHUD(){
   // Entrance is NOT Level 1 — Level 1 is reachable via Bundles. Distinct name.
   document.getElementById('phud-level').textContent=entranceMode?TXT('lvl_qualifying'):TXT('lvl_prefix')+dispLevel(curLevelNum); // family number (26–50 in chapter 2)
   // Moves count UP from 0 — no-fail model, no limit shown.
-  document.getElementById('phud-moves').textContent=moves;
+  document.getElementById('phud-moves').textContent=previewMode?moves+' / '+PREVIEW_MOVES:moves; // preview: the free moves left
   const goalEl=document.getElementById('phud-goal');
   if(!playerGoals.length){goalEl.innerHTML='';return;}
   if(playerGoals.length===1&&(playerGoals[0].kind==='collect'||playerGoals[0].kind==='plant'||playerGoals[0].kind==='egg'||playerGoals[0].kind==='key'||playerGoals[0].kind==='crate'||playerGoals[0].kind==='tire'||playerGoals[0].kind==='shedeh'||playerGoals[0].kind==='fog'||playerGoals[0].kind==='detonate'||playerGoals[0].kind==='create')){
@@ -10890,6 +11016,8 @@ function playerFinish(win){
   // PlayerProgress — a test bundle's level numbers collide with the real
   // "Go with the Flow" numbering (no bundle_id yet). See editorSandboxPlay.
   if(editorSandboxPlay){ sandboxPlayerFinish(win); return; }
+  // Shopper's 10-move test of a bundle they don't own: nothing is ever saved (preview.js).
+  if(previewMode){ previewFinish(win); return; }
   playing=false; Motion.claim('overlay'); // lock the board
   // STAR CANON (sober, Jed 2026-07-29 — see memory project_star_canon):
   // SEQUENTIAL ENABLEMENT — stars are earned strictly in order, AT MOST ONE
@@ -10939,6 +11067,12 @@ function playerFinish(win){
   document.getElementById('pwin-btn').textContent=win?TXT('cont'):TXT('retry');
   document.getElementById('pwin').classList.add('open');
   pwinWon=win;
+  // THE 75TH STAR (Jed 2026-11-26): the star that completes Akashic Flow queues the
+  // mastery splash; it opens as the star's own celebration clears (hideCelebration).
+  if(earnedNew&&!curBundle&&flowStars()>=NATIVE_LEVELS*3&&!masteryInfo()){
+    window.__masteryPending=true;
+    markMastered();                    // local record now; cloud stamp + rank behind it
+  }
   if(earnedNew) celebrateStar(stars); // rainbow arc + fireworks OVER the win overlay, then reveals it
 }
 // Sandbox counterpart to playerFinish() — same win overlay + fireworks feel,
@@ -10967,7 +11101,12 @@ function sandboxPlayerFinish(win){
 // can set a new (often deliberately terrible) first-star bar (Jed 2026-07-29).
 // Deletes from the CURRENT bundle's bucket (PlayerProgress.bundle) — never the
 // raw .data map, which is now nested per bundle_id (db/003).
-function resetLevelStars(n){delete PlayerProgress.bucket()[n];PlayerProgress.save();}
+function resetLevelStars(n){
+  delete PlayerProgress.bucket()[n];PlayerProgress.save();
+  // The cloud row too (db/018) — until now this only cleared the device, and the next
+  // sign-in folded the old stars straight back in. Best-ever stars (the board) are kept.
+  if(window.AkashicAuth&&AkashicAuth.eraseStars) AkashicAuth.eraseStars(PlayerProgress.bundle||0,n);
+}
 function pwinResetLevel(){
   const n=curLevelNum;
   resetLevelStars(n);
@@ -11007,7 +11146,8 @@ function exitToGrid(){
   document.body.classList.remove('player-playing');
   document.getElementById('editor').style.display='none';
   document.getElementById('pwin').classList.remove('open');
-  if(curBundle) renderCommunityGrid(); else renderGrid(); // back to whichever bundle's grid we came from
+  if(previewMode) previewBackToStore();          // a 10-move test goes back to its store sheet
+  else if(curBundle) renderCommunityGrid(); else renderGrid(); // back to whichever bundle's grid we came from
 }
 
 // ── UNPINCHABLE (iOS Safari tab) ──────────────────────────────────────────────
