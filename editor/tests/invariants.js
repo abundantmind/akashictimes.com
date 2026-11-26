@@ -2492,6 +2492,33 @@ window.runInvariants = async function(){
         ok('mastery · ...and Akashic Window stays open', gate.open===true, gate);
         localStorage.removeItem(keys[0]);
         ok('mastery · with no record and an empty grid, Akashic Window is shut', chapterGate({family_id:1,family_seq:2,family_name:NATIVE_FAMILY}).open===false);
+
+        // ── Free Window for the first 25 Masters (db/019). The database decides; the
+        // page only chooses whether to show the button.
+        ok('voucher · a non-Master is never offered it', voucherOffer({slots_left:25,mine:'eligible'})===null);
+        noteMastery(null,null);
+        ok('voucher · a Master inside the first 25 → their own offer', voucherOffer({slots_left:0,mine:'eligible'})==='mine');
+        ok('voucher · a Master the cloud doesn\'t know yet, spots left → the open offer', voucherOffer({slots_left:7,mine:'none'})==='open');
+        ok('voucher · ...but not once the 25 are gone', voucherOffer({slots_left:0,mine:'none'})===null);
+        ok('voucher · already claimed or too late → nothing', voucherOffer({slots_left:5,mine:'claimed'})===null&&voucherOffer({slots_left:5,mine:'too_late'})===null);
+        ok('voucher · an older database (no answer) → nothing', voucherOffer(null)===null);
+        // Akashic Window's store sheet swaps Buy for the claim; another bundle's sheet doesn't.
+        const _rows=communityRows, _vi=AkashicAuth.voucherInfo;
+        const sheet=document.getElementById('bpreview'), body=document.getElementById('bpreview-body'), _body=body.innerHTML;
+        try{
+          AkashicAuth.voucherInfo=async()=>({slots_left:3,mine:'eligible'});
+          communityRows=[{id:9001,family_name:NATIVE_FAMILY,family_seq:2},{id:9002,family_name:'Elsewhere',family_seq:2}];
+          const mkSheet=()=>{ body.innerHTML='<div class="bp-actions"><button class="bp-btn go">Buy</button><button class="bp-btn">Try</button></div>'; sheet.classList.add('open'); };
+          mkSheet(); await voucherDecorateSheet(9001);
+          const claim=body.querySelector('.bp-btn.go'), buy=[...body.querySelectorAll('.bp-btn')].find(b=>b.textContent==='Buy');
+          ok('voucher · Akashic Window\'s sheet offers the claim', !!claim&&/claimFreeWindow/.test(claim.getAttribute('onclick')||'')&&!!body.querySelector('.bp-voucher'));
+          ok('voucher · ...and hides Buy', !!buy&&buy.style.display==='none');
+          mkSheet(); await voucherDecorateSheet(9002);
+          ok('voucher · another bundle\'s sheet is untouched', !body.querySelector('.bp-voucher')&&body.querySelectorAll('.bp-btn').length===2);
+        } finally {
+          AkashicAuth.voucherInfo=_vi; communityRows=_rows;
+          body.innerHTML=_body; sheet.classList.remove('open');
+        }
       } finally {
         window.isArchitect=_arch; window.confirm=_confirm;
         keys.forEach((k,i)=>{ if(keep[i]===null) localStorage.removeItem(k); else localStorage.setItem(k,keep[i]); });

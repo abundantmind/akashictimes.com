@@ -63,8 +63,8 @@ function showMasterySplash(){
     +'<div class="ms-item"><div class="ms-item-h">🌍 '+TXT('ms_board_h')+'</div>'
     +'<div class="ms-item-b">'+TXT('ms_board_b')+'</div>'
     +'<button class="ms-btn go" onclick="masteryJoinBoard()">'+TXT('ms_board_btn')+'</button></div>'
-    // 2. Akashic Window
-    +'<div class="ms-item"><div class="ms-item-h">🪟 '+TXT('ms_window_h')+'</div>'
+    // 2. Akashic Window — becomes the free-Window voucher below if this player can claim it
+    +'<div class="ms-item" id="ms-window"><div class="ms-item-h">🪟 '+TXT('ms_window_h')+'</div>'
     +'<div class="ms-item-b">'+TXT('ms_window_b')+'</div>'
     +'<button class="ms-btn" onclick="masteryGoWindow()">'+TXT('ms_window_btn')+'</button></div>'
     // 3. free forever: Erase Stars
@@ -74,8 +74,17 @@ function showMasterySplash(){
     +'<button class="ms-close" onclick="hideMasterySplash()">'+TXT('ms_later')+'</button>';
   document.getElementById('mastery').classList.add('open');
   startFireworks(document.getElementById('mastery-fw'));
-  // No rank yet: ask the cloud (signed in), then fill it in where it belongs.
-  if(!rank) markMastered().then(r=>{ const el=document.getElementById('ms-rank'); if(r&&el) el.textContent=TXT('ms_rank')(r); });
+  // No rank yet: ask the cloud (signed in), then fill it in where it belongs. Then
+  // (rank or not) see whether the free Window is on offer to this player.
+  const ranked=rank?Promise.resolve(rank):markMastered().then(r=>{ const el=document.getElementById('ms-rank'); if(r&&el) el.textContent=TXT('ms_rank')(r); return r; });
+  ranked.then(()=>voucherInfo()).then(info=>{
+    const kind=voucherOffer(info), el=document.getElementById('ms-window');
+    if(!kind||!el) return;
+    el.classList.add('voucher');
+    el.innerHTML='<div class="ms-item-h">🎁 '+TXT('vc_h')+'</div>'
+      +'<div class="ms-item-b">'+(kind==='mine'?TXT('vc_b_mine'):TXT('vc_b_open')(info.slots_left))+'</div>'
+      +'<button class="ms-btn go" onclick="claimFreeWindow()">'+TXT('vc_btn')+'</button>';
+  });
 }
 function hideMasterySplash(){
   document.getElementById('mastery').classList.remove('open');
@@ -123,4 +132,61 @@ function eraseFlowStars(){
     AkashicAuth.eraseStars(0).then(r=>{ if(r&&!r.ok) flashToast(TXT('erase_cloud_fail')); });
   }
   return true;
+}
+
+// ── THE FREE WINDOW (db/019, Jed 2026-11-26: "Free Window, first 25 Masters") ──
+// The first 25 non-admin Masters get Akashic Window free. Claiming it also puts them
+// on the public leaderboard — that's what the reward is for: seeding the board. The
+// DATABASE decides (mastery from best stars, the slot, email sign-in); this code only
+// decides whether to show the button.
+
+// {slots_left, mine} from the cloud, or null (no auth / database older than 019).
+async function voucherInfo(){
+  if(!window.AkashicAuth||!AkashicAuth.voucherInfo) return null;
+  try{ return await AkashicAuth.voucherInfo(); }catch(e){ return null; }
+}
+// What to offer: 'mine' (inside the first 25, not claimed), 'open' (a Master the cloud
+// doesn't know yet — e.g. not signed in — while spots remain), or null (nothing to show).
+function voucherOffer(info){
+  if(!info||!hasMastered()) return null;
+  if(info.mine==='eligible') return 'mine';
+  if(info.mine==='none'&&info.slots_left>0) return 'open';
+  return null;
+}
+// Is this storefront row Akashic Window (Ground Zero chapter 2)?
+function isWindowRow(b){ return !!b&&b.family_name===NATIVE_FAMILY&&b.family_seq===2; }
+
+// Akashic Window's store sheet: a Master with a spot sees "Claim my free Window" in
+// place of Buy. Called by openBundlePreview; quietly does nothing for anyone else.
+async function voucherDecorateSheet(id){
+  const b=communityRows.find(r=>r.id===id);
+  if(!isWindowRow(b)||!hasMastered()) return;
+  const info=await voucherInfo(), kind=voucherOffer(info);
+  const acts=document.querySelector('#bpreview-body .bp-actions');
+  if(!kind||!acts||!document.getElementById('bpreview').classList.contains('open')) return;
+  acts.insertAdjacentHTML('beforebegin','<div class="bp-voucher">🎁 '
+    +escHtml(kind==='mine'?TXT('vc_sheet'):TXT('vc_b_open')(info.slots_left))+'</div>');
+  const buy=acts.querySelector('.bp-btn.go');
+  if(buy){ buy.classList.remove('go'); buy.style.display='none'; }   // no reason to pay for a gift
+  acts.insertAdjacentHTML('afterbegin','<button class="bp-btn go" onclick="claimFreeWindow()">'+TXT('vc_btn')+'</button>');
+}
+
+// The claim. Email sign-in first (a gift on an anonymous session would die with the
+// browser, same rule as buying), then the database answers.
+async function claimFreeWindow(){
+  if(!AkashicAuth.isEmailUser()){ alert(TXT('vc_signin')); AkashicAuth.open(); return; }
+  flashToast(TXT('vc_claiming'));
+  const r=await AkashicAuth.claimMasteryVoucher();
+  if(r.status==='granted'||r.status==='already_owned'){
+    hideMasterySplash(); closeBundlePreview();
+    if(document.getElementById('pwin').classList.contains('open')) exitToGrid();
+    flashToast(TXT('vc_granted'));
+    await renderCommunityBundleList();          // the Window now shows as owned
+    if(r.bundle_id) openCommunityBundle(r.bundle_id);
+    return;
+  }
+  const msg={ too_late:TXT('vc_too_late')(r.rank), not_mastered:TXT('vc_not_mastered'),
+              admin:TXT('vc_admin'), email_first:TXT('vc_signin') }[r.status];
+  alert(msg||TXT('vc_fail'));
+  if(r.status==='email_first') AkashicAuth.open();
 }

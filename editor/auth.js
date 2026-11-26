@@ -373,6 +373,26 @@ const AkashicAuth = {
     return { ok:true, rows:data || 0 };
   },
 
+  // ── MASTERY VOUCHER (db/019, Jed 2026-11-26) ────────────────────────────────
+  // A free Akashic Window for the first 25 (non-admin) Masters. The DATABASE checks
+  // mastery, the slot and email sign-in; claiming also turns board visibility on.
+  // {slots_left, mine: claimed|eligible|too_late|none}, or null when the database is
+  // older than 019 (the button then stays hidden).
+  async voucherInfo(){
+    const { data, error } = await supabase.rpc('voucher_info');
+    if(error){ console.warn('[auth] voucher_info failed', error.message); return null; }
+    return data || null;
+  },
+  // Claim it. Returns {status, rank?, bundle_id?} — see db/019 for the statuses.
+  async claimMasteryVoucher(){
+    if(!this.user) return { status: 'sign_in' };
+    // Push the device's Akashic Flow stars first so the 75th is in the cloud.
+    await this.recordMastery();
+    const { data, error } = await supabase.rpc('claim_mastery_voucher');
+    if(error){ console.warn('[auth] claim_mastery_voucher failed', error.message); return { status: 'error', error: error.message }; }
+    return data || { status: 'error', error: 'no response' };
+  },
+
   // ── BUNDLE PREVIEW (db/018) ────────────────────────────────────────────────
   // One picture per level of a published bundle (anyone may look), and level 1's
   // data for the 10-move test. Admins write the pictures when they approve a bundle.

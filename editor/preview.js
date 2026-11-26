@@ -138,6 +138,7 @@ async function openBundlePreview(id){
     +'<div class="bp-grid" id="bp-grid"><div class="bp-empty">'+TXT('pv_loading')+'</div></div>'
     +'<div class="bp-big" id="bp-big" onclick="this.classList.remove(\'open\')"></div>';
   document.getElementById('bpreview').classList.add('open');
+  voucherDecorateSheet(id);   // Akashic Window + a Master with a free spot → "Claim my free Window" (mastery.js)
   const pics=await AkashicAuth.getPreviews(id);
   const grid=document.getElementById('bp-grid'); if(!grid) return;
   grid.innerHTML=pics.length
