@@ -2509,6 +2509,11 @@ window.runInvariants = async function(){
                        {name:'Opener',family:F('Wall of Sound',1)},{name:'Window',family:F(NATIVE_FAMILY,2)},{name:'Ankh',family:null}]
             .sort(bundleFamilyOrder).map(b=>b.name).join(',');
           ok('bundles · Create columns sort by family, then chapter', order==='Window,Bev,Opener,Skylight,Ankh,Zed', order);
+          // ...and each family becomes one box (loose bundles share the last one).
+          const runs=groupBundlesByFamily([{name:'Zed',family:null},{name:'Skylight',family:F('Wall of Sound',4)},{name:'Bev',family:F(NATIVE_FAMILY,3)},
+                       {name:'Opener',family:F('Wall of Sound',1)},{name:'Window',family:F(NATIVE_FAMILY,2)},{name:'Ankh',family:null}].sort(bundleFamilyOrder))
+            .map(r=>(r.name===null?'-':r.name)+':'+r.bundles.length).join(',');
+          ok('bundles · Create shows one box per family', runs===NATIVE_FAMILY+':2,Wall of Sound:2,-:2', runs);
         }
         // Akashic Window's store sheet swaps Buy for the claim; another bundle's sheet doesn't.
         const _rows=communityRows, _vi=AkashicAuth.voucherInfo;

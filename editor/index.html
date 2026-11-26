@@ -281,7 +281,22 @@ body.font-lg{--base-font:20px;}
 #products .wbox:has(.bcols){max-width:860px;border:none;background:transparent;padding:8px 0;display:flex;flex-direction:column;overflow:hidden;}
 .bcols{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);gap:18px;text-align:left;flex:1 1 auto;min-height:0;}
 .bcol{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;background:#13111a;border:0.5px solid #6a4aaa;border-radius:var(--border-radius-lg,12px);padding:16px 18px;}
-.bcol h3{font-size:var(--fz-md,15px);color:#c8a8ff;font-weight:500;letter-spacing:.06em;text-transform:uppercase;border-bottom:0.5px solid #3d2060;padding-bottom:6px;margin:0;}
+.bcol h3{font-size:var(--fz-xs,11px);color:#665580;font-weight:500;letter-spacing:.12em;text-transform:uppercase;padding-bottom:0;margin:0;}  /* orientation = a quiet label now; the FAMILY is the headline (Jed 2026-11-26) */
+/* FAMILY BOXES (Jed 2026-11-26: "another boundary around each Family"): each family is its own
+   outlined box inside its column, the Architect's family name as the headline, chapters in order. */
+.cf-box{border:0.5px solid #4a3378;border-radius:10px;padding:12px 12px 12px;display:flex;flex-direction:column;gap:8px;flex:none;background:#160e24;}
+.cf-box.native{border-color:#8a6a2a;}   /* Ground Zero = the house family, gold edge */
+.cf-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:0 2px;}
+.cf-name{font-family:var(--font-serif,Georgia,serif);font-size:var(--fz-xl,20px);color:#e6d8ff;font-weight:500;line-height:1.15;}
+.cf-box.native .cf-name{color:#f0d890;}
+.cf-box.loose .cf-name{font-family:var(--font-sans);font-size:var(--fz-md,15px);color:#8a74b0;}
+.cf-count{font-size:var(--fz-xs);color:#665580;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;}
+/* the family picker: one chip per family, "All" first. A pick narrows the screen to that family. */
+.fam-pick{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:0 0 14px;flex:none;}
+.fam-pick button{background:#1a0f2a;border:0.5px solid #3d2060;color:#a890d0;border-radius:999px;padding:5px 12px;font:inherit;font-size:var(--fz-sm);cursor:pointer;}
+.fam-pick button:hover{border-color:#c792ea;}
+.fam-pick button.on{background:#2a1d48;border-color:#c8a8ff;color:#f0e8ff;}
+.bcols.one{grid-template-columns:minmax(0,520px);justify-content:center;}
 .bcol .blist{display:flex;flex-direction:column;gap:10px;flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#3d2060 transparent;scrollbar-gutter:stable;}  /* short screens only: a thin dark bar, never the white default */
 .bcol .prod-card{padding:14px 16px;flex:none;}
 .bcol .prod-card:hover{transform:none;}   /* the lift would clip against a scrolling list */
@@ -2952,29 +2967,71 @@ function bundleFamilyOrder(a,b){
 }
 
 // Step 1 — list the editor's bundles.
+// Split a column's bundles (already in bundleFamilyOrder) into family runs:
+// [{name, bundles}], name null = the loose bundles (no family), always last.
+function groupBundlesByFamily(list){
+  const out=[];
+  list.forEach(b=>{
+    const name=b.family?b.family.name:null, last=out[out.length-1];
+    if(last&&last.name===name) last.bundles.push(b); else out.push({name,bundles:[b]});
+  });
+  return out;
+}
+// FAMILY PICKER (Jed 2026-11-26: "maybe even select a Family from a separate list"):
+// null = every family; a name = only that family's box; '' = only the loose bundles.
+// Remembered per device (a convenience, so a broken storage just means "All").
+let createFamilyPick=null;
+try{ const v=localStorage.getItem('akashicswaps-create-family'); createFamilyPick=v===null?null:JSON.parse(v); }catch(e){}
+function pickCreateFamily(name){
+  createFamilyPick=(createFamilyPick===name)?null:name;   // clicking the lit chip again = All
+  try{ localStorage.setItem('akashicswaps-create-family',JSON.stringify(createFamilyPick)); }catch(e){}
+  renderProductsList();
+}
+
 function renderProductsList(){
   let html='<h2>'+escHtml(possBundles())+'</h2><div class="pmsg">'+TXT('products_msg')+'</div>';
-  // Two columns, Landscape LEFT · Portrait RIGHT (Jed 2026-09-30). Each column = its
-  // bundles (folders of real JSON files on the architect's machine, grouped by the
-  // orientation folder they live in) + its own "+ New … bundle" button at the foot.
+  // Bundles are shown by FAMILY now (Jed 2026-11-26): a picker of family names on top, and
+  // each family an outlined box with its chapters in order. Landscape LEFT · Portrait RIGHT
+  // stays as the column split (a family has ONE orientation, db/013), but only as a quiet label.
   const card=b=>'<div class="prod-card" onclick="openUserBundle('+jsArg(b.id)+')">'+
       '<div><div class="pc-name">'+escHtml(b.name)+statusTag(b.status,b.reviewNote)+'</div>'+
-        // a family chapter says where it sits: "Ground Zero · chapter 2 · levels 26–50"
-        '<div class="pc-meta">'+(b.family?escHtml(b.family.name)+' · chapter '+b.family.seq+' · levels '+b.family.firstLevel+'–'+(b.family.firstLevel+24):'Your bundle')+'</div></div>'+
+        // inside its family box a chapter only needs its place: "chapter 2 · levels 26–50"
+        '<div class="pc-meta">'+(b.family?'chapter '+b.family.seq+' · levels '+b.family.firstLevel+'–'+(b.family.firstLevel+24):'Your bundle')+'</div></div>'+
       '<div class="pc-arrow">→</div></div>';
-  html+='<div class="bcols">';
-  BUNDLE_ORIENTS.forEach(o=>{
-    html+='<div class="bcol"><h3>'+o+'</h3><div class="blist">';
-    // the built-in free pack (Go with the Flow) is a landscape bundle → top of the left column
-    if(o==='Landscape') PRODUCTS.forEach(p=>{
-      html+='<div class="prod-card" onclick="renderBundleLevels(\''+p.id+'\')">'+
+  // the built-in free pack (Akashic Flow) = Ground Zero chapter 1, top of the Ground Zero box
+  const builtIn=()=>PRODUCTS.map(p=>'<div class="prod-card" onclick="renderBundleLevels(\''+p.id+'\')">'+
         '<div><div class="pc-name">'+TXT(p.nameKey)+statusTag(p.published?'published':'draft')+'</div>'+
-          '<div class="pc-meta">'+NATIVE_FAMILY+' · chapter 1 · levels 1–'+bundleLevelCount(p)+'</div></div>'+
-        '<div class="pc-arrow">→</div></div>';
+          '<div class="pc-meta">chapter 1 · levels 1–'+bundleLevelCount(p)+'</div></div>'+
+        '<div class="pc-arrow">→</div></div>').join('');
+  // Every column's family runs, with Ground Zero always present in Landscape (its chapter 1 is built in).
+  const runs={};
+  BUNDLE_ORIENTS.forEach(o=>{
+    runs[o]=groupBundlesByFamily(USER_BUNDLES.filter(b=>b.orient===o).sort(bundleFamilyOrder));
+    if(o==='Landscape'&&!runs[o].some(r=>r.name===NATIVE_FAMILY)) runs[o].unshift({name:NATIVE_FAMILY,bundles:[]});
+  });
+  // The picker: All · each family in screen order · "No family" if any loose bundles exist.
+  const names=[]; let loose=false;
+  BUNDLE_ORIENTS.forEach(o=>runs[o].forEach(r=>{ if(r.name===null) loose=true; else if(!names.includes(r.name)) names.push(r.name); }));
+  if(createFamilyPick!==null && !(createFamilyPick===''?loose:names.includes(createFamilyPick))) createFamilyPick=null;  // a pick that's gone = All
+  const chip=(label,val,on)=>'<button class="'+(on?'on':'')+'" onclick="pickCreateFamily('+(val===null?'null':jsArg(val))+')">'+escHtml(label)+'</button>';
+  html+='<div class="fam-pick">'+chip('All families',null,createFamilyPick===null)+
+        names.map(n=>chip(n,n,createFamilyPick===n)).join('')+
+        (loose?chip('No family','',createFamilyPick===''):'')+'</div>';
+  const shown=r=>createFamilyPick===null||(createFamilyPick===''?r.name===null:r.name===createFamilyPick);
+  // With one family picked, only its column shows (centred), the other orientation would be empty.
+  const cols=createFamilyPick===null?BUNDLE_ORIENTS:BUNDLE_ORIENTS.filter(o=>runs[o].some(shown));
+  html+='<div class="bcols'+(cols.length===1?' one':'')+'">';
+  cols.forEach(o=>{
+    html+='<div class="bcol"><h3>'+o+'</h3><div class="blist">';
+    const visible=runs[o].filter(shown);
+    visible.forEach(r=>{
+      const native=r.name===NATIVE_FAMILY, n=r.bundles.length+(native?PRODUCTS.length:0);
+      html+='<div class="cf-box'+(native?' native':'')+(r.name===null?' loose':'')+'">'+
+        '<div class="cf-head"><div class="cf-name">'+escHtml(r.name===null?'No family':r.name)+'</div>'+
+        '<div class="cf-count">'+n+' '+(r.name===null?(n===1?'bundle':'bundles'):(n===1?'chapter':'chapters'))+'</div></div>'+
+        (native?builtIn():'')+r.bundles.map(card).join('')+'</div>';
     });
-    const group=USER_BUNDLES.filter(b=>b.orient===o).sort(bundleFamilyOrder);
-    group.forEach(b=>{ html+=card(b); });
-    if(!group.length&&o!=='Landscape') html+='<div class="bempty">No '+o.toLowerCase()+' bundles yet</div>';
+    if(!visible.length) html+='<div class="bempty">No '+o.toLowerCase()+' bundles yet</div>';
     html+='</div><button class="prod-close" style="background:#2a1d48;color:#c8a8ff;border-color:#6a4aaa;" onclick="createBundle(\''+o+'\')">+ New '+o+' bundle</button>';
     html+='</div>';
   });
