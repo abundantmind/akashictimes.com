@@ -218,6 +218,18 @@ async function reconcile(userId){
 
   // 3. identity — durable handle + username (server-wins, migrate a local name up once)
   await syncIdentity(userId);
+
+  // 4. mastery (db/018) — a player who mastered Akashic Flow on another device keeps
+  // it here, even after Erase Stars emptied the grid.
+  await syncMastery();
+}
+
+// Mirror the cloud's mastery stamp onto this device (index.html owns the local flag).
+async function syncMastery(){
+  try {
+    const m = await AkashicAuth.myMastery();
+    if(m && m.mastered_at && window.noteMastery) window.noteMastery(m.mastered_at, m.rank);
+  } catch(e){ /* older database without db/018: nothing to learn */ }
 }
 
 // Push a single level's living state after it changes mid-play (star earned).
@@ -324,6 +336,61 @@ const AkashicAuth = {
       .update({ stars_public: !!on }).eq('id', u.id);
     if(error){ console.warn('[auth] stars_public write failed', error.message); return false; }
     return true;
+  },
+
+  // ── MASTERY + ERASE STARS (db/018, Jed 2026-11-26) ──────────────────────────
+  // 75/75 on Akashic Flow is permanent: record_mastery() stamps the first time the
+  // cloud's BEST stars add up to 75 and returns {mastered_at, rank}. The device's rows
+  // are pushed first, so the 75th star is in the cloud before the check reads it.
+  async recordMastery(){
+    if(!this.user) return null;
+    const rows = localProgressRows().filter(r => r.bundle_id === 0)
+      .map(r => ({ user_id: this.user.id, bundle_id: 0, level: r.level, stars: r.stars, move_record: r.move_record }));
+    if(rows.length){
+      const { error } = await supabase.from('progress').upsert(rows, { onConflict: 'user_id,bundle_id,level' });
+      if(error) console.warn('[auth] mastery push failed', error.message);
+    }
+    const { data, error } = await supabase.rpc('record_mastery');
+    if(error){ console.warn('[auth] record_mastery failed', error.message); return null; }
+    return (data && data[0]) || null;
+  },
+  // What the cloud already knows about this player's mastery (null = not mastered).
+  async myMastery(){
+    if(!this.user) return null;
+    const { data, error } = await supabase.rpc('my_mastery');
+    if(error){ console.warn('[auth] my_mastery failed', error.message); return null; }
+    return (data && data[0]) || null;
+  },
+  // Erase stars in the cloud too — a whole bundle (level omitted) or one level — so
+  // the next sign-in can't fold the old stars back in. Best-ever stars (the board)
+  // are kept by the database. Not signed in = nothing to erase up there.
+  async eraseStars(bundleId, level){
+    if(!this.user) return { ok:true, rows:0 };
+    const args = { p_bundle: bundleId || 0 };
+    if(level) args.p_level = level;
+    const { data, error } = await supabase.rpc('erase_stars', args);
+    if(error){ console.warn('[auth] erase_stars failed', error.message); return { ok:false, error:error.message }; }
+    return { ok:true, rows:data || 0 };
+  },
+
+  // ── BUNDLE PREVIEW (db/018) ────────────────────────────────────────────────
+  // One picture per level of a published bundle (anyone may look), and level 1's
+  // data for the 10-move test. Admins write the pictures when they approve a bundle.
+  async getPreviews(bundleId){
+    const { data, error } = await supabase.from('bundle_previews')
+      .select('level,image').eq('bundle_id', bundleId).order('level');
+    if(error){ console.warn('[auth] previews failed', error.message); return []; }
+    return data || [];
+  },
+  async savePreviews(bundleId, pics){
+    const rows = pics.map((image, i) => ({ bundle_id: bundleId, level: i + 1, image }));
+    const { error } = await supabase.from('bundle_previews').upsert(rows, { onConflict: 'bundle_id,level' });
+    return error ? { ok:false, error:error.message } : { ok:true };
+  },
+  async getPreviewLevel(bundleId){
+    const { data, error } = await supabase.rpc('bundle_preview_level', { p_id: bundleId });
+    if(error){ console.warn('[auth] preview level failed', error.message); return null; }
+    return data || null;
   },
 
   // ── Marketplace submission (schema.sql's public.bundles, live since v1 —
@@ -659,6 +726,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   // reflects the server on every load. (freshAnon is already covered via SIGNED_IN.)
   if(AkashicAuth.user && !freshAnon){
     try { await syncIdentity(AkashicAuth.user.id); } catch(e){ console.warn('[auth] identity sync failed', e); }
+    await syncMastery();
   }
   AkashicAuth.ready = true;
   refreshUI();
