@@ -1102,6 +1102,7 @@ body.player-playing #bpanel{display:flex;flex-direction:column;flex:1 1 0;min-wi
     <div style="display:flex;align-items:center;gap:10px;"><h3>🛠 Admin</h3><button class="adm-btn" onclick="closeAdmin()">✕ Close</button></div>
     <div class="adm-tabs">
       <button class="adm-tab on" id="adm-tab-q" onclick="adminTab('q')">Review queue</button>
+      <button class="adm-tab" id="adm-tab-d" onclick="adminTab('d')">Drafts</button>
       <button class="adm-tab" id="adm-tab-b" onclick="adminTab('b')">Bugs</button>
       <button class="adm-tab earn-entry" style="display:none" id="adm-tab-p" onclick="adminTab('p')">Payouts</button>
       <button class="adm-btn" style="margin-left:auto;" onclick="adminRefresh()">↻ Refresh</button>
@@ -1616,7 +1617,7 @@ en:{
   submit_bundle_err:'Submit failed.',
   btn_new_level:'+ New level',btn_new_level2:'+ Start a new level',tmpl_label:'Start from a classic:',
   products_label:'Their Products:',products_btn:'Open your Bundles',
-  products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',
+  products_title:'Their Products',products_msg:'Your bundles. Open one to edit its levels.',products_admin_note:'Admins can view your drafts, to help and to review.',
   products_levels:'levels',products_close:'Close',
   products_pick:'Pick a level to edit.',products_back:'← Bundles',
   pback_bundles:'← Bundles',pback_levels:'← Levels',pback_home:'← Home',
@@ -1773,7 +1774,7 @@ ko:{
   submit_bundle_err:'제출에 실패했습니다.',
   btn_new_level:'+ 새 레벨',btn_new_level2:'+ 새 레벨 시작하기',tmpl_label:'클래식으로 시작:',
   products_label:'내 제품:',products_btn:'번들 열기',
-  products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',
+  products_title:'내 제품',products_msg:'내 번들입니다. 하나를 열어 레벨을 편집하세요.',products_admin_note:'관리자는 도움과 검토를 위해 내 초안을 볼 수 있습니다.',
   products_levels:'레벨',products_close:'닫기',
   products_pick:'편집할 레벨을 선택하세요.',products_back:'← 번들',
   pback_bundles:'← 번들',pback_levels:'← 레벨 목록',pback_home:'← 홈',
@@ -1934,7 +1935,7 @@ es:{
   submit_bundle_err:'Error al enviar.',
   btn_new_level:'+ Nuevo nivel',btn_new_level2:'+ Empezar un nuevo nivel',tmpl_label:'Empieza desde un clásico:',
   products_label:'Sus productos:',products_btn:'Abre tus paquetes',
-  products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',
+  products_title:'Sus productos',products_msg:'Tus paquetes. Abre uno para editar sus niveles.',products_admin_note:'Los administradores pueden ver tus borradores, para ayudarte y revisarlos.',
   products_levels:'niveles',products_close:'Cerrar',
   products_pick:'Elige un nivel para editar.',products_back:'← Paquetes',
   pback_bundles:'← Paquetes',pback_levels:'← Niveles',pback_home:'← Inicio',
@@ -3039,6 +3040,8 @@ function renderProductsList(){
   // Where the bundles live now: the Architect's account (cloud drafts), with this
   // device's copy and the sync state on one line.
   html+='<div class="pmsg" id="cloud-sync-line" style="font-size:12px;margin:16px 0 0;">'+cloudSyncLine()+'</div>';
+  // db/020: admins can open any draft (Admin → Drafts). Say so plainly where Architects build.
+  html+='<div class="pmsg" style="font-size:12px;margin:4px 0 0;color:#665580;">'+TXT('products_admin_note')+'</div>';
   html+=importSectionHtml();   // desktop only: bundle folders on this computer → Import
   html+='<div class="bfoot"><button class="prod-close" onclick="closeProducts();openNewLevel()">'+TXT('btn_new_level')+'</button>';
   html+='<button class="prod-close" onclick="closeProducts()">'+TXT('products_close')+'</button></div>';
@@ -3519,7 +3522,7 @@ function openAdmin(){
   adminRefresh();
 }
 function closeAdmin(){ document.getElementById('admin-wrap').classList.remove('open'); }
-function adminTab(t){ adminState.tab=t; renderAdmin(); if(t==='p')adminPayoutsLoad(); }
+function adminTab(t){ adminState.tab=t; renderAdmin(); if(t==='p')adminPayoutsLoad(); if(t==='d')adminDraftsLoad(); }
 async function adminRefresh(){
   document.getElementById('adm-body').innerHTML='<div class="adm-empty">Loading…</div>';
   if(!window.AkashicAuth||!AkashicAuth.user){ document.getElementById('adm-body').innerHTML='<div class="adm-err">Sign in first.</div>'; return; }
@@ -3528,12 +3531,14 @@ async function adminRefresh(){
   adminState.queue=q.rows; adminState.qErr=q.ok?'':q.error;
   adminState.bugs=b.rows;  adminState.bErr=b.ok?'':b.error;
   renderAdmin();
+  if(adminState.tab==='d') adminDraftsLoad();
 }
 function renderAdmin(){
   const st=adminState, open=st.bugs.filter(x=>x.status==='open').length;
   document.getElementById('adm-tab-q').classList.toggle('on',st.tab==='q');
   document.getElementById('adm-tab-b').classList.toggle('on',st.tab==='b');
   document.getElementById('adm-tab-p').classList.toggle('on',st.tab==='p');
+  document.getElementById('adm-tab-d').classList.toggle('on',st.tab==='d');
   document.getElementById('adm-tab-q').textContent='Review queue ('+st.queue.filter(r=>!r.returned_at).length+')';
   document.getElementById('adm-tab-b').textContent='Bugs ('+open+' open)';
   const when=t=>t?new Date(t).toLocaleString():'—';
@@ -3564,6 +3569,8 @@ function renderAdmin(){
     }
   }else if(st.tab==='p'){
     h+=renderAdminPayouts();
+  }else if(st.tab==='d'){
+    h+=renderAdminDrafts();
   }else{
     if(st.bErr) h+='<div class="adm-err">'+escHtml(st.bErr)+' — has migration 005 been run?</div>';
     h+='<div class="adm-head" style="margin-bottom:4px"><span class="adm-meta">Show</span>'
@@ -3597,6 +3604,57 @@ let reviewOrigin=null;   // {from:'admin', id, json} while reviewing a queued su
 function adminOpenBundle(id){
   const r=adminState.queue.find(x=>x.id===id); if(!r)return;
   reviewOrigin={from:'admin',id,json:JSON.stringify(r.data)};
+  closeAdmin(); showReviewPicker();
+}
+// ═══ ADMIN → DRAFTS (db/020, Jed 2026-11-26) ══════════════════════════════════
+// Every Architect's in-progress bundles (cloud drafts), newest edit first, so Jed can
+// see what his nephew (or anyone) is building from any browser, before it's submitted.
+// READ-ONLY: levels open through the same Review loader as a submission — Play them,
+// nothing saves back. Architects are told on Create that admins can see drafts.
+async function adminDraftsLoad(){
+  adminState.drafts=null; adminState.dErr=''; renderAdmin();
+  const r=await AkashicAuth.adminListDrafts();
+  adminState.drafts=r.rows; adminState.dErr=r.ok?'':r.error;
+  if(adminState.tab==='d') renderAdmin();
+}
+// bundle.json text → its parsed manifest ({} if missing or broken)
+function draftManifest(text){ try{ return text?(JSON.parse(text)||{}):{}; }catch(e){ return {}; } }
+function renderAdminDrafts(){
+  const st=adminState, when=t=>t?new Date(t).toLocaleString():'—';
+  if(st.dErr) return '<div class="adm-err">'+escHtml(st.dErr)+' — has migration 020 been run?</div>';
+  if(!st.drafts) return '<div class="adm-empty">Loading…</div>';
+  const me=window.AkashicAuth&&AkashicAuth.user&&AkashicAuth.user.id;
+  const rows=st.drafts.filter(d=>d.author!==me);   // your own drafts are already on your Create screen
+  if(!rows.length) return '<div class="adm-empty">No other Architect has a draft yet.</div>';
+  let h='<div class="adm-meta" style="margin-bottom:8px">Every Architect\'s bundles in progress — view and ▶ Play only, nothing saves back.</div>';
+  rows.forEach(d=>{
+    const m=draftManifest(d.manifest), f=m.family;
+    h+='<div class="adm-row"><div class="adm-head"><span class="adm-title">'+escHtml(m.name||'Untitled bundle')+'</span>'
+      +'<span class="adm-meta">by '+escHtml(d.author_name||'unknown architect')+' · '+escHtml(d.orientation||'')+' · '+(d.levels||0)+' level'+(d.levels===1?'':'s')+' · last edit '+escHtml(when(d.last_edit))+'</span></div>'
+      +(f&&f.name?'<div class="adm-meta" style="margin-top:4px">'+escHtml(f.name)+(f.seq?' · chapter '+f.seq:'')+'</div>':'')
+      +'<div class="adm-head" style="margin-top:8px">'
+      +(d.levels?'<button class="adm-btn" onclick="adminOpenDraft('+jsArg(d.id)+',this)">Open &amp; play</button>':'<span class="adm-meta">no levels yet</span>')
+      +'</div></div>';
+  });
+  return h;
+}
+// The draft's level files → the same level array a submission carries, in file order.
+// A level without a "level" number takes it from its file name (level-007.json → 7).
+function draftLevelsFromFiles(files){
+  return files.filter(f=>/^level-\d+\.json$/.test(f.name)).sort((a,b)=>a.name.localeCompare(b.name)).map(f=>{
+    let lv; try{ lv=JSON.parse(f.body); }catch(e){ return null; }
+    if(lv&&typeof lv.level!=='number') lv.level=parseInt(f.name.match(/\d+/)[0],10);
+    return lv;
+  }).filter(Boolean);
+}
+async function adminOpenDraft(id,btn){
+  if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
+  const r=await AkashicAuth.adminDraftFiles(id);
+  if(btn){ btn.disabled=false; btn.innerHTML='Open &amp; play'; }
+  if(!r.ok){ alert('Could not open the draft: '+r.error); return; }
+  const levels=draftLevelsFromFiles(r.rows);
+  if(!levels.length){ alert('This draft has no readable levels yet.'); return; }
+  reviewOrigin={from:'admin',id:'draft:'+id,json:JSON.stringify(levels)};   // ← Levels / Esc walk back to the picker, then to Admin → Drafts
   closeAdmin(); showReviewPicker();
 }
 // (Re)open the level picker for the submission being reviewed.

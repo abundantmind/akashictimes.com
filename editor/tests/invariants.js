@@ -2514,6 +2514,12 @@ window.runInvariants = async function(){
                        {name:'Opener',family:F('Wall of Sound',1)},{name:'Window',family:F(NATIVE_FAMILY,2)},{name:'Ankh',family:null}].sort(bundleFamilyOrder))
             .map(r=>(r.name===null?'-':r.name)+':'+r.bundles.length).join(',');
           ok('bundles · Create shows one box per family', runs===NATIVE_FAMILY+':2,Wall of Sound:2,-:2', runs);
+          // Admin → Drafts (db/020): a draft's files become a level list in file order, numbered from the file name.
+          const lv=draftLevelsFromFiles([{name:'level-002.json',body:'{"board":[]}'},{name:'bundle.json',body:'{"name":"X"}'},
+                                         {name:'level-001.json',body:'{"level":1,"board":[]}'},{name:'level-003.json',body:'not json'}]);
+          ok('admin drafts · levels come out in order, numbered, broken files skipped', lv.map(l=>l.level).join(',')==='1,2', lv);
+          ok('admin drafts · a missing or broken bundle.json reads as {}', JSON.stringify(draftManifest(null))==='{}'&&JSON.stringify(draftManifest('{oops'))==='{}');
+          ok('admin drafts · Create tells Architects admins can see drafts', typeof TXT('products_admin_note')==='string'&&/admin/i.test(TXT('products_admin_note')));
         }
         // Akashic Window's store sheet swaps Buy for the claim; another bundle's sheet doesn't.
         const _rows=communityRows, _vi=AkashicAuth.voucherInfo;

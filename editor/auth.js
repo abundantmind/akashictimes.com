@@ -568,6 +568,19 @@ const AkashicAuth = {
     if(error){ console.warn('[auth] listReviewQueue failed', error.message); return { ok:false, error:error.message, rows:[] }; }
     return { ok:true, rows: data || [] };
   },
+  // Admin → Drafts (db/020): every Architect's in-progress drafts, READ-ONLY. The database
+  // refuses non-admins; an older database (no 020) answers with an error the panel shows.
+  async adminListDrafts(){
+    const { data, error } = await supabase.rpc('admin_list_drafts');
+    if(error){ console.warn('[auth] adminListDrafts failed', error.message); return { ok:false, error:error.message, rows:[] }; }
+    return { ok:true, rows: data || [] };
+  },
+  // One draft's files: [{name, body, edited_at}] — bundle.json + level-0NN.json.
+  async adminDraftFiles(id){
+    const { data, error } = await supabase.rpc('admin_draft_files', { p_draft: id });
+    if(error) return { ok:false, error:error.message, rows:[] };
+    return { ok:true, rows: data || [] };
+  },
   async publishBundle(id){
     const { error } = await supabase.rpc('publish_bundle', { p_id: id });
     return error ? { ok:false, error:error.message } : { ok:true };
