@@ -665,6 +665,40 @@ window.runInvariants = async function(){
         const ser=serializeLevel();
         ok('tire goal · saves as {type:"clear", obstacle:"tire"}', ser.objectives.some(o=>o.type==='clear'&&o.obstacle==='tire'), ser.objectives);
         editorObjectives=eo; renderObjectives(); }
+      // HIT-ONLY GOALS FIRST (Jed 2026-11-27, Akashic Window L4): with crates AND clover to do, a cascade
+      // Grasshopper goes for a crate even though clover has more left — clover spreads by itself.
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      { const pm=playerMode, pg=playerGoals; playerMode=true;
+        playerGoals=[{kind:'plant',need:50,have:0,name:'clover'},{kind:'crate',need:2,have:0,name:'crate'}];
+        board[4][6].gem=null; board[4][6].obs='crate1';
+        const t=autoGrasshopperTarget(0,0);
+        ok('hopper · crates + clover: it goes for the crate, not the bigger clover count', t&&t[0]===4&&t[1]===6, t);
+        playerGoals[1].have=2;                                         // crates done → clover again
+        const t2=autoGrasshopperTarget(0,0);
+        ok('hopper · ...and once the crates are done, back to clover', t2&&!(t2[0]===4&&t2[1]===6)&&board[t2[0]][t2[1]].sub!=='clover', t2);
+        playerMode=pm; playerGoals=pg; }
+      // LEAVES HOLD THEIR GEM (Jed 2026-11-27): a gem under a leaf never joins a match; a chained one still does.
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      { for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+        board[2][3].gem=board[3][3].gem=board[4][3].gem=4; board[4][3].obs='leaf2';
+        ok('leaf · two gems above a leafed gem of the same colour are NOT a match', !find3().some(([r,c])=>c===3&&r>=2&&r<=4), find3());
+        ok('leaf · ...and no pattern forms through it', !findPatterns(3,3,3,3).some(p=>p.cells.some(([r,c])=>r===4&&c===3)));
+        board[4][3].obs='bind1';
+        ok('leaf · a CHAINED gem in the same spot still matches (that is how a chain breaks)', find3().some(([r,c])=>r===4&&c===3), find3());
+        board[4][3].obs='leaf1'; board[2][3].gem=1;
+        board[4][1].gem=board[4][2].gem=4;                              // 4 4 [4 under leaf] across row 4
+        ok('leaf · a leafed gem can\'t complete a row either', !find3().some(([r,c])=>r===4), find3());
+        board[4][3].obs=null; }
+      // Ball + power-up combo: a chosen-colour gem under a leaf is hit, not converted.
+      await startPlayerLevel(1,false); await wait(45); playing=false; reset();
+      { for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(board[r][c].gem===4) board[r][c].gem=0;
+        board[1][1].gem=4; board[5][5].gem=4; board[5][5].obs='leaf2';
+        const lc=rainbowCells(4).length;
+        playing=true;
+        comboConvertAndDetonate({r:0,c:0,convertTo:'bomb'},4);
+        await wait(250*(lc+2));                                         // the laser sweep: ~110ms a tile
+        ok('leaf · Ball+PU combo never turns a leafed gem into a power-up', board[5][5].pu!=='bomb'&&board[5][5].obs==='leaf1', {pu:board[5][5].pu,obs:board[5][5].obs});
+        await wait(2500); playing=false; }
       // 4. a tire FLOWS like a gem: falls straight, slides round a hole, never leaves at the bottom like a key
       reset(); tire(2,3,2); board[3][3].gem=null; board[4][3].gem=null;
       gravityWithMap();

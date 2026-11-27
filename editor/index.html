@@ -6040,6 +6040,16 @@ const CHAIN_DOWN={bind1:null,bind2:'bind1',bind3:'bind2',
                   fog:null};
 function isChained(r,c){return !!(board[r][c].obs&&CHAIN_DOWN.hasOwnProperty(board[r][c].obs));}
 function isLeafy(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('leaf'));}
+// THE COLOR A CELL MATCHES WITH, or null if it can't join a match (Jed 2026-11-27).
+// A gem under a LEAF (any HP) is held, not just pinned: it never joins a match — the
+// leaf has to be torn away first (a match beside it, or a blast). Chains are different:
+// a chained gem still matches in place, and that match is how a chain breaks.
+// Also null for holes, power-ups and empty cells — every match scanner reads this.
+function matchGem(r,c){
+  const cd=board[r][c];
+  if(!cd.active||cd.pu||cd.gem===null||isLeafy(r,c))return null;
+  return cd.gem;
+}
 function isCrate(r,c){return !!(board[r][c].obs&&board[r][c].obs.startsWith('crate'));}
 function isFog(r,c){return !!(board[r]&&board[r][c]&&board[r][c].obs==='fog');}
 // ── SHEDEH ZEER — the first 2×2 object (Jed 2026-11-22) ──────────────────────
@@ -6425,8 +6435,18 @@ function autoGrasshopperTarget(r,c,excludeSet){
     : o.type==='detonate'? {kind:'detonate',pu:o.pu,need:o.count,have:0}
     : o.type==='create' ? {kind:'create',pu:o.pu,need:o.count,have:0}
     :                    {kind:'collect',gemIdx:0,need:o.count,have:0});
-  let goal=null,bestNeed=0;
-  goals.forEach(g=>{const rem=g.need-g.have;if(rem>bestNeed){bestNeed=rem;goal=g;}});
+  // WHICH GOAL (Jed 2026-11-27, Akashic Window L4 — crates 37 + clover 53: every hopper
+  // went to clover, the crates sat untouched). HIT-ONLY goals come first: crates, tires,
+  // fog, eggs, keys and Shedeh only move when something hits them (or beside them), while
+  // clover spreads on its own with every match that touches it and gem colours fill from
+  // any match. Among goals of the same kind, the one with the most left still leads.
+  const HIT_ONLY={crate:1,tire:1,fog:1,egg:1,key:1,shedeh:1};
+  let goal=null,bestNeed=0,bestHit=false;
+  goals.forEach(g=>{
+    const rem=g.need-g.have; if(rem<=0)return;
+    const hit=!!HIT_ONLY[g.kind];
+    if(!goal||(hit&&!bestHit)||(hit===bestHit&&rem>bestNeed)){goal=g;bestNeed=rem;bestHit=hit;}
+  });
   const shielded=(nr,nc)=>isChained(nr,nc)||isSolid(nr,nc)||isLeafy(nr,nc);
   const advances=(nr,nc)=>{
     const cd=board[nr][nc];
@@ -7797,7 +7817,11 @@ function startPUCombo(dr,dc,sr,sc,chain){
 function comboConvertAndDetonate(src,gemIdx){
   const chain=Motion.newChain('combo-convert');   // the colour pick starts a new chain
   Motion.claim(chain+'/combo-convert');
-  const cells=rainbowCells(gemIdx);
+  // LEAVES HOLD (Jed 2026-11-27): a chosen-colour gem under a leaf is NOT converted to the
+  // partner power-up — the laser still reaches it, but it only knocks one hit off the leaf.
+  const picked=rainbowCells(gemIdx);
+  const leafed=picked.filter(([r,c])=>isLeafy(r,c));
+  const cells=picked.filter(([r,c])=>!isLeafy(r,c));
   // CLOVER INHERITANCE (Jed 2026-07-23): a combo that TOUCHES clover (e.g. L16's
   // Ball+Dragonfly, both born on clover) spreads it through the whole conversion.
   // Each converted tile inherits clover, so its Phase-B detonation sweep then
@@ -7812,7 +7836,7 @@ function comboConvertAndDetonate(src,gemIdx){
   // laser converting each tile to the partner PU) walks a SHUFFLED order; the PUs
   // still land on their own gem cells, they just APPEAR in a random sequence. Phase B
   // (activation/detonation, in deploy) keeps reading order — `cells` stays sorted.
-  const convertOrder=cells.slice();
+  const convertOrder=cells.concat(leafed);
   for(let k=convertOrder.length-1;k>0;k--){const j=(Math.random()*(k+1))|0;[convertOrder[k],convertOrder[j]]=[convertOrder[j],convertOrder[k]];}
   const HIT_MS=110; // same pace as the solo Ball's laser sweep
   let i=0;
@@ -7822,6 +7846,7 @@ function comboConvertAndDetonate(src,gemIdx){
     Motion.touch(chain);   // a long sweep is WORKING, not stalled — say so every step
     animateLaser(src.r,src.c,r,c,()=>{});
     setTimeout(()=>{
+      if(isLeafy(r,c)){ damageChain(r,c); render(null); convertNext(); return; }   // leafed: one hit on the leaf, gem stays put
       if(playerMode){playerTally(gemIdx);updatePlayerHUD();} // conversion consumes the gem
       board[r][c].gem=null;
       board[r][c].pu=src.convertTo==='rocket'?(Math.random()<0.5?'rocket_h':'rocket_v'):src.convertTo;
@@ -9226,11 +9251,11 @@ function updStats(){
 function find2x2(){
   const res=[];
   for(let r=0;r<R-1;r++)for(let c=0;c<C-1;c++){
-    const g=board[r][c].gem;if(g===null)continue;
+    const g=matchGem(r,c);if(g===null)continue;
     // all four seed cells must sit in the camera window (flyover freeze)
     const w=(rr,cc)=>inPlayWindow(rr,cc);
     if(w(r,c)&&w(r,c+1)&&w(r+1,c)&&w(r+1,c+1)&&
-       [board[r][c],board[r][c+1],board[r+1][c],board[r+1][c+1]].every(x=>x.active&&x.gem===g&&!x.pu)){
+       [[r,c],[r,c+1],[r+1,c],[r+1,c+1]].every(([a,b])=>matchGem(a,b)===g)){
       // Start with the 2×2 block, then expand to any adjacent same-color cells
       const inSet=new Set([r+','+c,r+','+(c+1),(r+1)+','+c,(r+1)+','+(c+1)]);
       const queue=[[r,c],[r,c+1],[r+1,c],[r+1,c+1]];
@@ -9238,7 +9263,7 @@ function find2x2(){
         const [qr,qc]=queue.shift();
         for(const [nr,nc] of [[qr-1,qc],[qr+1,qc],[qr,qc-1],[qr,qc+1]]){
           const k=nr+','+nc;
-          if(nr>=0&&nr<R&&nc>=0&&nc<C&&inPlayWindow(nr,nc)&&!inSet.has(k)&&board[nr][nc].active&&board[nr][nc].gem===g&&!board[nr][nc].pu){
+          if(nr>=0&&nr<R&&nc>=0&&nc<C&&inPlayWindow(nr,nc)&&!inSet.has(k)&&board[nr][nc].active&&matchGem(nr,nc)===g&&!board[nr][nc].pu){
             inSet.add(k);
             queue.push([nr,nc]);
           }
@@ -9255,8 +9280,8 @@ function find3(){
   // horizontal runs — inPlayWindow clips each cell so only the in-window portion
   // of a run matches (flyover freeze: off-window rows/cols never auto-resolve)
   for(let r=0;r<R;r++)for(let c=0;c<C-2;c++){
-    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
-    const ok=cc=>cc<C&&inPlayWindow(r,cc)&&board[r][cc].active&&board[r][cc].gem===g&&!board[r][cc].pu;
+    const g=matchGem(r,c);if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const ok=cc=>cc<C&&inPlayWindow(r,cc)&&board[r][cc].active&&matchGem(r,cc)===g&&!board[r][cc].pu;
     if(ok(c+1)&&ok(c+2)){
       let l=3;while(ok(c+l))l++;
       for(let i=0;i<l;i++)s.add(r+','+(c+i));
@@ -9264,8 +9289,8 @@ function find3(){
   }
   // vertical runs
   for(let c=0;c<C;c++)for(let r=0;r<R-2;r++){
-    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
-    const ok=rr=>rr<R&&inPlayWindow(rr,c)&&board[rr][c].active&&board[rr][c].gem===g&&!board[rr][c].pu;
+    const g=matchGem(r,c);if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const ok=rr=>rr<R&&inPlayWindow(rr,c)&&board[rr][c].active&&matchGem(rr,c)===g&&!board[rr][c].pu;
     if(ok(r+1)&&ok(r+2)){
       let l=3;while(ok(r+l))l++;
       for(let i=0;i<l;i++)s.add((r+i)+','+c);
@@ -9288,16 +9313,16 @@ function find3Excluding(used,chain){
     runs.push(cells);
   };
   for(let r=0;r<R;r++)for(let c=0;c<C-2;c++){
-    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
-    const ok=cc=>cc<C&&inPlayWindow(r,cc)&&board[r][cc].active&&board[r][cc].gem===g&&!board[r][cc].pu;
+    const g=matchGem(r,c);if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const ok=cc=>cc<C&&inPlayWindow(r,cc)&&board[r][cc].active&&matchGem(r,cc)===g&&!board[r][cc].pu;
     if(ok(c+1)&&ok(c+2)){
       let l=3;while(ok(c+l))l++;
       if(c===0||!ok(c-1)){const cells=[];for(let i=0;i<l;i++)cells.push([r,c+i]);push(cells);} // run START only, so it isn't counted at every offset
     }
   }
   for(let c=0;c<C;c++)for(let r=0;r<R-2;r++){
-    const g=board[r][c].gem;if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
-    const ok=rr=>rr<R&&inPlayWindow(rr,c)&&board[rr][c].active&&board[rr][c].gem===g&&!board[rr][c].pu;
+    const g=matchGem(r,c);if(g===null||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const ok=rr=>rr<R&&inPlayWindow(rr,c)&&board[rr][c].active&&matchGem(rr,c)===g&&!board[rr][c].pu;
     if(ok(r+1)&&ok(r+2)){
       let l=3;while(ok(r+l))l++;
       if(r===0||!ok(r-1)){const cells=[];for(let i=0;i<l;i++)cells.push([r+i,c]);push(cells);}
@@ -9315,13 +9340,13 @@ function findPatterns(dr,dc,sr,sc){
   // inPlayWindow clips the pivot and both arms so a Scarab can't form across a
   // frozen boundary (flyover freeze).
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-    const bg=board[r][c].gem;if(bg===null||!board[r][c].active||board[r][c].pu||!inPlayWindow(r,c))continue;
+    const bg=matchGem(r,c);if(bg===null||!board[r][c].active||board[r][c].pu||!inPlayWindow(r,c))continue;
     let hl=c,hr=c;
-    while(hl>0&&inPlayWindow(r,hl-1)&&board[r][hl-1].active&&board[r][hl-1].gem===bg&&!board[r][hl-1].pu)hl--;
-    while(hr<C-1&&inPlayWindow(r,hr+1)&&board[r][hr+1].active&&board[r][hr+1].gem===bg&&!board[r][hr+1].pu)hr++;
+    while(hl>0&&inPlayWindow(r,hl-1)&&board[r][hl-1].active&&matchGem(r,hl-1)===bg&&!board[r][hl-1].pu)hl--;
+    while(hr<C-1&&inPlayWindow(r,hr+1)&&board[r][hr+1].active&&matchGem(r,hr+1)===bg&&!board[r][hr+1].pu)hr++;
     let vt=r,vb=r;
-    while(vt>0&&inPlayWindow(vt-1,c)&&board[vt-1][c].active&&board[vt-1][c].gem===bg&&!board[vt-1][c].pu)vt--;
-    while(vb<R-1&&inPlayWindow(vb+1,c)&&board[vb+1][c].active&&board[vb+1][c].gem===bg&&!board[vb+1][c].pu)vb++;
+    while(vt>0&&inPlayWindow(vt-1,c)&&board[vt-1][c].active&&matchGem(vt-1,c)===bg&&!board[vt-1][c].pu)vt--;
+    while(vb<R-1&&inPlayWindow(vb+1,c)&&board[vb+1][c].active&&matchGem(vb+1,c)===bg&&!board[vb+1][c].pu)vb++;
     if(hr-hl+1>=3&&vb-vt+1>=3){
       const cells=[];
       for(let i=hl;i<=hr;i++)cells.push([r,i]);
@@ -9330,13 +9355,13 @@ function findPatterns(dr,dc,sr,sc){
     }
   }
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-    const g=board[r][c].gem;if(g===null||!board[r][c].active||board[r][c].pu||!inPlayWindow(r,c))continue;
-    let hl=1;while(c+hl<C&&inPlayWindow(r,c+hl)&&board[r][c+hl].active&&board[r][c+hl].gem===g&&!board[r][c+hl].pu)hl++;
+    const g=matchGem(r,c);if(g===null||!board[r][c].active||board[r][c].pu||!inPlayWindow(r,c))continue;
+    let hl=1;while(c+hl<C&&inPlayWindow(r,c+hl)&&board[r][c+hl].active&&matchGem(r,c+hl)===g&&!board[r][c+hl].pu)hl++;
     if(hl>=5){const cells=[];for(let i=0;i<hl;i++)cells.push([r,c+i]);pats.push({type:'rainbow',cells,dest:[dr,dc],pri:1});}
     // 4-match spawns the PERPENDICULAR Dragonfly (Township canon, Jed 2026-07-16):
     // horizontal match → vertical rocket. Was keyed to swap direction — wrong.
     else if(hl===4){const cells=[];for(let i=0;i<4;i++)cells.push([r,c+i]);pats.push({type:'rocket_v',cells,dest:[dr,dc],pri:2});}
-    let vl=1;while(r+vl<R&&inPlayWindow(r+vl,c)&&board[r+vl][c].active&&board[r+vl][c].gem===g&&!board[r+vl][c].pu)vl++;
+    let vl=1;while(r+vl<R&&inPlayWindow(r+vl,c)&&board[r+vl][c].active&&matchGem(r+vl,c)===g&&!board[r+vl][c].pu)vl++;
     if(vl>=5){const cells=[];for(let i=0;i<vl;i++)cells.push([r+i,c]);pats.push({type:'rainbow',cells,dest:[dr,dc],pri:1});}
     // vertical match → horizontal rocket (perpendicular rule, see above)
     else if(vl===4){const cells=[];for(let i=0;i<4;i++)cells.push([r+i,c]);pats.push({type:'rocket_h',cells,dest:[dr,dc],pri:2});}
