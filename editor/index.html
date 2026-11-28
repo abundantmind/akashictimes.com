@@ -8858,7 +8858,10 @@ function gravityWithMap(){
       const donors=perp.filter(([pr,pc])=>{
         if(!inGrid(pr,pc)||!board[pr][pc].active||!occ(pr,pc))return false;
         if(isChained(pr,pc))return false; // chained gems can't slide anywhere
-        if(board[pr][pc].item&&!isTire(pr,pc))return false; // keys/eggs never slip-donate diagonally — a tire flows like a gem, so it does
+        // Static items (eggs) never slip. ANKHS DO (Jed 2026-11-28, confirmed from the source
+        // game: an ankh resting on a crate slides diagonally into an empty cell beside the crate
+        // and keeps heading for the drain) — and a tire flows like a gem, so it does too.
+        if(board[pr][pc].item&&!isFaller(pr,pc))return false;
         if(winOut.has(pr+','+pc))return false; // a gem in an Exit waits for its window — it never slips sideways
         // THE CORNER A SLIP CROSSES. Four cells meet there: D (donor), T (receiver), A (T's
         // feeder, beside D) and B (beside T, after D). A diagonal slide is only allowed when

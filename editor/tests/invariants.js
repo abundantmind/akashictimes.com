@@ -717,10 +717,23 @@ window.runInvariants = async function(){
       reset(); tire(2,3,2); board[3][3].gem=null; board[4][3].gem=null;
       gravityWithMap();
       ok('tire · it falls into the empty cells below it, HP intact', board[4][3].item==='tire2'&&!isTire(2,3), [board[2][3].item,board[3][3].item,board[4][3].item]);
-      // hole at R3C3, empty R4C3 below it: the donors are R3C2 (a resting tire) and R3C4 (a key — never donates)
-      reset(); board[3][3].active=false; board[3][3].gem=null; board[4][3].gem=null; tire(3,2,1); board[3][4].gem=null; board[3][4].item='key';
+      // hole at R3C3, empty R4C3 below it: the donors are R3C2 (a resting tire) and R3C4 (an egg — static, never
+      // donates; was an ankh until ankhs started slipping, 2026-11-28)
+      reset(); board[3][3].active=false; board[3][3].gem=null; board[4][3].gem=null; tire(3,2,1); board[3][4].gem=null; board[3][4].item='egg'; board[3][4].obs='leaf1';
       gravityWithMap();
       ok('tire · a resting tire slides diagonally round a hole, like a gem', board[4][3].item==='tire1'&&!isTire(3,2), [board[3][2].item,board[4][3].item]);
+      // ANKHS SLIP-FILL (Jed 2026-11-28): an ankh resting on a crate slides diagonally into the
+      // empty cell beside the crate when nothing can feed that cell straight down.
+      reset(); board[1][3].active=false; board[1][4].active=false;   // holes above the empty cell (and its far diagonal)
+      board[2][2].gem=null; board[2][2].obs='crate1';                 // the crate
+      board[1][2].gem=null; board[1][2].item='key';                   // the ankh sitting on it
+      board[2][3].gem=null;                                           // the empty cell beside the crate
+      gravityWithMap();
+      ok('ankh · resting on a crate, it slip-fills the empty cell beside the crate', board[2][3].item==='key'&&board[1][2].item!=='key', {to:board[2][3].item,from:board[1][2].item});
+      reset(); board[1][3].active=false; board[1][4].active=false;
+      board[2][2].gem=null; board[2][2].obs='crate1'; board[1][2].gem=null; board[1][2].item='egg'; board[1][2].obs='leaf1'; board[2][3].gem=null;
+      gravityWithMap();
+      ok('egg · ...but an egg (static) never slips', board[1][2].item==='egg'&&board[2][3].item!=='egg', {to:board[2][3].item,from:board[1][2].item});
       reset(); tire(R-1,3,1);
       collectExitedKeys();
       ok('tire · a tire at the bottom edge stays (only keys are collected there)', isTire(R-1,3), board[R-1][3].item);
