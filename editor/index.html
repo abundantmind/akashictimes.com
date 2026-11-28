@@ -4485,7 +4485,10 @@ function buildCellEl(r,c,dropping){
   el.style.width=el.style.height=CELL_SIZE+'px';  // dynamic cell size (board scaling)
   const cd=board[r][c];
   if(!cd.active){el.classList.add('inactive');}
-  else if(layer==='flow'){
+  // FLOW ARROWS ARE AN EDITING VIEW (Jed 2026-11-28, L55): ▶ Play with the Flow layer open
+  // stayed on the arrows — no gems to play. While a run is playing the board always shows
+  // gems; the Flow layer stays selected, so ⏸ Pause / ⏹ Stop brings the arrows back.
+  else if(layer==='flow'&&!playing){
     el.style.background='#0d1a0d';el.style.borderColor='#1a3a1a';
     // Sized to the CELL, not to a fixed font step, so the glyph stays near
     // cell-filling at any board scale. line-height:1 + flex centring keeps 'v'
