@@ -6419,7 +6419,11 @@ function grasshopperOrthCells(r,c){
 // in the same event skip claimed cells. Only when every goal cell is claimed does a
 // hopper double up on one (a crate/tire with HP left can still use the extra hit)
 // before falling back to the nearest gem.
-function autoGrasshopperTarget(r,c,excludeSet){
+// mode 'combo' (Jed 2026-11-28, Akashic Beverages L55 — Ball×Grasshopper on a Shedeh-only
+// level: not one swarm hopper went for the Zeer): combo hoppers aim at the SAME goal cells,
+// but pick among them at RANDOM rather than nearest, so the swarm still scatters. With no
+// goal to aim at (no goals, or only "make N power-ups") they keep the old random pick.
+function autoGrasshopperTarget(r,c,excludeSet,mode){
   // Goals drive targeting in BOTH game mode (playerGoals, with live progress) and
   // EDITOR test-play (editorObjectives — the live-edited Goals panel; progress
   // isn't tracked there, so remaining = full count). The old playerMode-only guard
@@ -6491,6 +6495,23 @@ function autoGrasshopperTarget(r,c,excludeSet){
   // KEYS: a hopper landing ON a key does nothing (a blast never moves a key). What gets
   // a key out is clearing what sits in its way — so aim down its path (below).
   let t=(goal&&goal.kind==='key')?keyPathTarget(r,c,excludeSet):null;
+  if(mode==='combo'){
+    // random among goal cells (unclaimed first, then double up), else the old chaos
+    const anyOf=(pred,honorClaims=true)=>{
+      const opts=[];
+      for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
+        if(nr===r&&nc===c)continue;
+        if(excludeSet&&excludeSet.has(nr+','+nc))continue;
+        if(honorClaims&&claims&&claims.has(nr+','+nc))continue;
+        if(board[nr][nc].active&&pred(nr,nc))opts.push([nr,nc]);
+      }
+      return opts.length?opts[Math.floor(Math.random()*opts.length)]:null;
+    };
+    const aimed=goal&&goal.kind!=='create';   // "make N" has no cell to aim at
+    t=t||(aimed?(anyOf(advances)||anyOf(advances,false)):null)||randomHopperTarget(r,c,excludeSet);
+    if(t&&claims)claims.add(t[0]+','+t[1]);
+    return t;
+  }
   // advance the chosen goal (an unclaimed cell first, then double up on a claimed one);
   // fall back to the nearest gem of any color, unclaimed first
   const anyGem=(nr,nc)=>board[nr][nc].gem!==null;
@@ -7871,9 +7892,9 @@ function comboConvertAndDetonate(src,gemIdx){
   convertNext();
 }
 
-// Random-target pick for combo-spawned Grasshoppers (Jed 2026-07-09: combo
-// hoppers jump at RANDOM targets — the swarm reads chaotic on purpose;
-// chain-caught hoppers stay goal-oriented via autoGrasshopperTarget).
+// Random-target pick — the FALLBACK for combo-spawned Grasshoppers when there's no goal
+// cell to aim at (Jed 2026-07-09 made combo hoppers random; 2026-11-28 they aim at goals
+// first via autoGrasshopperTarget(...,'combo'), random only when nothing advances a goal).
 function randomHopperTarget(r,c,excludeSet){
   const opts=[];
   for(let nr=0;nr<R;nr++)for(let nc=0;nc<C;nc++){
@@ -7996,7 +8017,7 @@ function hopperSequence(cells,src,chain){
     //    the NEXT hopper activates — flights OVERLAP (the Township swarm, Jed
     //    2026-08-08) while activations still cascade in reading order.
     setTimeout(()=>{
-      const t=randomHopperTarget(r,c,phase); // combo target stays chaotic (Jed 07-09)
+      const t=autoGrasshopperTarget(r,c,phase,'combo'); // goal cells, picked at random (Jed 2026-11-28; was pure random, 07-09)
       if(t){
         inFlight++;
         const bornGen=boardGen, bornShow=showGen;        // not his board, not his win
@@ -8089,7 +8110,7 @@ function hopperFlight(actor,fr,fc,tr,tc,onLand){
 // feed & swell, then the jump laser fires at a random target.
 function detHopperCombo(r,c,phase,queue,next,charged){
   hopperFeedAndSwell(r,c,phase,queue,(actor)=>{
-    const t=randomHopperTarget(r,c,phase);
+    const t=autoGrasshopperTarget(r,c,phase,'combo');   // goal cells, picked at random
     if(!t){actor.remove();render(null);setTimeout(next,120);return;}
     hopperFlight(actor,r,c,t[0],t[1],()=>{ // the fed actor flies — no laser
       if(charged)plantClover([[t[0],t[1]]],true); // landing seeds ONLY if the hopper took off charged (project_clover_model)

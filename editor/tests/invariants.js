@@ -502,6 +502,13 @@ window.runInvariants = async function(){
       ok('zeer · a Shedeh goal sends Grasshoppers to a Zeer cell', _t&&isZeer(_t[0],_t[1]), _t);
       const _ph=new Set(), _picks=[0,1,2].map(()=>autoGrasshopperTarget(5,6,_ph));
       ok('zeer · a swarm spreads over the Zeer\'s cells', new Set(_picks.map(t=>t&&t.join(','))).size===3&&_picks.every(t=>t&&isZeer(t[0],t[1])), _picks);
+      // COMBO HOPPERS AIM TOO (Jed 2026-11-28, L55): a Ball×Grasshopper swarm on a Shedeh-only
+      // level goes for the Zeer — random among its cells, doubling up once all four are taken.
+      const _cp=new Set(), _cpicks=[0,1,2,3,4,5].map(()=>autoGrasshopperTarget(5,6,_cp,'combo'));
+      ok('zeer · Ball×Grasshopper swarm: every combo hopper lands on the Zeer', _cpicks.every(t=>t&&isZeer(t[0],t[1])), _cpicks);
+      ok('zeer · ...the first four spread over all four of its cells', new Set(_cpicks.slice(0,4).map(t=>t.join(','))).size===4, _cpicks);
+      { const g=playerGoals; playerGoals=[]; const _r=autoGrasshopperTarget(5,6,new Set(),'combo');
+        ok('hopper · combo with no goals keeps the random pick (a gem, not nothing)', _r&&(board[_r[0]][_r[1]].gem!==null||board[_r[0]][_r[1]].pu), _r); playerGoals=g; }
       const _lp=new Set(); clearCellD(3,3,_lp,[]); clearCellD(3,3,new Set(),[]);
       ok('zeer · a Grasshopper landing on a shut Zeer opens it; the next landing takes a jar', z()&&z().open&&z().jars===7, z());
       ok('zeer · a Zeer holds its stage while the Shedeh goal is open', holdsStage(2,3));
