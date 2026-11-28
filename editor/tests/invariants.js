@@ -509,6 +509,14 @@ window.runInvariants = async function(){
       ok('zeer · ...the first four spread over all four of its cells', new Set(_cpicks.slice(0,4).map(t=>t.join(','))).size===4, _cpicks);
       { const g=playerGoals; playerGoals=[]; const _r=autoGrasshopperTarget(5,6,new Set(),'combo');
         ok('hopper · combo with no goals keeps the random pick (a gem, not nothing)', _r&&(board[_r[0]][_r[1]].gem!==null||board[_r[0]][_r[1]].pu), _r); playerGoals=g; }
+      // FAMILY NUMBERS WHILE EDITING (Jed 2026-11-28): chapter 2's level 17 reads as 42
+      { const fake={id:'__famtest',name:'Fam Test',family:{name:'Ground Zero',seq:2,firstLevel:26}};
+        USER_BUNDLES.push(fake);
+        const st=saveTargetBundle, sp=editorSandboxPlay, cn=curLevelNum;
+        ok('family numbers · chapter 2 offsets by 25', bundleLevelOffset(fake)===25&&bundleLevelOffset({family:{firstLevel:1}})===0&&bundleLevelOffset(null)===0);
+        saveTargetBundle='__famtest'; editorSandboxPlay=true; curLevelNum=17;
+        ok('family numbers · an editor test run of chapter 2 level 17 says Level 42', dispLevel(17)===42, dispLevel(17));
+        saveTargetBundle=st; editorSandboxPlay=sp; curLevelNum=cn; USER_BUNDLES.splice(USER_BUNDLES.indexOf(fake),1); }
       { const pl=playing, ly=layer; layer='flow'; playing=true;
         const el=buildCellEl(0,0);
         ok('flow layer · while playing, cells show gems, not flow arrows', !!el.querySelector('.gem-inner'), el.innerHTML.slice(0,80));

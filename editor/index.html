@@ -3429,6 +3429,11 @@ function pickFamilyAndName(orient){
   });
 }
 
+// FAMILY NUMBERS WHILE EDITING (Jed 2026-11-28): a chapter-2 bundle's levels show as 26–50,
+// chapter 3 as 51–75 — his captures are named by the source game's level, so no mental math.
+// Display only: files stay level-001..025 and every lookup still uses the file's own number.
+function bundleLevelOffset(b){ return (b&&b.family&&b.family.firstLevel>1)?b.family.firstLevel-1:0; }
+
 // Open a user bundle → list its level-0NN.json files + a ＋ Add-level tile.
 async function openUserBundle(id){
   const b=USER_BUNDLES.find(x=>x.id===id); if(!b)return;
@@ -3443,7 +3448,7 @@ async function openUserBundle(id){
     +'<div class="pmsg">'+(pub
     ?'Published — final. Open a level to view or ▶ Play it; it can\'t be changed.'
     :(b.cloud?cloudWhere():'Real JSON files on your disk.')+' Click a number to edit, or ＋ to add a level. <span style="color:#4caf7a">✓</span> = approved for submission.')+'</div><div class="prodlvls">';
-  lv.forEach(l=>{ html+='<button class="prodlvl'+(l.approved?' approved':'')+'" onclick="editUserBundleLevel('+jsArg(id)+','+jsArg(l.fn)+')">'+l.num+'</button>'; });
+  lv.forEach(l=>{ html+='<button class="prodlvl'+(l.approved?' approved':'')+'" onclick="editUserBundleLevel('+jsArg(id)+','+jsArg(l.fn)+')">'+(l.num+bundleLevelOffset(b))+'</button>'; });   // family number
   if(!pub) html+='<button class="prodlvl" style="border-style:dashed;color:#c8a8ff" onclick="addLevelToBundle('+jsArg(id)+')">＋</button>';
   html+='</div>';
   // Submit shows its progress; until the bundle is ready it is dimmed and the click explains why.
@@ -4047,7 +4052,7 @@ function updateBundleSaveBtn(){ const btn=document.getElementById('btn-save-bund
   // No folder API (tablets) → the classic ▽ Save can't work at all; don't offer it.
   const disk=document.getElementById('btn-save-disk'); if(disk&&!window.showDirectoryPicker) disk.style.display='none';
   const n=bundleEditNum!=null?bundleEditNum:bundleNewNum;              // the slot this Save writes — never a surprise
-  if(b)btn.textContent='▽ Save '+(n!=null?'level '+n+' ':'')+'to '+b.name;
+  if(b)btn.textContent='▽ Save '+(n!=null?'level '+(n+bundleLevelOffset(b))+' ':'')+'to '+b.name;   // family number
   updateApproveBtn(); }
 
 // ═══ LEVEL APPROVAL — "approved for submission" (Jed 2026-10-01) ═════════════
@@ -4165,7 +4170,8 @@ async function approveLevel(){
 }
 // The explanation behind a dimmed "Submit for review": the rule, the count, what's missing.
 function showSubmitGate(lv){
-  const ok=lv.filter(l=>l.approved).length, todo=lv.filter(l=>!l.approved).map(l=>l.num), short=Math.max(0,BUNDLE_SIZE-lv.length);
+  const off=bundleLevelOffset(USER_BUNDLES.find(x=>x.id===currentUserBundle));   // family numbers, as on the level grid
+  const ok=lv.filter(l=>l.approved).length, todo=lv.filter(l=>!l.approved).map(l=>l.num+off), short=Math.max(0,BUNDLE_SIZE-lv.length);
   let h='<h3>Not ready for review yet</h3>'+
     '<p>A bundle is submitted only when it has <b>'+BUNDLE_SIZE+' levels</b> and you have <b>approved every one</b> for submission. That keeps levels that haven\'t been proven to work away from players.</p>'+
     '<p>To approve a level: open it, <b>▶ Play</b> it from the start and win, then click <b>✓ Approve</b>. Changing and saving a level clears its approval — win it again.</p>'+
@@ -9767,7 +9773,7 @@ function updEditorFrame(){
   // The bundle being edited: saveTargetBundle (a folder on disk). The built-in Akashic Flow starts at 1.
   let eoff=0;
   try{ const eb=(typeof saveTargetBundle!=='undefined'&&saveTargetBundle)?USER_BUNDLES.find(x=>x.id===saveTargetBundle):null;
-       if(eb&&eb.family&&eb.family.firstLevel>1) eoff=eb.family.firstLevel-1; }catch(e){}
+       eoff=bundleLevelOffset(eb); }catch(e){}
   if(lvl)lvl.textContent=(typeof curLevelNum==='number'&&curLevelNum)?TXT('lvl_prefix')+(curLevelNum+eoff):'—';
   const mv=document.getElementById('ehud-moves'); if(mv)mv.textContent=moves;
   const g=document.getElementById('ehud-goal');
@@ -9870,7 +9876,10 @@ let curBundle=null;
 const NATIVE_FAMILY='Ground Zero';   // families.name of the family whose chapter 1 is bundle 0
 const NATIVE_LEVELS=25;
 // What a shown level number adds to a local one, for the bundle being played.
-function levelOffset(){ return (curBundle&&curBundle.first_level>1)?curBundle.first_level-1:0; }
+function levelOffset(){
+  // an editor ▶ Play of a bundle level: the family number of the bundle being edited (Jed 2026-11-28)
+  if(editorSandboxPlay&&saveTargetBundle) return bundleLevelOffset(USER_BUNDLES.find(x=>x.id===saveTargetBundle));
+  return (curBundle&&curBundle.first_level>1)?curBundle.first_level-1:0; }
 function dispLevel(n){ return n+levelOffset(); }
 // Stars held across a whole bundle's levels (local progress store, any bundle id).
 function bundleStars(bid,n){
